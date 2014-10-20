@@ -1,0 +1,5 @@
+description: APL compiler targeting a Typed Array Intermediate Language
+maintainer: Martin Elsman <mael@di.ku.dk>
+keywords: APL
+license: MIT License
+requires: aplparse v1 (v1.0.2)

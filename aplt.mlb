@@ -1,0 +1,6 @@
+local
+   $(SML_LIB)/basis/basis.mlb
+   apl2tail.mlb
+in
+   aplt.sml
+end
