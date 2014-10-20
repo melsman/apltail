@@ -255,20 +255,26 @@ end
 
 (* Pretty printing *)
 
-fun prOpr t opr =
+fun isShOpr t opr =
     case (opr       , unSi t   , unVi t   , unSh t   ) of
-         ("first"   , SOME _   , _        , _        ) => opr ^ "Sh"
-      |  ("shape"   , _        , SOME _   , _        ) => opr ^ "Sh"
-      |  ("take"    , _        , _        , SOME _   ) => opr ^ "Sh"
-      |  ("drop"    , _        , _        , SOME _   ) => opr ^ "Sh"
-      |  ("cat"     , _        , _        , SOME _   ) => opr ^ "Sh"
-      |  ("cons"    , _        , _        , SOME _   ) => opr ^ "Sh"
-      |  ("snoc"    , _        , _        , SOME _   ) => opr ^ "Sh"
-      |  ("iota"    , _        , _        , SOME _   ) => opr ^ "Sh"
-      |  ("rotate"  , _        , _        , SOME _   ) => opr ^ "Sh"
-      | _ => opr
+         ("first"   , SOME _   , _        , _        ) => true
+      |  ("shape"   , _        , SOME _   , _        ) => true
+      |  ("take"    , _        , _        , SOME _   ) => true
+      |  ("drop"    , _        , _        , SOME _   ) => true
+      |  ("cat"     , _        , _        , SOME _   ) => true
+      |  ("cons"    , _        , _        , SOME _   ) => true
+      |  ("snoc"    , _        , _        , SOME _   ) => true
+      |  ("iota"    , _        , _        , SOME _   ) => true
+      |  ("rotate"  , _        , _        , SOME _   ) => true
+      | _ => false
+
+fun prOpr t opr =
+    if isShOpr t opr then opr ^ "Sh"
+    else opr
 
 fun prInstanceLists opr es t =
+    if isShOpr t opr then ""
+    else
     let
         fun unArr' at =       (* return the base type and the rank of an array *)
             case unArr at of
