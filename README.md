@@ -12,7 +12,7 @@ See also [AplCompile](https://github.com/melsman/aplcompile).
 
 ## An example
 
-Here is the result of compiling and running the following program:
+Consider the following program:
 
 ```apl
 f ← {5+⍵}    ⍝ Function adding 5 to its argument (⍵)
