@@ -3,3 +3,4 @@ maintainer: Martin Elsman <mael@di.ku.dk>
 keywords: APL
 license: MIT License
 requires: aplparse v1 (v1.0.2)
+requires: kitlib v1 (v1.0.2)
