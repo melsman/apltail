@@ -29,6 +29,7 @@ signature TAIL_EXP = sig
 
   datatype 't report = OK of 't | ERR of string
   val typeExp  : env -> exp -> typ report
+  val resolveShOpr : exp -> exp
 
   val Iff_e    : exp * exp * exp -> exp
   val Vc_e     : exp list -> exp

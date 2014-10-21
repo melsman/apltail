@@ -255,28 +255,8 @@ end
 
 (* Pretty printing *)
 
-fun isShOpr t opr =
-    case (opr       , unSi t   , unVi t   , unSh t   ) of
-         ("first"   , SOME _   , _        , _        ) => true
-      |  ("shape"   , _        , SOME _   , _        ) => true
-      |  ("take"    , _        , _        , SOME _   ) => true
-      |  ("drop"    , _        , _        , SOME _   ) => true
-      |  ("cat"     , _        , _        , SOME _   ) => true
-      |  ("cons"    , _        , _        , SOME _   ) => true
-      |  ("snoc"    , _        , _        , SOME _   ) => true
-      |  ("iota"    , _        , _        , SOME _   ) => true
-      |  ("rotate"  , _        , _        , SOME _   ) => true
-      | _ => false
-
-fun prOpr t opr =
-    if isShOpr t opr then opr ^ "Sh"
-    else opr
-
 fun prInstanceLists opr es t =
-    if isShOpr t opr then ""
-    else
-    let
-        fun unArr' at =       (* return the base type and the rank of an array *)
+    let fun unArr' at =       (* return the base type and the rank of an array *)
             case unArr at of
                 SOME p => p
               | NONE => case unSh at of
@@ -352,14 +332,14 @@ fun pp_exp (prtype:bool) e =
                     indent i' @@ pp i' e2
                 end
                 | Vc(es,_) => $"[" @@ pps (i+1) es @@ $"]"
-                | Op (opr,nil,t) => $(prOpr t opr)
-                | Op (opr,es,t) => $(prOpr t opr) @@ maybePrType opr es t 
+                | Op (opr,nil,t) => $opr
+                | Op (opr,es,t) => $opr @@ maybePrType opr es t 
                                     @@ $"(" @@ pps (i+1+size opr) es @@ $")"
                 | Let (v,ty,e1,e2,_) => $"let " @@ $v @@ $":" @@ $(prType ty) @@ $" = " @@ pp (i+2) e1 @@ $" in" @@ 
                                          indent i @@ pp i e2
                 | Fn (v,t,e,_) =>
                   (case lookForOp [v] e of
-                       SOME (opr,t) => $(prOpr t opr)
+                       SOME (opr,t) => $opr
                      | NONE => $("fn " ^ v ^ ":" ^ prType t ^ " => ") @@ pp (i+2) e)
         and pps i nil = $""
           | pps i [e] = pp i e
@@ -389,8 +369,10 @@ fun runM {verbose,optlevel,prtype} tt m =
         val p = case typeExp empEnv p of
                     ERR s => raise Fail ("***Type error: " ^ s)
                   | OK t => (prln (fn() => "  Program has type: " ^ prType t);   (* perhaps unify tt with t!! *)
-                             prln (fn() => "Typed program:\n" ^ pp_prog prtype p);
-                             p)
+                             let val p = Exp.resolveShOpr p
+                             in prln (fn() => "Typed program:\n" ^ pp_prog prtype p);
+                                p
+                             end)
         val p = Optimize.optimize optlevel p
         val () = prln (fn() => "Optimised program:\n" ^ pp_prog prtype p)
     in p

@@ -381,6 +381,35 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | Let(_,_,_,_,t) => t
         | Fn(v,t,e,t') => Fun(t,t')
 
+  fun isShOpr t opr =
+    case (opr       , unSi t   , unVi t   , unSh t   ) of
+         ("first"   , SOME _   , _        , _        ) => true
+      |  ("shape"   , _        , SOME _   , _        ) => true
+      |  ("take"    , _        , _        , SOME _   ) => true
+      |  ("drop"    , _        , _        , SOME _   ) => true
+      |  ("cat"     , _        , _        , SOME _   ) => true
+      |  ("cons"    , _        , _        , SOME _   ) => true
+      |  ("snoc"    , _        , _        , SOME _   ) => true
+      |  ("iota"    , _        , _        , SOME _   ) => true
+      |  ("rotate"  , _        , _        , SOME _   ) => true
+      | _ => false
+
+  fun prOpr t opr =
+      if isShOpr t opr then opr ^ "Sh"
+      else opr
+
+  fun resolveShOpr e =
+      case e of
+          Var _ => e
+        | I _ => e
+        | D _ => e
+        | B _ => e
+        | Iff(e1,e2,e3,t) => Iff(resolveShOpr e1,resolveShOpr e2,resolveShOpr e3,t)
+        | Vc(es,t) => Vc(List.map resolveShOpr es,t)
+        | Op(opr,es,t) => Op(prOpr t opr, List.map resolveShOpr es,t)
+        | Let(v,t,e1,e2,t') => Let(v,t,resolveShOpr e1,resolveShOpr e2,t')
+        | Fn(v,t,e,t') => Fn(v,t,resolveShOpr e,t')
+
   fun Iff_e (c,e1,e2) =
       let val t0 = tyIff(typeOf c, typeOf e1, typeOf e2)
       in Iff(c,e1,e2,t0)
@@ -481,6 +510,11 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | Op (opr, es, t) =>
           let fun fail() = raise Fail ("exp.eval: operator " ^ opr ^ " not supported with " 
                                        ^ Int.toString (length es) ^ " arguments")
+              fun tryShOpr () = if String.isSuffix "Sh" opr then
+                                  let val opr' = String.substring(opr,0,size opr-2)
+                                  in eval DE (Op(opr',es,t))
+                                  end
+                                else fail()
           in case (opr,es) of
                  ("zilde", []) => Apl.zilde (default t)
                | ("i2d", [e]) => Apl.liftU (fn Ib i => Db(real i) | _ => raise Fail "eval:i2d") (eval DE e)
@@ -546,9 +580,9 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                     else if isBinOpDDD opr then evalBinOpDDD opr v1 v2
                     else if isBinOpIIB opr then evalBinOpIIB opr v1 v2
                     else if isBinOpDDB opr then evalBinOpDDB opr v1 v2
-                    else fail()
+                    else tryShOpr()
                  end
-               | (opr, _) => fail()
+               | (opr, _) => tryShOpr()
           end
         | Let (v,t,e1,e2,t') => eval (addDE DE v (eval DE e1)) e2
         | Fn (v,t,e,t') => Apl.scl (Fb(DE,v,t,e,t'))
