@@ -130,8 +130,8 @@ Here is the result of compiling and evaluating the example using the
 
 ## Try it!
 
-The software makes use of the [smlunicode
-library](https://github.com/melsman/smlunicode) project for lexing and
+The software makes use of the SML [unicode
+library](https://github.com/melsman/unicode) library for lexing and
 the [aplparse](https://github.com/melsman/aplparse) project for
 parsing. It also uses parts of the
 [kitlib](https://github.com/melsman/kitlib) library. The software is
@@ -144,7 +144,6 @@ and add the following lines to your `sources.local` file in your
 
     kitlib git git://github.com/melsman/kitlib.git
     aplparse git git://github.com/melsman/aplparse.git
-    smlunicode git git://github.com/melsman/smlunicode.git
     apltail git git://github.com/melsman/apltail.git
 
 You also need a Standard ML compiler (e.g., [Mlton](http://www.mlton.org/)).
