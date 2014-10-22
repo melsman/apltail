@@ -22,13 +22,12 @@ f ← {5+⍵}    ⍝ Function adding 5 to its argument (⍵)
 
 Here is what happens when the program is compiled and executed:
 
-    bash-3.2$ ./aplt tests/test.apl 
-    [Reading file: test.apl]
+    bash-3.2$ ./aplt -p_tail tests/test.apl
+    [Reading file: tests/test.apl]
     Resulting program:
     let v0:Sh(30) = iotaSh(30) in
     i2d(reduce(addi,0,each(fn v1:[int]0 => addi(5,v1),v0)))
     Evaluating
-    Evaluating program
     Result is [](615.0)
 
 ## Another example
@@ -43,14 +42,13 @@ signal ← {¯50⌈50⌊50×(diff 0,⍵)÷0.01+⍵}
 
 Here is the result of compiling and evaluating it:
 
-    bash-3.2$ ../aplt signal.apl
-    [Reading file: signal.apl]
+    bash-3.2$ ./aplt -p_tail tests/signal.apl
+    [Reading file: tests/signal.apl]
     Resulting program:
     let v0:Sh(100) = iotaSh(100) in
     let v3:Sh(101) = consSh(0,v0) in
     reduce(addd,0.00,each(fn v11:[double]0 => maxd(~50.00,v11),each(fn v10:[double]0 => mind(50.00,v10),each(fn v9:[double]0 => muld(50.00,v9),zipWith(divd,each(i2d,drop(1,zipWith(subi,v3,rotateSh(~1,v3)))),each(fn v2:[double]0 => addd(0.01,v2),each(i2d,v0)))))))
     Evaluating
-    Evaluating program
     Result is [](258.557340366)
 
 ## Example demonstrating transpose and a double-reduce
@@ -73,8 +71,8 @@ c ← b, ⍉ a2
 
 Here is the result of compiling and evaluating it:
 
-    bash-3.2$ ../aplt test15.apl 
-    [Reading file: test15.apl]
+    bash-3.2$ ./aplt -p_tail tests/test15.apl
+    [Reading file: tests/test15.apl]
     Resulting program:
     let v0:[int]2 = reshape([3,2],iotaSh(5)) in
     let v1:[int]2 = reshape([3,2],iotaSh(4)) in
@@ -82,7 +80,6 @@ Here is the result of compiling and evaluating it:
     let v3:[int]2 = cat(v2,transp(v1)) in
     i2d(reduce(muli,1,reduce(addi,0,v3)))
     Evaluating
-    Evaluating program
     Result is [](210.0)
 
 ## Example demonstrating matrix-multiplication
@@ -105,19 +102,34 @@ c ← a +.× b
 Here is the result of compiling and evaluating the example using the
 [prelude](/prelude.apl) definition of inner product:
 
-    bash-3.2$ ../aplt ../prelude.apl test13.apl 
-    [Reading file: ../prelude.apl]
-    [Reading file: test13.apl]
+    bash-3.2$ ./aplt -p_tail prelude.apl tests/test13.apl
+    [Reading file: prelude.apl]
+    [Reading file: tests/test13.apl]
     Resulting program:
     let v0:[int]2 = reshape([3,2],iotaSh(5)) in
     let v1:[int]2 = transp(v0) in
-    let v2:Sh(3) = catSh(dropSh(1,shape(v1)),[3,2]) in
-    let v3:[int]0 = subi(firstSh(shapeSh([3,2])),1) in
+    let v6:[int]3 = transp2([2,1,3],reshape([3,3,2],v0)) in
+    let v12:[int]3 = transp2([1,3,2],reshape([3,2,3],v1)) in
+    let v17:[int]2 = reduce(addi,0,zipWith(muli,v6,v12)) in
+    i2d(reduce(muli,1,reduce(addi,0,v17)))
+    Evaluating
+    Result is [](65780.0)
+
+Without optimizations, the compilation results in a slightly larger output:
+
+    bash-3.2$ ./aplt -p_tail -noopt prelude.apl tests/test13.apl
+    [Reading file: prelude.apl]
+    [Reading file: tests/test13.apl]
+    Resulting program:
+    let v0:[int]2 = reshape([3,2],iotaSh(5)) in
+    let v1:[int]2 = transp(v0) in
+    let v2:Sh(3) = catSh(dropSh(1,shape(v1)),shape(v0)) in
+    let v3:[int]0 = subi(firstSh(shapeSh(shape(v0))),1) in
     let v4:Sh(3) = iotaSh(firstSh(shapeSh(v2))) in
     let v5:Sh(3) = catSh(rotateSh(v3,dropSh(~1,v4)),takeSh(~1,v4)) in
     let v6:[int]3 = transp2(v5,reshape(v2,v0)) in
-    let v7:Sh(3) = catSh(dropSh(~1,[3,2]),shape(v1)) in
-    let v8:Si(2) = firstSh(shapeSh([3,2])) in
+    let v7:Sh(3) = catSh(dropSh(~1,shape(v0)),shape(v1)) in
+    let v8:Si(2) = firstSh(shapeSh(shape(v0))) in
     let v9:Sh(3) = iotaSh(firstSh(shapeSh(v7))) in
     let v10:Sh(1) = dropSh(negi(v8),rotateSh(v8,iotaSh(firstSh(shapeSh(v9))))) in
     let v11:Sh(3) = catSh(dropSh(~1,iotaSh(v8)),snocSh(v10,v8)) in
@@ -125,7 +137,6 @@ Here is the result of compiling and evaluating the example using the
     let v17:[int]2 = reduce(addi,0,zipWith(muli,v6,v12)) in
     i2d(reduce(muli,1,reduce(addi,0,v17)))
     Evaluating
-    Evaluating program
     Result is [](65780.0)
 
 ## Try it!
@@ -155,7 +166,11 @@ Then simply write
     $ smackage make apltail
     $ smackage make apltail install
 
-To run a series of tests, execute `smackage make apltail tests` in your shell.
+To run a series of tests, execute `smackage make apltail test` in your shell.
+
+To get `aplt` to output type instantiation list for the polymorphic
+functions, such as `reduce`, `each`, and `take`, you may pass the
+option `-p_types` to `aplt`.
 
 See also the [coverage page](coverage.md).
 

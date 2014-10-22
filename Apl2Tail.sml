@@ -511,19 +511,20 @@ fun parseFiles flags (pe0 : AplParse.env) (fs: string list) : AplAst.exp =
 fun compileExp flags e =
     let val compile_only_p = flag_p flags "-c"
         val verbose_p = flag_p flags "-v"
+        val p_tail = flag_p flags "-p_tail"
+        val p_types = flag_p flags "-p_types"
         val optlevel = if flag_p flags "-noopt" then 0 else 1
         val outfile = flag flags "-o"
-        val prtype = flag_p flags "-p_types"
-        val p = compileAst {verbose=verbose_p, optlevel=optlevel, prtype=prtype} e
+        val p = compileAst {verbose=verbose_p, optlevel=optlevel, prtype=p_types} e
         val () =
             case outfile of
-                SOME ofile => X.outprog prtype ofile p
-              | NONE => (*
-                if not verbose_p then
+                SOME ofile => X.outprog p_types ofile p
+              | NONE =>
+                if p_tail andalso not verbose_p then
                   (print "Resulting program:\n";
-                   print (X.pp_prog prtype p);
+                   print (X.pp_prog p_types p);
                    print "\n")
-                else *) ()  (* program already printed! *)
+                else ()  (* program already printed! *)
         val () = if compile_only_p then ()
                  else let val () = prln("Evaluating")
                           val v = X.eval p X.Uv

@@ -4,11 +4,12 @@ val name = CommandLine.name()
 
 fun usage() =
     (print ("Usage: " ^ name ^ " [-o ofile] [-c] [-v] [-noopt] [-p_types] file.apl...\n" ^
-            "   -o file : specify output file\n" ^
-            "   -c : compile only (no evaluation)\n" ^
-            "   -noopt : disable optimizations\n" ^
+            "   -o file  : write TAIL program to file\n" ^
+            "   -c       : compile only (no evaluation)\n" ^
+            "   -noopt   : disable optimizations\n" ^
+            "   -p_tail  : print TAIL program\n" ^
             "   -p_types : print types in TAIL code\n" ^
-            "   -v : verbose\n");
+            "   -v       : verbose\n");
      OS.Process.exit OS.Process.success)
 
 fun isFlag s =
