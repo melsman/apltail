@@ -11,9 +11,9 @@ aplt: aplt.mlb $(FILES) aplt.sml Makefile
 install:
 	cp -p aplt $(DESTDIR)/bin/
 
-.PHONY: tests
-tests: aplt Makefile
-	$(MAKE) -C tests
+.PHONY: test
+test: aplt Makefile
+	$(MAKE) -C tests test
 
 .PHONY: clean
 clean: Makefile

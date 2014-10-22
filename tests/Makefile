@@ -1,15 +1,33 @@
-TESTS=test test2 test3 test4 test5 test6 test7 test9 test10 test11 test12 test13 test14 test15 test16 test19 signal test21
-
-#TESTS=test test2 test3 test4 test5 test6 test7 test9 test10 test11 test12 test13 test14 test16 signal
+TESTS=test test1 test2 test3 test4 test5 test6 test7 test9 test10 test11 test12 test13 test14 test15 test16 test19 signal test21 test28
 
 APLFILES=$(TESTS:%=%.apl)
 TLFILES=$(APLFILES:%.apl=%.tl)
+RESFILES=$(APLFILES:%.apl=%.res)
 
 .PHONY: all
-all: $(TLFILES)
+all: $(TLFILES) $(RESFILES)
 
 %.tl: %.apl Makefile ../aplt
 	../aplt -c -o $@ ../prelude.apl $<
 
+%.out: %.apl Makefile ../aplt
+	../aplt ../prelude.apl $< > $@
+
+%.res: %.out
+	@(diff -aq $< $<.ok > /dev/null 2>&1; \
+         if [ $$? -eq 0 ]; then \
+             echo "Test $*.apl: OK" > $@ \
+         ; else \
+             if [ -e $<.ok ]; then \
+                echo "Test $*.apl: *** ERR: file $< differs from $<.ok ***" > $@ \
+             ; else \
+                echo "Test $*.apl: *** ERR: file $<.ok does not exist ***" > $@ \
+             ; fi \
+         ; fi)
+
+.PHONY: test
+test: $(RESFILES)
+	@cat $(RESFILES)
+
 clean:
-	rm -f *.tl
+	rm -f *.tl *.out *.res

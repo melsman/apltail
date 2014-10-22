@@ -195,60 +195,121 @@ val letm_asgn = letm
 
 (* Optimization *)
 
-
 structure M = StringFinMap
 structure Optimize = struct
 
 type def = {shape: Exp.exp option, value: Exp.exp option}
 type env = def M.map
 
-fun getShape (E:env) (e : Exp.exp) : Exp.exp option =
+fun rot 0 es = es
+  | rot n es = if n < 0 then rev(rot (~n) (rev es))
+               else case es of
+                        e::es => rot (n-1) (es@[e])
+                      | [] => []
+
+fun peep E e =
     case e of
-        Op("reshape",[sh,e],_) => SOME sh
-      | Var(v,_) => (case M.lookup E v of
-                         SOME{shape=SOME sh,...} => SOME sh
-                       | _ => NONE)
-      | _ => NONE
+        Op(opr,es,t) => peepOp E (opr,es,t)
+      | e => e
+and peepOp E (opr,es,t) =
+    case (opr, es) of
+        ("addi", [I 0,e]) => e
+      | ("addi", [e,I 0]) => e
+      | ("addi", [I i1,I i2]) => I(Int.+(i1,i2))
+      | ("subi", [I i1,I i2]) => I(Int.-(i1,i2))
+      | ("subi", [e,I 0]) => e
+      | ("negi", [I i]) => I(Int.~ i)
+      | ("i2d", [I i]) => D(real i)
+      | ("reduce", [f,n,Op("zilde",[],_)]) => n
+      | ("reverse", [Vc(es,t)]) => Vc(rev es, t)
+      | ("shape", [e]) => (case getShape E e of
+                               SOME e => e
+                             | NONE => Op (opr,[e],t))
+      | ("shapeSh", [e]) => (case getShape E e of
+                                 SOME e => e
+                               | NONE => Op (opr,[e],t))
+      | ("dropSh", [I n,Vc(es,_)]) =>
+        if n >= 0 andalso n < length es then Vc(List.drop(es,n),t)
+        else if n < 0 andalso ~n < length es then Vc(List.take(es,length es + n),t)
+        else Op(opr,es,t)
+      | ("takeSh", [I n,Vc(es,_)]) =>
+        if n >= 0 andalso n < length es then Vc(List.take(es,n),t)
+        else if n < 0 andalso ~n < length es then Vc(List.drop(es,length es + n),t)
+        else Op(opr,es,t)
+      | ("firstSh", [Vc(e::es,t)]) => e
+      | ("catSh", [Vc(es1,_),Vc(es2,_)]) => Vc(es1@es2,t)
+      | ("snocSh", [Vc(es,_),e]) => Vc(es@[e],t)
+      | ("iotaSh",[I n]) => if n <= 3 then Vc(List.map I (List.tabulate (n,fn x => x+1)),t)
+                            else Op(opr,es,t)
+      | ("rotateSh", [I n,Vc(es,_)]) => Vc(rot n es,t)
+      | _ => Op(opr,es,t)
+               
+and getShape (E:env) (e : Exp.exp) : Exp.exp option =
+    let fun tryType() =
+            case unSh (typeOf e) of
+                NONE => NONE
+              | SOME r => case unRnk r of
+                              NONE => NONE
+                            | SOME i => SOME (Vc([I i],Vi r))
+    in case tryType() of
+           SOME e => SOME e
+         | NONE =>
+       case e of
+           Op("reshape",[sh,e],_) => SOME sh
+         | Var(v,_) => (case M.lookup E v of
+                            SOME{shape=SOME sh,...} => SOME sh
+                          | _ => NONE)
+         | Vc(es,_) => SOME(Vc([I(length es)],Vi(rnk(length es))))
+         | Op("transp", [e], _) =>
+           (case getShape E e of
+                SOME sh => SOME(peepOp E ("reverse",[sh],typeOf sh))
+              | NONE => NONE)
+         | _ => NONE
+    end
+
+fun simple e =
+    case e of
+        I _ => true
+      | D _ => true
+      | B _ => true
+      | Var _ => true
+      | Vc(es,_) => length es <= 3 andalso List.all simple es
+      | _ => false
 
 fun optimize optlevel e =
     if Int.<= (optlevel, 0) then e
     else
-    let 
-      fun add E k v = E
-      fun opt E e =
+    let fun add E k v = E
+        fun opt E e =
             case e of
-                Var (v,_) => e
+                Var (v,_) => (case M.lookup E v of
+                                  SOME{value=SOME e,...} => e
+                                | _ => e)
               | I i => e
               | D r => e
               | B b => e
               | Iff (c,e1,e2,t) => Iff(opt E c,opt E e1,opt E e2,t)
               | Vc(es,t) => Vc (opts E es,t)
-              | Op(opr,es,t) =>
-                (case (opr, opts E es) of
-                     ("addi", [I 0,e]) => e
-                   | ("addi", [e,I 0]) => e
-                   | ("addi", [I i1,I i2]) => I(Int.+(i1,i2))
-                   | ("negi", [I i]) => I(Int.~ i)
-                   | ("i2d", [I i]) => D(real i)
-                   | ("reduce", [f,n,Op("zilde",[],_)]) => n
-                   | ("shape", [e]) => 
-                     (case getShape E e of
-                          SOME e => e
-                        | NONE => Op(opr,[e],t))
-                   | (_,es) => Op(opr,es,t))
+              | Op(opr,es,t) => peepOp E (opr,opts E es,t)
               | Let (v,ty,e1,e2,t) => 
                 let val e1 = opt E e1
-                    val sh = getShape E e1
-                    val E' = M.add(v,{shape=sh,value=NONE},E)
-                    val e2 = opt E' e2
-                in Let(v,ty,e1,e2,t)
+                in if simple e1 then
+                     let val E' = M.add(v,{shape=NONE,value=SOME e1},E)
+                     in opt E' e2
+                     end
+                   else 
+                     let val sh = getShape E e1
+                         val E' = M.add(v,{shape=sh,value=NONE},E)
+                         val e2 = opt E' e2
+                     in Let(v,ty,e1,e2,t)
+                     end
                 end
               | Fn (v,t,e,t') => 
                 let val E' = M.add(v,{shape=NONE,value=NONE},E)
                 in Fn(v,t,opt E' e,t')
                 end
-      and opts E es = List.map (opt E) es
-      val initE = M.empty
+        and opts E es = List.map (opt E) es
+        val initE = M.empty
     in opt initE e
     end
 end
@@ -366,21 +427,29 @@ fun runM {verbose,optlevel,prtype} tt m =
             else ()
         val () = prln (fn() => "Untyped program:\n" ^ pp_prog false p)
         val () = prln (fn() => "Typing the program...")
-        val p = case typeExp empEnv p of
-                    ERR s => raise Fail ("***Type error: " ^ s)
-                  | OK t => (prln (fn() => "  Program has type: " ^ prType t);   (* perhaps unify tt with t!! *)
-                             let val p = Exp.resolveShOpr p
-                             in prln (fn() => "Typed program:\n" ^ pp_prog prtype p);
-                                p
-                             end)
+        fun typeit h p =
+            case typeExp empEnv p of
+                ERR s => 
+                let val msg = "***Type error - " ^ h ^ ": " ^ s
+                in prln (fn() => msg);
+                   prln (fn() => "Program:");
+                   prln (fn() => pp_prog prtype p);
+                   raise Fail msg
+                end
+              | OK t => (prln (fn() => "  Program has type: " ^ prType t);   (* perhaps unify tt with t!! *)
+                         let val p = Exp.resolveShOpr p
+                         in prln (fn() => "Typed program - " ^ h ^ ":\n" ^ pp_prog prtype p);
+                            p
+                         end)
+        val p = typeit "before optimization" p
         val p = Optimize.optimize optlevel p
+        val p = typeit "after optimization" p
         val () = prln (fn() => "Optimised program:\n" ^ pp_prog prtype p)
     in p
     end
 
 fun eval p v =
-    let val () = print ("Evaluating program\n")
-        val de = Exp.addDE Exp.empDEnv "arg" v
+    let val de = Exp.addDE Exp.empDEnv "arg" v
         val v' = Exp.eval de p
     in v'
     end

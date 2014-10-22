@@ -143,20 +143,91 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                   end
           end
 
-  fun conssnoc opr t1 t2 =
+  fun unShi t =
+      case unSh t of
+          SOME r => unRnk r
+        | NONE => case unVi t of
+                      SOME _ => SOME 1
+                    | NONE => NONE
+
+  fun unSii t =
+      case unSi t of
+          NONE => NONE
+        | SOME r => unRnk r
+
+  fun conssnoc sh opr t1 t2 =
       let fun default() =
-              let val (b1,r1) = unArr' ("argument to " ^ opr) t1
-                  val (b2,r2) = unArr' ("argument to " ^ opr) t2
-                  val rv = RnkVarCon (fn i => unifyR r2 (rnk(i+1)))
-              in assertR ("arguments to " ^ opr) rv r1
-               ; assertB ("arguments to " ^ opr) b1 b2
-               ; t2
-              end
-      in case unSh t2 of
-             SOME r2 => (case unRnk r2 of
-                             SOME r2 => (assert_sub opr t1 Int; Sh(rnk(r2+1)))
-                           | NONE => default())
+              if sh then raise Fail (opr ^ "expects argument of shape type")
+              else let val (b1,r1) = unArr' ("argument to " ^ opr) t1
+                       val (b2,r2) = unArr' ("argument to " ^ opr) t2
+                       val rv = RnkVarCon (fn i => unifyR r2 (rnk(i+1)))
+                   in assertR ("arguments to " ^ opr) rv r1
+                    ; assertB ("arguments to " ^ opr) b1 b2
+                    ; t2
+                   end
+      in case unShi t2 of
+             SOME r2 => (assert_sub opr t1 Int; Sh(rnk(r2+1)))
            | NONE => default()
+      end
+
+  fun type_first sh t =
+      let fun default() = 
+              if sh then raise Fail "firstSh expects argument of shape type"
+              else let val (bt,_) = unArr' "disclose argument" t
+                   in Arr bt (rnk 0)
+                   end
+      in case unVi t of
+             SOME r => Si r
+           | NONE =>
+             case unSh t of
+                 SOME _ => Int
+               | NONE => default()
+      end
+
+  fun type_cat sh t1 t2 =
+      let fun default() =
+              if sh then raise Fail "catSh expects arguments of shape types"
+              else let val (bt1,r1) = unArr' "first argument to catenate" t1
+                       val (bt2,r2) = unArr' "second argument to catenate" t2
+                   in assertB "cat" bt1 bt2
+                    ; assertR "cat" r1 r2
+                    ; Arr bt1 r1
+                   end
+      in case (unShi t1, unShi t2) of
+             (SOME i1, SOME i2) => Sh(rnk(i1 + i2))
+           | _ => default()
+      end
+
+  fun max (a:int) b = if a > b then a else b
+  fun abs (a:int) = if a > 0 then a else ~ a
+
+  fun type_drop sh t1 t2 =
+      let fun default () =
+              if sh then raise Fail "dropSh expects arguments of singleton type and shape type"
+              else let val (bt,r) = unArr' "drop" t2;
+                   in assert_sub "first argument to drop" t1 Int; 
+                      Arr bt r
+                   end
+      in case (unSii t1, unShi t2) of
+             (SOME r1, SOME r2) => Sh (rnk(max 0 (r2-abs r1)))
+           | _ => default()
+      end
+
+  fun type_take sh t1 t2 =
+      let fun default () =
+              if sh then raise Fail "takeSh expects arguments of singleton and shape types"
+              else (assert "take" t2 (Arr(TyVarB())(RnkVar()));            
+                    t2)
+      in case unSii t1 of
+             SOME r => (case unArr t2 of
+                            SOME (bt, _) => if isInt bt then Sh(rnk(abs r))
+                                            else t2
+                          | NONE => 
+                            case unShi t2 of
+                                SOME _ => Sh(rnk(abs r))
+                              | NONE => default())
+           | NONE => (assert "first argument to take" Int t1;
+                      default())
       end
 
   fun tyOp opr ts =
@@ -180,68 +251,19 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           in assert "first argument to reshape" (Sh r) t1;
              Arr bt r
           end
-        | ("take",[t1,t2]) =>
-          let fun default () =
-                  (assert "take" t2 (Arr(TyVarB())(RnkVar()));            
-                   t2)
-          in case unSi t1 of
-                 SOME r =>
-                 (case unRnk r of
-                      SOME r =>
-                      (case unArr t2 of
-                           SOME (bt, _) => if isInt bt then Sh(rnk(abs r))
-                                           else t2
-                         | NONE => 
-                           case unSh t2 of
-                               SOME _ => Sh(rnk(abs r))
-                             | NONE => case unVi t2 of
-                                           SOME _ => Sh(rnk(abs r))
-                                         | NONE => default())
-                    | NONE => default())
-               | NONE => (assert "first argument to take" Int t1;
-                          default())
-          end
-        | ("drop",[t1,t2]) =>
-          let fun default () = let val (bt,r) = unArr' "drop" t2;
-                              in assert_sub "first argument to drop" t1 Int; 
-                                 Arr bt r
-                              end
-          in case (unSi t1, unSh t2) of
-                 (SOME r1, SOME r2) =>
-                 (case (unRnk r1, unRnk r2) of
-                      (SOME r1, SOME r2) => Sh (rnk(abs(r2-abs r1)))
-                    | _ => default())
-               | _ => default()
-          end
-        | ("cat",[t1,t2]) =>
-          let fun default() = 
-                  let val (bt1,r1) = unArr' "first argument to catenate" t1
-                      val (bt2,r2) = unArr' "second argument to catenate" t2
-                  in assertB "cat" bt1 bt2
-                   ; assertR "cat" r1 r2
-                   ; Arr bt1 r1
-                  end
-          in case (unSh t1, unSh t2) of
-                 (SOME r1, SOME r2) =>
-                 (case (unRnk r1, unRnk r2) of
-                      (SOME r1,SOME r2) => Sh(rnk(Int.+(r1,r2)))
-                    | _ => default())
-               | _ => default()
-          end
-        | ("cons",[t1,t2]) => conssnoc opr t1 t2
-        | ("snoc",[t1,t2]) => conssnoc opr t2 t1
-        | ("first",[t]) =>
-          let fun default() = 
-                  let val (bt,_) = unArr' "disclose argument" t
-                  in Arr bt (rnk 0)
-                  end
-          in case unVi t of
-                 SOME r => Si r
-               | NONE =>
-                 case unSh t of
-                     SOME _ => Int
-                   | NONE => default()
-          end
+        | ("take",[t1,t2]) => type_take false t1 t2
+        | ("takeSh",[t1,t2]) => type_take true t1 t2
+        | ("drop",[t1,t2]) => type_drop false t1 t2
+        | ("dropSh",[t1,t2]) => type_drop true t1 t2
+        | ("cat",[t1,t2]) => type_cat false t1 t2
+        | ("catSh",[t1,t2]) => type_cat true t1 t2
+        | ("cons",[t1,t2]) => conssnoc false opr t1 t2
+        | ("consSh",[t1,t2]) => conssnoc true opr t1 t2
+        | ("snoc",[t1,t2]) => conssnoc false opr t2 t1
+        | ("snocSh",[t1,t2]) => conssnoc true opr t2 t1
+        | ("first",[t]) => type_first false t
+        | ("firstSh",[t]) => type_first true t
+        | ("reverse",[t]) => (unArr' "reverse" t; t)
         | ("transp",[t]) => (unArr' "transp" t; t)
         | ("transp2",[t1,t2]) =>
           let val (bt,r) = unArr' "transp2" t2
@@ -302,14 +324,25 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | ("i2d",[t]) => (assert_sub opr t Int; Double)
         | ("negi",[t]) => 
           let fun default() = (assert_sub opr t Int; Int)
-          in case unSi t of
+          in case unSii t of
                  NONE => default()
-               | SOME r => case unRnk r of
-                               SOME i => Si (rnk(~i))
-                             | NONE => default()
+               | SOME i => Si (rnk(~i))
           end
         | ("negd",[t]) => (assert opr Double t; Double)
-        | (_,[t1,t2]) => 
+        | ("iotaSh",[t]) =>
+          (case unSi t of
+               SOME r => Sh r
+             | NONE => raise Fail (opr ^ " expects argument of singleton type"))
+        | ("shapeSh", [t]) => 
+          (case unSh t of
+               SOME n => Vi n
+             | NONE => raise Fail "shapeSh expects argument of shape type")
+        | ("rotateSh",[t1,t2]) =>
+          (assert_sub opr t1 Int;           
+           case unSh t2 of
+               SOME _ => t2
+             | NONE => raise Fail (opr ^ " expects second argument to be a shape type"))
+        | (_,[t1,t2]) =>
           if isBinOpIII opr then tyBin Int Int Int opr t1 t2
           else if isBinOpDDD opr then tyBin Double Double Double opr t1 t2
           else if isBinOpIIB opr then tyBin Int Int Bool opr t1 t2
@@ -346,8 +379,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                 | Vc(es,t0) =>
                   let val ts = List.map (ty E) es
                       val t = tyVc ts
-                  in assert "vector" t t0
-                   ; t
+                  in assert_sub "vector expression" t t0
+                   ; t0
                   end
                 | Let (v,t,e1,e2,t0) =>
                   (assert_sub ("let-binding of " ^ v) (ty E e1) t;
@@ -518,7 +551,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           in case (opr,es) of
                  ("zilde", []) => Apl.zilde (default t)
                | ("i2d", [e]) => Apl.liftU (fn Ib i => Db(real i) | _ => raise Fail "eval:i2d") (eval DE e)
-               | ("negi", [e]) => Apl.liftU (fn Ib i => Ib(Int.~i) | _ => raise Fail "eval:negi") (eval DE e)
+               | ("negi", [e]) => Apl.liftU (fn Ib i => Ib(~i) | _ => raise Fail "eval:negi") (eval DE e)
                | ("negd", [e]) => Apl.liftU (fn Db i => Db(Real.~i) | _ => raise Fail "eval:negd") (eval DE e)
                | ("iota", [e]) => Apl.map Ib (Apl.iota (Apl.map unIb (eval DE e)))
                | ("reshape", [e1,e2]) =>

@@ -518,12 +518,12 @@ fun compileExp flags e =
         val () =
             case outfile of
                 SOME ofile => X.outprog prtype ofile p
-              | NONE =>
+              | NONE => (*
                 if not verbose_p then
                   (print "Resulting program:\n";
                    print (X.pp_prog prtype p);
                    print "\n")
-                else ()  (* program already printed! *)
+                else *) ()  (* program already printed! *)
         val () = if compile_only_p then ()
                  else let val () = prln("Evaluating")
                           val v = X.eval p X.Uv
