@@ -1,5 +1,5 @@
 MLCOMP ?= mlton -mlb-path-map $(HOME)/.mlton/mlb-path-map
-FILES=apl2tail.mlb Apl2Tail.sml $(shell ls -1 tail/*.{sig,sml,mlb})
+FILES=apl2tail.mlb Apl2Tail.sml $(shell ls -1 tail/*.sig tail/*.sml tail/*.mlb)
 
 .PHONY: all
 all: aplt
