@@ -91,6 +91,7 @@ signature TAIL = sig
 
   val zilde   : 'a T -> 'a m
   val scl     : 'a T -> 'a t -> 'a m
+  val scalar  : 'a t -> 'a m
   val vec     : 'a v -> 'a m
   val iota    : INT -> Int Num m
   val iota'   : Int Num m -> Int Num m

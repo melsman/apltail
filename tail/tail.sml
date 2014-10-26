@@ -92,6 +92,7 @@ type 'a MVec = unit
 type 'a m = exp
 fun zilde _ = Op_e("zilde",nil)
 fun scl _ t = t
+fun scalar t = Vc_e[t]
 fun vec t = t
 fun iota t = Op_e("iota",[t])
 fun iota' t = Op_e("iota",[t])

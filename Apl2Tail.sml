@@ -197,7 +197,7 @@ fun signi x = If(lti(x,I 0),I ~1, I 1)
 fun signd x = If(ltd(x,D 0.0),I ~1, I 1)
 
 fun compErr r msg =
-    raise Fail ("Compile Error: " ^ Region.pp r ^ ".\n  " ^ msg)
+    raise Fail ("Compile Error: " ^ Region.pp r ^ ".\n  " ^ msg ^ ".")
 
 fun failWrap r f x =
     f x handle Fail s => raise Fail (s ^ " at " ^ Region.pp r)
@@ -299,18 +299,8 @@ fun compileAst flags e =
                                   case f of
                                     Fs (f,_) => f [s] >>>= (fn s' => k(s',G'++G''))
                                   | _ => compErr r "expecting monadic operator"))
-            | AppOpr2E(_,IdE(Symb L.Dot,_),IdE(Symb L.Ring,_),e1,r) =>
-              comp G e1 (fn (s1,G1) =>
-              k (Fs (fn [Ais a1,Ais a2] =>
-                        (case s1 of
-                             Fs(f,_) => M(outer Int Int (fn (x,y) => 
-                                                            subM(f[Is x,Is y] >>>=
-                                                                  (fn Is z => rett z
-                                                                  | _ => compErr r "err"))) a1 a2) >>>= (fn m => rett(Ais m))
-                           | _ => compErr r "expecting dyadic function")
-                    | ss => compErr r ("expecting two arrays but got: " ^ String.concatWith "," (List.map pp_s ss))
-                    , noii),
-                 G1))
+            | AppOpr2E(v,IdE(Symb L.Dot,r1),IdE(Symb L.Ring,r2),e1,r) =>
+              comp G (AppOpr1E(v,IdE(Var "$out",Region.plus "out" r2 r1),e1,r)) k
             | AppOpr2E(_,e0,e1,e2,r) =>
               comp G e2 (fn (s2,G2) =>
               comp (G++G2) e1 (fn (s1,G1) =>
@@ -338,7 +328,7 @@ fun compileAst flags e =
             | IdE(Symb L.Dot,r) =>
               (case compIdOpt G (Var "$dot",r) k of
                    SOME res => res
-                 | NONE => 
+                 | NONE =>
                    k(Fs (fn [Fs(f1,ii),Fs(f2,_)] =>
                             rett(Fs (fn [Ais a1, Ais a2] => 
                                         M(prod Int (fn (x,y) =>  
@@ -389,12 +379,20 @@ fun compileAst flags e =
                                                       fn (Ais a1, Ais a2) => M(reshape (rav0 a1) a2) >>>= (fn a => rett(Ais a))
                                                        | (Ais a1, Ads a2) => M(reshape (rav0 a1) a2) >>>= (fn a => rett(Ads a))
                                                        | (Ais a1, Abs a2) => M(reshape (rav0 a1) a2) >>>= (fn a => rett(Abs a))
+                                                       | (Ais a1, Is a2) => M(reshape (rav0 a1) (scalar a2)) >>>= (fn a => rett(Ais a)) 
+                                                       | (Ais a1, Ds a2) => M(reshape (rav0 a1) (scalar a2)) >>>= (fn a => rett(Ads a)) 
+                                                       | (Ais a1, Bs a2) => M(reshape (rav0 a1) (scalar a2)) >>>= (fn a => rett(Abs a)) 
                                                        | _ => compErr r "expecting arrays as left and right arguments to reshape operation") noii
             | IdE(Symb L.Cat,r) => compPrimFunMD k r (fn Ais a => S(Ais(rav a))
                                                        | Ads a => S(Ads(rav a))
                                                        | Abs a => S(Abs(rav a))
                                                        | _ => compErr r "expecting array as right argument to ravel operation",
                                                       compOpr2_a8a2aM catenate catenate catenate) noii
+            | IdE(Symb L.Vcat,r) => compPrimFunMD k r (fn Ais a => S(Ais(rav a))
+                                                        | Ads a => S(Ads(rav a))
+                                                        | Abs a => S(Abs(rav a))
+                                                        | _ => compErr r "expecting array as right argument to ravel operation",
+                                                       compOpr2_a8a2aM catenate_first catenate_first catenate_first) noii
             | IdE(Symb L.Disclose,r) => compPrimFunM k r (fn Ais a => S(Is(first a))
                                                            | Ads a => S(Ds(first a))
                                                            | Abs a => S(Bs(first a))
@@ -439,11 +437,15 @@ fun compileAst flags e =
                    | _ => compErr r "dyadic function expecting two arguments",
                   ii),
               emp)
-           
         and compId G (id,r) k =
             case compIdOpt G (id,r) k of
                 SOME r => r
-              | NONE => compErr r ("identifier " ^ AplAst.pr_id id ^ " not in environment")
+              | NONE => 
+                let val id = AplAst.pr_id id
+                    fun consider id = if id = "$out" then ". Consider including the prelude.apl file"
+                                      else ""
+                in compErr r ("identifier " ^ id ^ " not in the environment" ^ consider id)
+                end
         and compIdOpt G (id,r) k =
             case lookup G id of
                 SOME x => SOME(k(x,emp))
