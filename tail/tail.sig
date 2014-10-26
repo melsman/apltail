@@ -68,22 +68,26 @@ signature TAIL = sig
   val subi    : INT * INT -> INT
   val muli    : INT * INT -> INT
   val divi    : INT * INT -> INT
+  val resi    : INT * INT -> INT
   val lti     : INT * INT -> BOOL
   val leqi    : INT * INT -> BOOL
   val eqi     : INT * INT -> BOOL
   val maxi    : INT -> INT -> INT
   val mini    : INT -> INT -> INT
   val negi    : INT -> INT
+  val absi    : INT -> INT
   val addd    : DOUBLE * DOUBLE -> DOUBLE
   val subd    : DOUBLE * DOUBLE -> DOUBLE
   val muld    : DOUBLE * DOUBLE -> DOUBLE
   val divd    : DOUBLE * DOUBLE -> DOUBLE
+  val resd    : DOUBLE * DOUBLE -> DOUBLE
   val ltd     : DOUBLE * DOUBLE -> BOOL
   val leqd    : DOUBLE * DOUBLE -> BOOL
   val eqd     : DOUBLE * DOUBLE -> BOOL
   val maxd    : DOUBLE -> DOUBLE -> DOUBLE
   val mind    : DOUBLE -> DOUBLE -> DOUBLE
   val negd    : DOUBLE -> DOUBLE
+  val absd    : DOUBLE -> DOUBLE
 
   val zilde   : 'a T -> 'a m
   val scl     : 'a T -> 'a t -> 'a m
@@ -109,10 +113,6 @@ signature TAIL = sig
   val letm    : 'a T -> 'a m -> 'a m M
   val letm_asgn : 'a T -> 'a m -> 'a m M
 
-(*
-  val out     : 'c T -> ('a t * 'b t -> 'c t) -> 'a m -> 'b m -> 'c m M
-*)
-
   val zipWith : 'a T -> 'b T -> 'c T -> ('a t * 'b t -> 'c t M) -> 'a m -> 'b m -> 'c m M
 
   val scan    : 'a T -> 'b T -> ('a t * 'b t -> 'a t) -> 'a t -> 'b m -> 'a m M
@@ -134,6 +134,8 @@ signature TAIL = sig
 
   val prod    : 'a T -> ('a t * 'a t -> 'a t M) -> ('a t * 'a t -> 'a t M) -> 'a t
                 -> 'a m -> 'a m -> ('a t -> 'b) -> ('a m -> 'b) -> 'b M 
+
+  val outer   : 'a T -> 'b T -> ('a t * 'b t -> 'c t M) -> 'a m -> 'b m -> 'c m M
 
   val reduce  : 'a T -> ('a t * 'a t -> 'a t M) -> 'a t -> 'a m -> ('a t -> 'b) -> ('a m -> 'b) -> 'b M
 

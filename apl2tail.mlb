@@ -1,6 +1,6 @@
 local
    $(SML_LIB)/basis/basis.mlb
-   $(SMACKAGE)/aplparse/v1/aplparse.mlb
+   $(SMACKAGE)/aplparse/v2/aplparse.mlb
 in
    tail/tail.mlb
    Apl2Tail.sml

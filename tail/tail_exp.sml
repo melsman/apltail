@@ -103,10 +103,10 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   val assert_sub = assert0 subtype
 
   fun isBinOpIII opr =
-      isIn opr ["addi","subi","muli","divi","maxi","mini","mod"]
+      isIn opr ["addi","subi","muli","divi","maxi","mini","mod","resi"]
 
   fun isBinOpDDD opr =
-      isIn opr ["addd","subd","muld","divd","maxd","mind"]
+      isIn opr ["addd","subd","muld","divd","resd","maxd","mind"]
 
   fun isBinOpIIB opr =
       isIn opr ["lti","leqi","eqi"]
@@ -328,7 +328,14 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                  NONE => default()
                | SOME i => Si (rnk(~i))
           end
+        | ("absi",[t]) => 
+          let fun default() = (assert_sub opr t Int; Int)
+          in case unSii t of
+                 NONE => default()
+               | SOME i => Si (rnk(~i))
+          end
         | ("negd",[t]) => (assert opr Double t; Double)
+        | ("absd",[t]) => (assert opr Double t; Double)
         | ("iotaSh",[t]) =>
           (case unSi t of
                SOME r => Sh r
@@ -552,7 +559,9 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                  ("zilde", []) => Apl.zilde (default t)
                | ("i2d", [e]) => Apl.liftU (fn Ib i => Db(real i) | _ => raise Fail "eval:i2d") (eval DE e)
                | ("negi", [e]) => Apl.liftU (fn Ib i => Ib(~i) | _ => raise Fail "eval:negi") (eval DE e)
+               | ("absi", [e]) => Apl.liftU (fn Ib i => Ib(Int.abs i) | _ => raise Fail "eval:absi") (eval DE e)
                | ("negd", [e]) => Apl.liftU (fn Db i => Db(Real.~i) | _ => raise Fail "eval:negd") (eval DE e)
+               | ("absd", [e]) => Apl.liftU (fn Db i => Db(Real.abs i) | _ => raise Fail "eval:absd") (eval DE e)
                | ("iota", [e]) => Apl.map Ib (Apl.iota (Apl.map unIb (eval DE e)))
                | ("reshape", [e1,e2]) =>
                  let val v1 = Apl.map unIb (eval DE e1)
@@ -635,6 +644,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                       | "subi" => (op -)
                       | "muli" => (op * )
                       | "divi" => (op div)
+                      | "resi" => (fn(x,y) => if x = 0 then y else Int.mod(y,x))
                       | "maxi" => (fn (x,y) => if x > y then x else y)
                       | "mini" => (fn (x,y) => if x < y then x else y)
                       | "mod" => (op mod)
@@ -655,6 +665,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                       | "subd" => (op -)
                       | "muld" => (op * )
                       | "divd" => (op /)
+                      | "resd" => (fn(x,y) => if Real.==(x,0.0) then y 
+                                              else y - real(Real.floor(y/x)))
                       | "maxd" => (fn (x,y) => if x > y then x else y)
                       | "mind" => (fn (x,y) => if x < y then x else y)
                       | _ => raise Fail ("evalBinOpDDD: unsupported double*double->double operator " ^ opr)

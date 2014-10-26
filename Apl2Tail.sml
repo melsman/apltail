@@ -67,6 +67,16 @@ local
     | Ads of md                        (*   double array *)
     | Fs of (s list -> s N) * id_item  (*   function in-lining *)
 
+  fun pp_s s =
+      case s of
+          Bs _ => "Bs"
+        | Is _ => "Is"
+        | Ds _ => "Ds"
+        | Abs _ => "Abs"
+        | Ais _ => "Ais"
+        | Ads _ => "Ads"
+        | Fs _ => "Fs"
+
   fun lets s = case s of
                    Bs _ => ret s
                  | Is _ => ret s
@@ -189,6 +199,9 @@ fun signd x = If(ltd(x,D 0.0),I ~1, I 1)
 fun compErr r msg =
     raise Fail ("Compile Error: " ^ Region.pp r ^ ".\n  " ^ msg)
 
+fun failWrap r f x =
+    f x handle Fail s => raise Fail (s ^ " at " ^ Region.pp r)
+
 fun compileAst flags e =
     let fun comp (G:env) e (k: s*env -> s N) : s N =
             case e of
@@ -286,6 +299,18 @@ fun compileAst flags e =
                                   case f of
                                     Fs (f,_) => f [s] >>>= (fn s' => k(s',G'++G''))
                                   | _ => compErr r "expecting monadic operator"))
+            | AppOpr2E(_,IdE(Symb L.Dot,_),IdE(Symb L.Ring,_),e1,r) =>
+              comp G e1 (fn (s1,G1) =>
+              k (Fs (fn [Ais a1,Ais a2] =>
+                        (case s1 of
+                             Fs(f,_) => M(outer Int Int (fn (x,y) => 
+                                                            subM(f[Is x,Is y] >>>=
+                                                                  (fn Is z => rett z
+                                                                  | _ => compErr r "err"))) a1 a2) >>>= (fn m => rett(Ais m))
+                           | _ => compErr r "expecting dyadic function")
+                    | ss => compErr r ("expecting two arrays but got: " ^ String.concatWith "," (List.map pp_s ss))
+                    , noii),
+                 G1))
             | AppOpr2E(_,e0,e1,e2,r) =>
               comp G e2 (fn (s2,G2) =>
               comp (G++G2) e1 (fn (s1,G1) =>
@@ -392,23 +417,25 @@ fun compileAst flags e =
                                                         compOpr2 muli muld) (LRii 1,LRii 1.0,NOii)
             | IdE(Symb L.Div,r) => compPrimFunMD k r (compOpr1d (fn x => divd(D 1.0,x)),
                                                       compOpr2 divi divd) (LRii 1,LRii 1.0,NOii)
+            | IdE(Symb L.Pipe,r) => compPrimFunMD k r (compOpr1 absi absd,
+                                                       compOpr2 resi resd) (Lii 0,Lii 0.0,Lii false)
             | IdE(Symb L.Max,r) => compPrimFunD k r (compOpr2 (uncurry maxi) (uncurry maxd)) (LRii(minInt()), LRii(Real.negInf),NOii)
             | IdE(Symb L.Min,r) => compPrimFunD k r (compOpr2 (uncurry mini) (uncurry mind)) (LRii(maxInt()), LRii(Real.posInf),NOii)
             | IdE(Symb L.Lt,r) => compPrimFunD k r (compCmp lti ltd) (NOii,NOii,NOii)
             | e => raise Fail ("compile.expression " ^ pr_exp e ^ " not implemented")
         and compPrimFunMD k r (mon,dya) ii =
-            k(Fs (fn [x1,x2] => dya (x1,x2)
-                   | [x] => mon x
+            k(Fs (fn [x1,x2] => failWrap r dya (x1,x2)
+                   | [x] => failWrap r mon x
                    | _ => compErr r "function expecting one or two arguments",
                   ii),
               emp)
         and compPrimFunM k r mon =
-            k(Fs (fn [x] => mon x
+            k(Fs (fn [x] => failWrap r mon x 
                    | _ => compErr r "monadic function expecting one argument",
                   noii),
               emp) 
         and compPrimFunD k r dya ii =
-            k(Fs (fn [x1,x2] => dya (x1,x2)
+            k(Fs (fn [x1,x2] => failWrap r dya (x1,x2)
                    | _ => compErr r "dyadic function expecting two arguments",
                   ii),
               emp)
@@ -487,11 +514,9 @@ fun parseFile flags pe f =
         val () = pr (fn () => "File lexed:")
         val () = pr (fn () => " " ^ AplLex.pr_tokens (map #1 ts))
         val () = pr (fn () => "Parsing tokens...")
-    in case AplParse.parse pe ts of
-           SOME (e,pe') => 
-           (pr(fn () => "Parse success:\n " ^ AplAst.pr_exp e);
-            (e,pe'))
-         | NONE => raise Fail ("Error parsing file: " ^ f) 
+        val (e,pe') = AplParse.parse pe ts
+    in pr(fn () => "Parse success:\n " ^ AplAst.pr_exp e);
+       (e,pe')
     end
 
 fun parseFiles flags (pe0 : AplParse.env) (fs: string list) : AplAst.exp =
@@ -533,6 +558,14 @@ fun compileExp flags e =
     in ()
     end
 
+fun errHandler e =
+    case e of
+        AplParse.ParseErr (l,msg) => prln ("Parse Error at " ^ 
+                                           Region.ppLoc l ^ ": \n  " ^ 
+                                           msg)
+      | Fail s => prln s
+      | _ => raise e
+
 fun compileAndRun flags s =
     let val verbose_p = flag_p flags "-v"
         val ts = AplLex.lex "stream" s
@@ -540,16 +573,13 @@ fun compileAndRun flags s =
         val () = pr (fn () => "Program lexed:")
         val () = pr (fn () => " " ^ AplLex.pr_tokens (map #1 ts))
         val () = pr (fn () => "Parsing tokens...")
-    in case AplParse.parse AplParse.env0 ts of
-           SOME (e,_) =>         
-           (pr(fn () => "Parse success:\n " ^ AplAst.pr_exp e);
-            compileExp flags e)
-         | NONE => prln "Parse error."
-    end
+        val (e,_) = AplParse.parse AplParse.env0 ts
+    in pr(fn () => "Parse success:\n " ^ AplAst.pr_exp e);
+       compileExp flags e
+    end handle ? => errHandler ?
 
 fun compileAndRunFiles flags fs =
     let val e = parseFiles flags AplParse.env0 fs
     in compileExp flags e
-    end handle Fail s => prln (s ^ "\n")
-
+    end handle ? => errHandler ?
 end

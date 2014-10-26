@@ -12,3 +12,12 @@ $dot ← {
   TB ← ZB⍉WB⍴⍵    ⍝ Replicate, transpose
   ⍺⍺ / TA ⍵⍵ TB   ⍝ Compute the result
 }
+
+$out ← {
+  A ← ⍺
+  B ← ⍵
+  T ← (⊃(⍴⍴B))⌽⍳⊃⍴(⍴B),⍴A
+  x ← T ⍉ ((⍴B),(⍴A)) ⍴ A
+  y ← ((⍴A),(⍴B)) ⍴ B
+  x ⍺⍺ y
+}

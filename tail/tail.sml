@@ -23,22 +23,26 @@ val addi = binOp "addi"
 val subi = binOp "subi"
 val muli = binOp "muli"
 val divi = binOp "divi"
+val resi = binOp "resi"
 val lti  = binOp "lti"
 val leqi = binOp "leqi"
 val eqi  = binOp "eqi"
 val maxi = binOp' "maxi"
 val mini = binOp' "mini"
 fun negi x = Op_e("negi",[x])
+fun absi x = Op_e("absi",[x])
 val addd = binOp "addd"
 val subd = binOp "subd"
 val muld = binOp "muld"
 val divd = binOp "divd"
+val resd = binOp "resd"
 val ltd  = binOp "ltd"
 val leqd = binOp "leqd"
 val eqd  = binOp "eqd"
 val maxd = binOp' "maxd"
 val mind = binOp' "mind"
 fun negd x = Op_e("negd",[x])
+fun absd x = Op_e("absd",[x])
 
 val i2d = fn x => Op_e ("i2d", [x])
 val op % = binOp "mod"
@@ -147,9 +151,6 @@ fun catenate e1 e2 =
                        else raise Fail ("rank error: incompatible argument ranks for catenate: " 
                                         ^ Int.toString r1 ^ " and " ^ Int.toString r2)
     end
-fun abs i = let open Int
-            in if i < 0 then ~ i else i
-            end
 fun take e1 e2 = Op_e("take", [e1,e2])
 fun drop e1 e2 = Op_e("drop", [e1,e2])
 fun mem e = ret(Op_e("mem",[e]))
@@ -167,6 +168,7 @@ fun prod t f g e m1 m2 s a =
        else if r = 0 then ret(s res)
        else ret(a res)
     end
+fun outer t1 t2 f e1 e2 = binm t1 t2 "outer" f e1 e2
 fun reduce t f e1 e2 s a =
     let open Int
     in case getRank "reduce" e2 of
@@ -219,6 +221,7 @@ and peepOp E (opr,es,t) =
       | ("subi", [I i1,I i2]) => I(Int.-(i1,i2))
       | ("subi", [e,I 0]) => e
       | ("negi", [I i]) => I(Int.~ i)
+      | ("absi", [I i]) => I(Int.abs i)
       | ("i2d", [I i]) => D(real i)
       | ("reduce", [f,n,Op("zilde",[],_)]) => n
       | ("reverse", [Vc(es,t)]) => Vc(rev es, t)
@@ -237,6 +240,8 @@ and peepOp E (opr,es,t) =
         else if n < 0 andalso ~n < length es then Vc(List.drop(es,length es + n),t)
         else Op(opr,es,t)
       | ("firstSh", [Vc(e::es,t)]) => e
+      | ("first", [Vc(e::es,t)]) => e
+      | ("transp2", [Vc([I 2,I 1],_),e]) => Op("transp", [e],t)
       | ("catSh", [Vc(es1,_),Vc(es2,_)]) => Vc(es1@es2,t)
       | ("snocSh", [Vc(es,_),e]) => Vc(es@[e],t)
       | ("iotaSh",[I n]) => if n <= 3 then Vc(List.map I (List.tabulate (n,fn x => x+1)),t)
