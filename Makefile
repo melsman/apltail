@@ -1,11 +1,13 @@
 MLCOMP ?= mlton -mlb-path-map $(HOME)/.mlton/mlb-path-map
 FILES=apl2tail.mlb Apl2Tail.sml $(shell ls -1 tail/*.sig tail/*.sml tail/*.mlb)
+SMACKAGE ?= $(HOME)/.smackage/lib
+APLPARSE_LIB ?= $(SMACKAGE)/aplparse/v2
 
 .PHONY: all
 all: aplt
 
 aplt: aplt.mlb $(FILES) aplt.sml Makefile
-	$(MLCOMP) -output $@ $<
+	$(MLCOMP) -mlb-path-var 'APLPARSE_LIB $(APLPARSE_LIB)' -output $@ $<
 
 .PHONY: install
 install:

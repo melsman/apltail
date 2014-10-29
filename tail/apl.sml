@@ -15,9 +15,10 @@ fun vec v (vs: 'a list) : 'a t =
 fun zilde v = vec v []
 
 fun unScl s (v: 'a t) : 'a =
-    if V.length (#1 v) = 0 then V.sub(#2 v,0)
-    else raise Fail ("expecting scalar argument for " ^ s)
-
+    let val len = V.length (#1 v)
+    in if len = 0 then V.sub(#2 v,0)
+       else raise Fail ("expecting scalar argument for " ^ s ^ " - got array of rank " ^ Int.toString len)
+    end
 fun liftU f v =
     scl(f (unScl "liftU" v))
 fun liftB f (v1,v2) =
@@ -97,6 +98,24 @@ fun reduce (f: 'a t * 'a t -> 'a t) (n:'a t) (a:'a t) : 'a t =
         end
             
 fun scan _ = raise Fail "scan not implemented"
+
+fun replicate0 s toI (is,vs) =
+    let val (sh_is,vs_is,_) = is
+        val (sh_vs,vs_vs,v0) = vs
+        fun toList v = Vector.foldr (op ::) nil v
+        fun loop (0::cs,_::vs,acc) = loop(cs,vs,acc)
+          | loop (c::cs,v::vs,acc) =
+            if c < 0 then loop(c+1::cs,v::vs,v0::acc)
+            else loop(c-1::cs,v::vs,v::acc)
+          | loop (nil,nil,acc) = rev acc
+          | loop _ = raise Fail "replicate length error"
+    in if Vector.length sh_is <> 1 then raise Fail "replicate expects a vector as its first argument"
+       else if Vector.length sh_vs <> 1 then raise Fail "replicate expects a vector as its second argument"
+       else vec v0 (loop(List.map toI (toList vs_is),toList vs_vs,nil))
+    end
+
+fun replicate a = replicate0 "replicate" (fn x => x) a
+fun compress a = replicate0 "compress" (fn true => 1 | false => 0) a
 
 fun prod nil = 1
   | prod (x::xs) = x * prod xs

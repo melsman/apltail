@@ -103,8 +103,6 @@ local
   fun StoD s = Real.fromString(repair s)
 in
 
-fun b2i b = If(b, I 1, I 0)
-
 fun compOpr2_i8a2a e opr1 opr2 opr3 =
  fn (Is i1, Ais a2) => S(Ais(opr1 i1 a2))
   | (Is i1, Ads a2) => S(Ads(opr2 i1 a2))
@@ -160,6 +158,8 @@ fun compCmp opi opd =
   | (Ads a1, Ds d2) => S(Abs(each Double Bool (fn x => ret(opd(x,d2)))a1))
   | (Is i1, Ais a2) => S(Abs(each Int Bool (fn x => ret(opi(i1,x)))a2))
   | (Ds d1, Ads a2) => S(Abs(each Double Bool (fn x => ret(opd(d1,x)))a2))
+  | (Bs b1, e2) => compCmp opi opd (Is(b2i b1),e2)
+  | (e1, Bs b2) => compCmp opi opd (e1,Is(b2i b2))
   | (Is i1, e2) => compCmp opi opd (Ds(i2d i1),e2)
   | (e1, Is i2) => compCmp opi opd (e1,Ds(i2d i2))
   | (Ais a1, e2) => compCmp opi opd (Ads(each Int Double (ret o i2d) a1),e2)
@@ -201,6 +201,26 @@ fun compErr r msg =
 
 fun failWrap r f x =
     f x handle Fail s => raise Fail (s ^ " at " ^ Region.pp r)
+
+datatype classifier = BOOL_C | INT_C | DOUBLE_C | UNKNOWN_C
+local
+  val dummyIntS = Is (I 0)
+  val dummyBoolS = Bs (B false)
+  val dummyDoubleS = Ds (D 0.0)
+  fun class v =
+      case v of
+          Is _ => INT_C
+        | Bs _ => BOOL_C
+        | Ds _ => DOUBLE_C
+        | _ => UNKNOWN_C
+in
+fun classifyReduce (f: s list -> s N) : classifier =
+    case f [dummyBoolS,dummyBoolS] of
+        S v => class v
+      | M m => case runHack m of
+                   SOME v => class v
+                 | NONE => UNKNOWN_C
+end
 
 fun compileAst flags e =
     let fun comp (G:env) e (k: s*env -> s N) : s N =
@@ -310,21 +330,44 @@ fun compileAst flags e =
                                       | _ => compErr r "expecting dyadic operator")))
             | IdE(Symb L.Slash,r) => 
               k(Fs (fn [Fs (f,ii)] =>
-                       rett(Fs (fn [Ais x] => M(reduce Int (fn (x,y) =>
-                                                        subM(f[Is x,Is y] >>>= (fn Is z => rett z
-                                                                                 | _ => compErr r "expecting integer as result of reduce")))
-                                                    (I(id_item_int ii)) x Is Ais)
-                                 | [Ads x] => M(reduce Double (fn (x,y) =>
+                       rett(Fs (fn [Ads x] => M(reduce Double (fn (x,y) =>
                                                         subM(f[Ds x,Ds y] >>>= (fn Ds z => rett z
                                                                                  | _ => compErr r "expecting double as result of reduce")))
-                                                    (D(id_item_double ii)) x Ds Ads)
+                                                       (D(id_item_double ii)) x Ds Ads)
+                                 | [Ais x] => M(reduce Int (fn (x,y) =>
+                                                        subM(f[Is x,Is y] >>>= (fn Is z => rett z
+                                                                                 | _ => compErr r "expecting integer as result of reduce")))
+                                                       (I(id_item_int ii)) x Is Ais) 
+                                 | [Abs x] =>
+                                   (case classifyReduce f of
+                                        INT_C =>
+                                        M(let val x = each Bool Int (ret o b2i) x
+                                          in reduce Int (fn (x,y) =>
+                                                            subM(f[Is x,Is y] >>>= (fn Is z => rett z
+                                                                                   | _ => compErr r "expecting int as result of reduce")))
+                                                    (I(id_item_int ii)) x Is Ais
+                                          end)
+                                      | BOOL_C => 
+                                        M(reduce Bool (fn (x,y) =>
+                                                         subM(f[Bs x,Bs y] >>>= (fn Bs z => rett z
+                                                                                | _ => compErr r "expecting boolean as result of reduce")))
+                                                 (B(id_item_bool ii)) x Bs Abs)
+                                      | _ => compErr r "expecting boolean or integer as result of reduce")
                                  | [Ds x] => S(Ds x)
                                  | [Is x] => S(Is x)
                                  | _ => compErr r "expecting array as right argument to reduce",
                                 noii))
+                     | [Abs x] => rett(Fs (fn [Ais is] => S(Ais(compress x is))
+                                            | _ => compErr r "compress expects an integer array as right argument", 
+                                           noii))
+                     | [Ais x] => rett(Fs (fn [Ais is] => S(Ais(replicate (I 0) x is))
+                                            | _ => compErr r "replicate expects an integer array as right argument", 
+                                           noii))
+                     | [Ads x] => compErr r "replicate with double array argument not supported"
                      | _ => compErr r "expecting function as left argument to reduce",
                     noii), 
                 emp)
+            | IdE(Symb L.Slashbar,r) => compId G (Var "$slashbar",r) k
             | IdE(Symb L.Dot,r) =>
               (case compIdOpt G (Var "$dot",r) k of
                    SOME res => res
@@ -420,6 +463,7 @@ fun compileAst flags e =
             | IdE(Symb L.Max,r) => compPrimFunD k r (compOpr2 (uncurry maxi) (uncurry maxd)) (LRii(minInt()), LRii(Real.negInf),NOii)
             | IdE(Symb L.Min,r) => compPrimFunD k r (compOpr2 (uncurry mini) (uncurry mind)) (LRii(maxInt()), LRii(Real.posInf),NOii)
             | IdE(Symb L.Lt,r) => compPrimFunD k r (compCmp lti ltd) (NOii,NOii,NOii)
+            | IdE(Symb L.Eq,r) => compPrimFunD k r (compCmp eqi eqd) (NOii,NOii,NOii)
             | e => raise Fail ("compile.expression " ^ pr_exp e ^ " not implemented")
         and compPrimFunMD k r (mon,dya) ii =
             k(Fs (fn [x1,x2] => failWrap r dya (x1,x2)
@@ -442,7 +486,8 @@ fun compileAst flags e =
                 SOME r => r
               | NONE => 
                 let val id = AplAst.pr_id id
-                    fun consider id = if id = "$out" then ". Consider including the prelude.apl file"
+                    fun consider id = if List.exists (fn x => id = x) ["$out","$slashbar"] then 
+                                        ". Consider including the prelude.apl file"
                                       else ""
                 in compErr r ("identifier " ^ id ^ " not in the environment" ^ consider id)
                 end

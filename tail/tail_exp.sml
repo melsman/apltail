@@ -293,6 +293,22 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           in assertR "reduce" rv' r
            ; Arr bt rv
           end
+        | ("compress", [tb,ta]) =>
+          let val (btb,rb) = unArr' "compress first argument" tb
+              val (bta,ra) = unArr' "compress second argument" ta
+          in assertB "compress expects boolean array as first argument" btb BoolB
+           ; assertR "compress expects arrays of the same rank" rb ra
+           ; Arr bta ra
+          end
+        | ("replicate", [t,tb,ta]) =>
+          let val bt = unScl "replicate default element" t
+              val (btb,rb) = unArr' "replicate control argument" tb
+              val (bta,ra) = unArr' "replicate value argument" ta
+          in assertB "replicate expects default element to be compatiple with the value argument" bt bta
+           ; assertB "replicate expects integer array as control argument" btb IntB
+           ; assertR "replicate expects arrays of the same rank" rb ra
+           ; Arr bta ra
+          end
         | ("each", [tf,tv]) =>
           let val (bt,r) = unArr' "each" tv
               val (bt1,bt2) = unFun' "first argument to each" tf
@@ -322,6 +338,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
              Arr t rv
           end
         | ("i2d",[t]) => (assert_sub opr t Int; Double)
+        | ("b2i",[t]) => (assert opr t Bool; Int)
         | ("negi",[t]) => 
           let fun default() = (assert_sub opr t Int; Int)
           in case unSii t of
@@ -558,6 +575,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           in case (opr,es) of
                  ("zilde", []) => Apl.zilde (default t)
                | ("i2d", [e]) => Apl.liftU (fn Ib i => Db(real i) | _ => raise Fail "eval:i2d") (eval DE e)
+               | ("b2i", [e]) => Apl.liftU (fn Bb b => Ib(if b then 1 else 0) | _ => raise Fail "eval:b2i") (eval DE e)
                | ("negi", [e]) => Apl.liftU (fn Ib i => Ib(~i) | _ => raise Fail "eval:negi") (eval DE e)
                | ("absi", [e]) => Apl.liftU (fn Ib i => Ib(Int.abs i) | _ => raise Fail "eval:absi") (eval DE e)
                | ("negd", [e]) => Apl.liftU (fn Db i => Db(Real.~i) | _ => raise Fail "eval:negd") (eval DE e)
@@ -598,6 +616,14 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                      val n = eval DE n
                      val a = eval DE a
                  in Apl.reduce (applyBin F) n a
+                 end
+               | ("compress", [e1,e2]) => 
+                 let val v1 = Apl.map (fn Bb b => b | _ => raise Fail "eval:compress") (eval DE e1)
+                 in Apl.compress(v1,eval DE e2)
+                 end
+               | ("replicate", [_,e1,e2]) => 
+                 let val v1 = Apl.map (fn Ib i => i | _ => raise Fail "eval:replicate") (eval DE e1)
+                 in Apl.replicate(v1,eval DE e2)
                  end
                | ("each", [e1,e2]) =>
                  let val (DE0,v,t,e,t') = unFb(Apl.unScl"eval:each"(eval DE e1))

@@ -45,6 +45,7 @@ fun negd x = Op_e("negd",[x])
 fun absd x = Op_e("absd",[x])
 
 val i2d = fn x => Op_e ("i2d", [x])
+val b2i = fn x => Op_e ("b2i", [x])
 val op % = binOp "mod"
 
 fun If (b,e1,e2) = Iff_e(b,e1,e2)
@@ -59,7 +60,13 @@ type DOUBLE = exp
 type BOOL = exp
                 
 type 'a M = ('a -> exp) -> exp
-                               
+         
+fun runHack (m : 'a M) : 'a option =
+    let exception RunHack of 'a
+    in (m (fn x => raise RunHack x); NONE)
+       handle RunHack x => SOME x
+    end
+
 fun ret (v:'a) : 'a M = fn k => k v
 
 infix >>=
@@ -177,6 +184,10 @@ fun reduce t f e1 e2 s a =
          | r => binm t t "reduce" f e1 e2 >>= 
                      (fn e => ret(if r=1 then s e else a e))
     end
+
+fun compress b a = Op_e("compress",[b,a])
+fun replicate v b a = Op_e("replicate",[v,b,a])
+
 fun transpose e = Op_e("transp", [e])
 fun transpose2 e1 e2 = Op_e("transp2", [e1,e2])
 fun reverse e = Op_e("reverse", [e])
@@ -224,6 +235,8 @@ and peepOp E (opr,es,t) =
       | ("negi", [I i]) => I(Int.~ i)
       | ("absi", [I i]) => I(Int.abs i)
       | ("i2d", [I i]) => D(real i)
+      | ("b2i", [B true]) => I 1
+      | ("b2i", [B false]) => I 0
       | ("reduce", [f,n,Op("zilde",[],_)]) => n
       | ("reverse", [Vc(es,t)]) => Vc(rev es, t)
       | ("shape", [e]) => (case getShape E e of
@@ -343,6 +356,7 @@ fun prInstanceLists opr es t =
     in case (opr, ts) of
            ("each", [tf,ta]) => wrap [bt ta,bt t] [rnk t]
          | ("reduce", [tf,te,ta]) => wrap [bt te] [rnk t]
+         | ("compress", [_,ta]) => wrap [bt ta] [rnk t]
          | ("shape", [ta]) => wrap [bt ta] [rnk ta] 
          | ("take", [_,ta]) => wrap [bt ta] [rnk ta]
          | ("drop", [_,ta]) => wrap [bt ta] [rnk ta] 

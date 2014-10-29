@@ -35,5 +35,8 @@ signature APL = sig
   val first     : 'a t -> 'a t
   val iff       : bool t * (unit -> 'a t) * (unit -> 'a t) -> 'a t
 
+  val compress  : bool t * 'a t -> 'a t
+  val replicate : int t * 'a t -> 'a t
+
   val pr        : ('a -> string) -> 'a t -> string
 end

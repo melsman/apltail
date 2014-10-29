@@ -36,6 +36,7 @@ signature TAIL = sig
   val B        : bool -> BOOL
   val %        : INT * INT -> INT
   val i2d      : INT -> DOUBLE
+  val b2i      : BOOL -> INT
   val If       : BOOL * 'a t * 'a t -> 'a t
   val fromList : 'a T -> 'a t list -> 'a v
   val fromListM : 'a T -> 'a t list -> 'a v M
@@ -46,7 +47,9 @@ signature TAIL = sig
                  -> 'b T -> 'b t M -> (unit,'b) prog
   val runF     : 'a T * 'b T -> ('a t -> 'b t M) -> ('a,'b) prog
   val outprog  : bool -> string -> ('a,'b)prog -> unit
- 
+  val runHack  : 'a M -> 'a option 
+
+
   (* Values and Evaluation *)
   type 'a V
   val Iv       : int -> Int Num V
@@ -139,6 +142,9 @@ signature TAIL = sig
   val outer   : 'a T -> 'b T -> ('a t * 'b t -> 'c t M) -> 'a m -> 'b m -> 'c m M
 
   val reduce  : 'a T -> ('a t * 'a t -> 'a t M) -> 'a t -> 'a m -> ('a t -> 'b) -> ('a m -> 'b) -> 'b M
+
+  val compress  : Bool m -> 'a m -> 'a m
+  val replicate : 'a t -> Int Num m -> 'a m -> 'a m
 
   val transpose : 'a m -> 'a m
   val transpose2 : Int Num v -> 'a m -> 'a m
