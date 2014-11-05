@@ -1,6 +1,6 @@
 ## Compiling APL
 
-Language
+Source language
 
     e ::= i | e1;e2 | e1+e2 | x<-e | x | lam e | x(e)  
 
@@ -11,7 +11,6 @@ Dynamically typed __terms__:
 
   datatype s =          (* Terms *)
       Is of INT         (*   integer *)
-    | Ds of DOUBLE      (*   double *)
     | Ais of mi         (*   integer array *)
     | Fs of s -> s M    (*   function in-lining *)
 ```

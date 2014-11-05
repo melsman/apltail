@@ -14,10 +14,10 @@ datatype b = IntT
            | BoolT
            | Bv of bv 
 withtype bty = b uref
-datatype t = ShT of rnk
-           | SiT of rnk
-           | ViT of rnk
-           | ArrT of bty * rnk
+datatype t = ArrT of bty * rnk
+           | VccT of bty * rnk
+           | ST   of bty * rnk
+           | SVT  of bty * rnk
            | FunT of typ * typ 
            | TyvT of tv
 withtype typ = t uref
@@ -33,24 +33,32 @@ in fun RnkVarCon f : rnk = uref(Rv(newcount "'r" (),f))
    fun TyVar ()    : typ = uref(TyvT(newcount "'a" ()))
 end
 
-fun rnk n = uref (R n)
-val rnk0 = rnk 0
-val rnk1 = rnk 1
+val rnk0 = uref (R 0)
+val rnk1 = uref (R 1)
+fun rnk 0 = rnk0
+  | rnk 1 = rnk1
+  | rnk n = uref (R n)
 fun unRnk r = case !!r of R i => SOME i | _ => NONE
 
-local fun Scl b = uref (ArrT(b,rnk0))
-in val IntB    = uref IntT
-   val DoubleB = uref DoubleT
-   val BoolB   = uref BoolT
-   val Int     = Scl IntB
-   val Double  = Scl DoubleB
-   val Bool    = Scl BoolB
-end
-fun Sh r = uref(ShT r)
-fun Si r = uref(SiT r)
-fun Vi r = uref(ViT r)
+val IntB    = uref IntT
+val DoubleB = uref DoubleT
+val BoolB   = uref BoolT
+
 fun Arr bt r = uref(ArrT(bt,r))
+fun Vcc bt r = uref(VccT(bt,r))
+fun S   bt r = uref(ST(bt,r))
+fun SV  bt r = uref(SVT(bt,r))
 fun Fun (t1,t2) = uref(FunT(t1,t2))
+
+fun Scl bt  = Arr bt rnk0
+fun VecB bt = Arr bt rnk1
+val Int     = Scl IntB
+val Double  = Scl DoubleB
+val Bool    = Scl BoolB
+
+val Sh = Vcc IntB
+val Si = S IntB
+val Vi = SV IntB
 
 fun prR r = case r of R i => Int.toString i | Rv (rv,_) => rv
 and prRnk r = prR (!!r)
@@ -63,26 +71,36 @@ and prB b =
 and prBty bty = prB(!!bty)
 and prT t =
     case t of
-        ShT r => "Sh(" ^ prRnk r ^ ")"
-      | SiT r => "Si(" ^ prRnk r ^ ")"
-      | ViT r => "Vi(" ^ prRnk r ^ ")"
-      | ArrT (bt,r) => "[" ^ prBty bt ^ "]" ^ prRnk r
-      | FunT (t1,t2) => "(" ^ prTy t1 ^ ")->" ^ prTy t2
+        ArrT (bt,r) => "[" ^ prBty bt ^ "]" ^ prRnk r
+      | VccT (bt, r) => "<" ^ prBty bt ^ ">" ^ prRnk r
+      | ST (bt,r) => "S(" ^ prBty bt ^ "," ^ prRnk r ^ ")"
+      | SVT (bt,r) => "SV(" ^ prBty bt ^ "," ^ prRnk r ^ ")"
+      | FunT (t1,t2) => "(" ^ prType t1 ^ ")->" ^ prType t2
       | TyvT tv => tv
-and prTy t = prT(!!t)
-val prType = prTy
+and prType t = prT(!!t)
 
 fun unArr t = case !!t of ArrT p => SOME p | _ => NONE
-fun unSh t = case !!t of ShT r => SOME r | _ => NONE
-fun unSi t = case !!t of SiT r => SOME r | _ => NONE
-fun unVi t = case !!t of ViT r => SOME r | _ => NONE
+fun unVcc t = case !!t of VccT p => SOME p | _ => NONE
+fun unS   t = case !!t of ST p   => SOME p | _ => NONE
+fun unSV  t = case !!t of SVT p  => SOME p | _ => NONE
 fun unFun t = case !!t of FunT p => SOME p | _ => NONE
 
 fun comb f1 f2 t = case f1 t of NONE => f2 t | x => x
 fun check f t = case f t of SOME s => raise Fail s | NONE => ()
-fun isInt bt = case !!bt of IntT => true | _ => false
+
+fun isInt    bt = case !!bt of IntT    => true | _ => false
 fun isDouble bt = case !!bt of DoubleT => true | _ => false
-fun isBool bt = case !!bt of BoolT => true | _ => false
+fun isBool   bt = case !!bt of BoolT   => true | _ => false
+
+fun Vec t =
+    case unArr t of
+        SOME (bt, r) =>
+        (case unRnk r of
+             SOME 0 => VecB bt
+           | _ => raise Fail "Vec assumes a known scalar type argument")
+      | NONE => case unS t of
+                    SOME (bt,_) => VecB bt
+                  | NONE => raise Fail "Vec assumes a known scalar type argument"
 
 fun combB (b1,b2) =
     case (b1,b2) of
@@ -98,10 +116,10 @@ and combT (t1,t2) =
         (TyvT _, _) => t2
       | (_, TyvT _) => t1
       | (t as ArrT (b1,r1), ArrT (b2,r2)) => (unifB b1 b2; unifR r1 r2; t) 
+      | (t as VccT (b1,r1), VccT (b2,r2)) => (unifB b1 b2; unifR r1 r2; t) 
+      | (t as ST   (b1,r1), ST   (b2,r2)) => (unifB b1 b2; unifR r1 r2; t) 
+      | (t as SVT  (b1,r1), SVT  (b2,r2)) => (unifB b1 b2; unifR r1 r2; t) 
       | (t as FunT (t1,t2), FunT (t1',t2')) => (unif t1 t1'; unif t2 t2'; t)
-      | (ShT r1, ShT r2) => (unifR r1 r2; t1)
-      | (SiT r1, SiT r2) => (unifR r1 r2; t1)
-      | (ViT r1, ViT r2) => (unifR r1 r2; t1)
       | _ => raise Fail ("cannot unify " ^ prT t1 ^ " and " ^ prT t2)
 and unif t1 t2 = URef.unify combT (t1,t2)
 and combR (r1,r2) =
@@ -116,34 +134,36 @@ and unifR r1 r2 = URef.unify combR (r1,r2)
 fun relateR _ = raise Fail "relateR not implemented"
 fun relateR2 _ = raise Fail "relateR2 not implemented"
 
-fun Vec t =
-    let val bt = TyVarB()
-        val r = rnk0
-    in unif t (Arr bt r);
-       Arr bt rnk1
-    end
-
 fun wrap f x y = (f x y; NONE) handle Fail s => SOME s
 val unify = wrap unif
 val unifyR = wrap unifR
 val unifyB = wrap unifB
 
+(* The applications of unify below should be replaced with conditional unifications *)
+
+fun unify_btr (bt1,r1) (bt2,r2) =
+    (unifyB bt1 bt2; unifyR r1 r2)
+
 fun subtype t1 t2 =
-    case unSi t1 of
-        SOME r1 => (case unSi t2 of
-                        SOME r2 => unifyR r1 r2
-                      | NONE => unify t2 Int)
+    case unS t1 of
+        SOME btr1 => (case unS t2 of
+                          SOME btr2 => unify_btr btr1 btr2
+                        | NONE => unify t2 (Scl (#1 btr1))
+                     )
       | NONE => 
-        case unVi t1 of
-            SOME r1 => (case unVi t2 of
-                            SOME r2 => unifyR r1 r2
-                          | NONE => case unSh t2 of
-                                        SOME r => unifyR rnk1 r
-                                      | NONE => unify t2 (Vec Int))
+        case unSV t1 of
+            SOME btr1 => (case unSV t2 of
+                              SOME btr2 => unify_btr btr1 btr2
+                            | NONE => case unVcc t2 of
+                                          SOME (bt2,r2) => (unifyB (#1 btr1) bt2; 
+                                                            unifyR rnk1 r2)
+                                        | NONE => unify t2 (VecB (#1 btr1))
+                         )
           | NONE =>
-            case unSh t1 of
-                SOME r1 => (case unSh t2 of
-                                SOME r2 => unifyR r1 r2
-                              | NONE => unify t2 (Vec Int))
+            case unVcc t1 of
+                SOME btr1 => (case unVcc t2 of
+                                  SOME btr2 => unify_btr btr1 btr2
+                                | NONE => unify t2 (VecB (#1 btr1))
+                             )
               | NONE => unify t1 t2
 end            

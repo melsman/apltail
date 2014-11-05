@@ -25,7 +25,9 @@ val muli = binOp "muli"
 val divi = binOp "divi"
 val resi = binOp "resi"
 val lti  = binOp "lti"
-val leqi = binOp "leqi"
+val ltei = binOp "ltei"
+val gti  = binOp "gti"
+val gtei = binOp "gtei"
 val eqi  = binOp "eqi"
 val maxi = binOp' "maxi"
 val mini = binOp' "mini"
@@ -37,12 +39,25 @@ val muld = binOp "muld"
 val divd = binOp "divd"
 val resd = binOp "resd"
 val ltd  = binOp "ltd"
-val leqd = binOp "leqd"
+val lted = binOp "lted"
+val gtd  = binOp "gtd"
+val gted = binOp "gted"
 val eqd  = binOp "eqd"
 val maxd = binOp' "maxd"
 val mind = binOp' "mind"
 fun negd x = Op_e("negd",[x])
 fun absd x = Op_e("absd",[x])
+
+val andb  = binOp "andb"
+val orb   = binOp "orb"
+val eqb  = binOp "eqb"
+val xorb  = binOp "xorb"
+val nandb = binOp "nandb"
+val norb  = binOp "norb"
+fun notb x = Op_e("notb",[x])
+
+val neqd = notb o eqd
+val neqi = notb o eqi
 
 val i2d = fn x => Op_e ("i2d", [x])
 val b2i = fn x => Op_e ("b2i", [x])
@@ -73,8 +88,6 @@ infix >>=
 fun (f : 'a M) >>= (g : 'a -> 'b M) : 'b M =
    fn k => f (fn x => g x k)
 
-fun fromListM t x = ret(fromList t x)
-
 (* Compiled Programs *)
 type ('a,'b) prog = exp
 fun runF _ f = f (Var("arg",TyVar())) (fn x => x)
@@ -97,8 +110,8 @@ end
 
 type 'a MVec = unit
 type 'a m = exp
-fun zilde _ = Op_e("zilde",nil)
-fun scl _ t = t
+fun zilde () = Op_e("zilde",nil)
+fun scl t = t
 fun scalar t = Vc_e[t]
 fun vec t = t
 fun iota t = Op_e("iota",[t])
@@ -108,37 +121,35 @@ fun siz t = Op_e("siz",[t])
 fun dim t = Op_e("dim",[t])   (* or I(#2 t) *)
 fun rav t = Op_e("rav",[t])
 fun rav0 t = t
-fun each t _ f e =
+fun each f e =
     let val v = newVar()
+        val t = TyVar()
         val e0 = f (Var(v,t)) (fn x => x)
     in Op_e("each",[Fn_e(v,t,e0),e])
     end
-fun mkFn2 t1 t2 f =
+fun mkFn2 f =
     let val (v1, v2) = (newVar(), newVar())
+        val (t1, t2) = (TyVar(), TyVar())
         val e0 = f (Var(v1,t1), Var(v2,t2))
     in Fn_e(v1,t1,Fn_e(v2,t2,e0))
     end
-fun mkFn2m t1 t2 f = mkFn2 t1 t2 (fn a => f a (fn x=>x))
-fun bin t1 t2 s f e1 e2 =
-    ret(Op_e(s,[mkFn2 t1 t2 f,e1,e2]))
-fun binm t1 t2 s f e1 e2 = 
-    bin t1 t2 s (fn a => f a (fn x => x)) e1 e2
-fun red t1 t2 f n e = binm t1 t2 "red" f n e
-fun meq t f e1 e2 = bin t t "meq" f e1 e2
+fun mkFn2m f = mkFn2 (fn a => f a (fn x=>x))
+
+fun red f n e = Op_e("red",[mkFn2 f,n,e])
 fun mif (b,e1,e2) = If(b,e1,e2)
-fun zipWith t1 t2 _ f e1 e2 = binm t1 t2 "zipWith" f e1 e2
-fun scan t1 t2 f e1 e2 = bin t1 t2 "scan" f e1 e2
+fun zipWith f e1 e2 = Op_e("zipWith",[mkFn2m f,e1,e2])
+fun scan f e1 e2 = Op_e("scan",[mkFn2 f,e1,e2])
 fun getRank s e =
     let fun fail s = raise Fail ("rank error: " ^ s ^ 
                                  " not supported for arguments of unknown rank")
         val t = typeOf e
-    in case unSi t of
+    in case unS t of
            SOME _ => 0
          | NONE =>
-       case unVi t of
+       case unSV t of
            SOME _ => 1
          | NONE =>
-       case unSh t of
+       case unVcc t of
            SOME _ => 1 
          | NONE => 
        case unArr t of
@@ -147,12 +158,12 @@ fun getRank s e =
          | NONE => fail s
     end
 fun catenate e1 e2 =
-    let fun cat () = ret(Op_e("cat", [e1,e2]))
-        fun cons () = ret(Op_e("cons",[e1,e2]))
-        fun snoc () = ret(Op_e("snoc",[e1,e2]))
+    let fun cat () = Op_e("cat", [e1,e2])
+        fun cons () = Op_e("cons",[e1,e2])
+        fun snoc () = Op_e("snoc",[e1,e2])
         open Int
     in case (getRank "cat" e1, getRank "cat" e2) of
-           (0, 0) => ret(Vc_e[e1,e2])
+           (0, 0) => Vc_e[e1,e2]
          | (r1, r2) => if r2=r1+1 then cons()
                        else if r1=r2+1 then snoc()
                        else if r1=r2 then cat()
@@ -161,29 +172,27 @@ fun catenate e1 e2 =
     end
 fun take e1 e2 = Op_e("take", [e1,e2])
 fun drop e1 e2 = Op_e("drop", [e1,e2])
-fun mem e = ret(Op_e("mem",[e]))
+fun mem e = Op_e("mem",[e])
 fun rotate e1 e2 = Op_e("rotate", [e1,e2])
-fun reshape e1 e2 = ret(Op_e("reshape", [e1,e2]))
+fun reshape e1 e2 = Op_e("reshape", [e1,e2])
 fun shape e = Op_e("shape",[e])
-fun prod t f g e m1 m2 s a =
+fun prod f g e m1 m2 s a =
     let open Int
         val r = case (getRank "prod" m1, getRank "prod" m2) of
                     (0,_) => raise Fail "rank error: prod1"
                   | (_,0) => raise Fail "rank error: prod2"
                   | (r1,r2) => r1+r2-2
-        val res = Op_e("prod",[mkFn2m t t f,mkFn2m t t g,e,m1,m2])
+        val res = Op_e("prod",[mkFn2m f,mkFn2m g,e,m1,m2])
     in if r < 0 then raise Fail "rank error: prod3"
-       else if r = 0 then ret(s res)
-       else ret(a res)
+       else if r = 0 then s res
+       else a res
     end
-fun outer t1 t2 f e1 e2 = binm t1 t2 "outer" f e1 e2
-fun reduce t f e1 e2 s a =
-    let open Int
-    in case getRank "reduce" e2 of
-           0 => ret(s e2)
-         | r => binm t t "reduce" f e1 e2 >>= 
-                     (fn e => ret(if r=1 then s e else a e))
-    end
+fun reduce f e1 e2 s a =
+    case getRank "reduce" e2 of
+        0 => s e2
+      | r => let val e = Op_e("reduce",[mkFn2m f,e1,e2])
+             in if r=1 then s e else a e
+             end
 
 fun compress b a = Op_e("compress",[b,a])
 fun replicate v b a = Op_e("replicate",[v,b,a])
@@ -192,20 +201,33 @@ fun transpose e = Op_e("transp", [e])
 fun transpose2 e1 e2 = Op_e("transp2", [e1,e2])
 fun reverse e = Op_e("reverse", [e])
 fun catenate_first e1 e2 =
-    catenate (transpose e1) (transpose e2) >>= (ret o transpose)
-fun lett _ e = 
+    transpose(catenate (transpose e1) (transpose e2))
+fun lett' e f =
+    let val v = newVar()
+        val t = typeOf e
+    in Let_e(v,t,e,f(Var(v,t)))
+    end
+fun lett e = 
     let val v = newVar()
         val t = typeOf e
     in fn f => Let_e(v,t,e,f(Var(v,t)))
     end
 
-fun letm _ e =
+fun letm e =
     let val v = newVar()
         val t = typeOf e
     in fn f => Let_e(v,t,e,f(Var(v,t)))
     end
 
-val letm_asgn = letm
+local fun pr s x = Op_e(s,[x])
+in
+val prArrI = pr "prArrI"
+val prArrB = pr "prArrB"
+val prArrD = pr "prArrD"
+val prSclI = pr "prSclI"
+val prSclB = pr "prSclB"
+val prSclD = pr "prSclD"
+end
 
 (* Optimization *)
 
@@ -237,39 +259,44 @@ and peepOp E (opr,es,t) =
       | ("i2d", [I i]) => D(real i)
       | ("b2i", [B true]) => I 1
       | ("b2i", [B false]) => I 0
+      | ("b2iV", [B true]) => I 1
+      | ("b2iV", [B false]) => I 0
       | ("reduce", [f,n,Op("zilde",[],_)]) => n
       | ("reverse", [Vc(es,t)]) => Vc(rev es, t)
       | ("shape", [e]) => (case getShape E e of
                                SOME e => e
                              | NONE => Op (opr,[e],t))
-      | ("shapeSh", [e]) => (case getShape E e of
+      | ("shapeV", [e]) => (case getShape E e of
                                  SOME e => e
                                | NONE => Op (opr,[e],t))
-      | ("dropSh", [I n,Vc(es,_)]) =>
-        if n >= 0 andalso n < length es then Vc(List.drop(es,n),t)
-        else if n < 0 andalso ~n < length es then Vc(List.take(es,length es + n),t)
+      | ("dropV", [I n,Vc(es',_)]) =>
+        if n >= 0 andalso n < length es' then Vc(List.drop(es',n),t)
+        else if n < 0 andalso ~n < length es' then Vc(List.take(es',length es' + n),t)
         else Op(opr,es,t)
-      | ("takeSh", [I n,Vc(es,_)]) =>
-        if n >= 0 andalso n < length es then Vc(List.take(es,n),t)
-        else if n < 0 andalso ~n < length es then Vc(List.drop(es,length es + n),t)
+      | ("takeV", [I n,Vc(es',_)]) =>
+        if n >= 0 andalso n < length es' then Vc(List.take(es',n),t)
+        else if n < 0 andalso ~n < length es' then Vc(List.drop(es',length es' + n),t)
         else Op(opr,es,t)
-      | ("firstSh", [Vc(e::es,t)]) => e
+      | ("firstV", [Vc(e::es,t)]) => e
       | ("first", [Vc(e::es,t)]) => e
       | ("transp2", [Vc([I 2,I 1],_),e]) => Op("transp", [e],t)
-      | ("catSh", [Vc(es1,_),Vc(es2,_)]) => Vc(es1@es2,t)
-      | ("snocSh", [Vc(es,_),e]) => Vc(es@[e],t)
-      | ("iotaSh",[I n]) => if n <= 3 then Vc(List.map I (List.tabulate (n,fn x => x+1)),t)
-                            else Op(opr,es,t)
-      | ("rotateSh", [I n,Vc(es,_)]) => Vc(rot n es,t)
+      | ("catV", [Vc(es1,_),Vc(es2,_)]) => Vc(es1@es2,t)
+      | ("snocV", [Vc(es,_),e]) => Vc(es@[e],t)
+      | ("iotaV",[I n]) => if n <= 3 then Vc(List.map I (List.tabulate (n,fn x => x+1)),t)
+                           else Op(opr,es,t)
+      | ("eachV", [Fn(v,_,Op("b2i",[Var (v',_)],t'),_),Vc(es',_)]) =>
+        if v=v' then Vc(List.map (fn e => peepOp E ("b2i",[e],t')) es',t)
+        else Op(opr,es,t)
+      | ("rotateV", [I n,Vc(es,_)]) => Vc(rot n es,t)
       | _ => Op(opr,es,t)
                
 and getShape (E:env) (e : Exp.exp) : Exp.exp option =
     let fun tryType() =
-            case unSh (typeOf e) of
+            case unVcc (typeOf e) of
                 NONE => NONE
-              | SOME r => case unRnk r of
-                              NONE => NONE
-                            | SOME i => SOME (Vc([I i],Vi r))
+              | SOME (bt,r) => case unRnk r of
+                                   NONE => NONE
+                                 | SOME i => SOME (Vc([I i],SV IntB r))
     in case tryType() of
            SOME e => SOME e
          | NONE =>
@@ -278,7 +305,7 @@ and getShape (E:env) (e : Exp.exp) : Exp.exp option =
          | Var(v,_) => (case M.lookup E v of
                             SOME{shape=SOME sh,...} => SOME sh
                           | _ => NONE)
-         | Vc(es,_) => SOME(Vc([I(length es)],Vi(rnk(length es))))
+         | Vc(es,_) => SOME(Vc([I(length es)],SV IntB (rnk(length es))))
          | Op("transp", [e], _) =>
            (case getShape E e of
                 SOME sh => SOME(peepOp E ("reverse",[sh],typeOf sh))
@@ -339,12 +366,12 @@ fun prInstanceLists opr es t =
     let fun unArr' at =       (* return the base type and the rank of an array *)
             case unArr at of
                 SOME p => p
-              | NONE => case unSh at of
-                            SOME _ => (IntB, T.rnk 1)
-                          | NONE => case unVi at of
-                                        SOME _ => (IntB, T.rnk 1)
-                                      | NONE => case unSi at of
-                                                    SOME _ => (IntB, T.rnk 0)
+              | NONE => case unVcc at of
+                            SOME (bt,_) => (bt, T.rnk 1)
+                          | NONE => case unSV at of
+                                        SOME (bt,_) => (bt, T.rnk 1)
+                                      | NONE => case unS at of
+                                                    SOME (bt,_) => (bt, T.rnk 0)
                                                   | NONE => raise Fail ("Tail.unArr': " ^ opr)
             
         val rnk = #2 o unArr'  (* return the rank of an array *)
@@ -355,6 +382,7 @@ fun prInstanceLists opr es t =
         val none = ""
     in case (opr, ts) of
            ("each", [tf,ta]) => wrap [bt ta,bt t] [rnk t]
+         | ("eachV", [tf,ta]) => wrap [bt ta,bt t] [rnk t] 
          | ("reduce", [tf,te,ta]) => wrap [bt te] [rnk t]
          | ("compress", [_,ta]) => wrap [bt ta] [rnk t]
          | ("shape", [ta]) => wrap [bt ta] [rnk ta] 
@@ -404,7 +432,8 @@ fun pp_exp (prtype:bool) e =
                 Var (v,_) => $v
               | I i => $(Int.toString i)
               | D r => $(Real.fmt (StringCvt.FIX (SOME 2)) r)
-              | B b => $(Bool.toString b)
+              | B true => $"tt"
+              | B false => $"ff"
               | Iff (c,e1,e2,_) => 
                 let val i' = i + 2
                 in $"if " @@ pp (i+3) c @@ $" then" @@

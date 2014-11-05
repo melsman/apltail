@@ -1,0 +1,4 @@
+[Reading file: ../prelude.apl]
+[Reading file: cons.apl]
+Resolve Error: cons.apl:2.17-2.21.
+  dyadic operator not yet supported for e2: Gt; e1: 31

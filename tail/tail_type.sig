@@ -5,17 +5,17 @@
       r ::=                          Ranks
              rv                         rank variable
              i                          immediate rank
-      b ::=                          Base types
+      k ::=                          Base types
              bv                         base type variable
              int                        integer
              double                     double
              bool                       boolean
       t ::=                          Types
              tv                         type variable
-             [b]r                       array type with base type b and rank r
-             Sh r                       integer vector of length r (i.e., shape vector)
-             Si r                       singleton integer with value r
-             Vi r                       singleton one-element vector containing the value r
+             [k]r                       array type with base type b and rank r
+             <k>r                       vector type with base type b and length r (i.e., shape vector)
+             S_k(r)                     singleton type of base type b and value r
+             SV_k(r)                    singleton one-element vector type containing the value r of type b
              t -> t                     function type
 *)
 
@@ -46,20 +46,27 @@ signature TAIL_TYPE = sig
 
   (* Types *)
   type typ
+  val Arr      : bty -> rnk -> typ         (* Array type [k]r *)
+  val Vcc      : bty -> rnk -> typ         (* Vector type <k>r *)
+  val S        : bty -> rnk -> typ         (* singleton *)
+  val SV       : bty -> rnk -> typ         (* singleton vector *)
+  val Fun      : typ * typ -> typ
+
+  (* Type abbreviations *)
   val Int      : typ
   val Bool     : typ
   val Double   : typ
-  val Fun      : typ * typ -> typ
-  val Sh       : rnk -> typ                (* Integer-vectors of a certain length *)
-  val Si       : rnk -> typ                (* Singleton integer *)
-  val Vi       : rnk -> typ                (* Singleton one-element integer-vector *)
-  val Arr      : bty -> rnk -> typ
-  val Vec      : typ -> typ                (* assert argument is a scalar type *)
+  val Scl      : bty -> typ                (* [bty]0 *)
+  val VecB     : bty -> typ                (* [bty]1 *)
+  val Vec      : typ -> typ                (* asserts argument is scalar *)
+
+  (* Type deconstructors *)
   val unArr    : typ -> (bty * rnk) option
-  val unSh     : typ -> rnk option
-  val unSi     : typ -> rnk option
-  val unVi     : typ -> rnk option
+  val unVcc    : typ -> (bty * rnk) option
+  val unS      : typ -> (bty * rnk) option
+  val unSV     : typ -> (bty * rnk) option
   val unFun    : typ -> (typ * typ) option
+
   val TyVar    : unit -> typ
   val subtype  : typ -> typ -> string option
   val unify    : typ -> typ -> string option
