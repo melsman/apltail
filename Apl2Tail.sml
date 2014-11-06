@@ -272,11 +272,19 @@ fun compileAst flags e =
                  SOME d => k (Ds(D d),emp)
                | NONE => compErr r ("Expecting double, got " ^ s))
             | AssignE(v,e,_) => 
-              let fun cont f x = let val t = f x in k(t,[(Var v,t)]) end
-              in comp G e (fn (Ais a,_) => M(letm a) >>>= cont Ais
-                          | (Ads a,_) => M(letm a) >>>= cont Ads
-                          | (Is a,_) => M(lett a) >>>= cont Is
-                          | (Ds a,_) => M(lett a) >>>= cont Ds
+              let fun cont f x = 
+                      let val t = f x
+                      in k(t,[(Var v,t)])
+                      end
+                  fun pp p a = if v = "$Quad" then p a else a
+                  fun contA p f a = M(letm (pp p a)) >>>= cont f
+                  fun contS p f a = M(lett (pp p a)) >>>= cont f
+              in comp G e (fn (Ais a,_) => contA prArrI Ais a
+                          | (Ads a,_) => contA prArrD Ads a
+                          | (Abs a,_) => contA prArrB Abs a
+                          | (Is a,_) => contS prSclI Is a
+                          | (Ds a,_) => contS prSclD Ds a
+                          | (Bs a,_) => contS prSclB Bs a
                           | (s,_) => k(s,[(Var v,s)]))
               end
             | SeqE ([],r) => compErr r "empty sequence"

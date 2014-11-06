@@ -263,6 +263,7 @@ and peepOp E (opr,es,t) =
       | ("b2iV", [B false]) => I 0
       | ("reduce", [f,n,Op("zilde",[],_)]) => n
       | ("reverse", [Vc(es,t)]) => Vc(rev es, t)
+      | ("rotateV", [I 0,e]) => e
       | ("shape", [e]) => (case getShape E e of
                                SOME e => e
                              | NONE => Op (opr,[e],t))
@@ -270,16 +271,17 @@ and peepOp E (opr,es,t) =
                                  SOME e => e
                                | NONE => Op (opr,[e],t))
       | ("dropV", [I n,Vc(es',_)]) =>
-        if n >= 0 andalso n < length es' then Vc(List.drop(es',n),t)
-        else if n < 0 andalso ~n < length es' then Vc(List.take(es',length es' + n),t)
+        if n >= 0 andalso n <= length es' then Vc(List.drop(es',n),t)
+        else if n < 0 andalso ~n <= length es' then Vc(List.take(es',length es' + n),t)
         else Op(opr,es,t)
       | ("takeV", [I n,Vc(es',_)]) =>
-        if n >= 0 andalso n < length es' then Vc(List.take(es',n),t)
-        else if n < 0 andalso ~n < length es' then Vc(List.drop(es',length es' + n),t)
+        if n >= 0 andalso n <= length es' then Vc(List.take(es',n),t)
+        else if n < 0 andalso ~n <= length es' then Vc(List.drop(es',length es' + n),t)
         else Op(opr,es,t)
       | ("firstV", [Vc(e::es,t)]) => e
       | ("first", [Vc(e::es,t)]) => e
       | ("transp2", [Vc([I 2,I 1],_),e]) => Op("transp", [e],t)
+      | ("transp2", [Vc([_],_),e]) => e
       | ("catV", [Vc(es1,_),Vc(es2,_)]) => Vc(es1@es2,t)
       | ("snocV", [Vc(es,_),e]) => Vc(es@[e],t)
       | ("iotaV",[I n]) => if n <= 3 then Vc(List.map I (List.tabulate (n,fn x => x+1)),t)
@@ -287,6 +289,7 @@ and peepOp E (opr,es,t) =
       | ("eachV", [Fn(v,_,Op("b2i",[Var (v',_)],t'),_),Vc(es',_)]) =>
         if v=v' then Vc(List.map (fn e => peepOp E ("b2i",[e],t')) es',t)
         else Op(opr,es,t)
+      | ("catV", [Vc([],_),e]) => e
       | ("rotateV", [I n,Vc(es,_)]) => Vc(rot n es,t)
       | _ => Op(opr,es,t)
                

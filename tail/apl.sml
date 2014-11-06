@@ -238,7 +238,7 @@ fun rotate (i : int t, a: 'a t) : 'a t =
     let val i = unScl "rotate" i
         val sh = #1 a
         val p = prod (list sh)
-        fun find i = if i > 0 then i
+        fun find i = if i >= 0 then i
                      else find (p + i)
         val i = find i
     in if V.length sh > 1 then
@@ -285,8 +285,27 @@ fun iff (b : bool t, f1,f2) =
 fun pr p (a: 'a t) : string =
     let fun prv p s e v =
             s ^ String.concatWith "," (List.map p (list v)) ^ e
-    in prv Int.toString "[" "]" (#1 a) ^
-       prv p "(" ")" (#2 a)
+        val shape = #1 a
+        val values = #2 a
+        fun flat () =
+            (prv Int.toString "[" "]" (shape) ^
+             prv p "(" ")" values)
+    in case list shape of
+           [X,Y] =>
+           let val values = List.map p (list values)
+               val sz = List.foldl Int.max 0 (List.map size values)
+               fun padn 0 = ""
+                 | padn n = " " ^ padn (n-1)
+               fun pad v = padn (sz-size v) ^ v
+               fun loop [] = nil
+                 | loop vs =
+                   let val vs' = List.take(vs,Y)
+                       val v = " " ^ String.concatWith " " (List.map pad vs')
+                   in v :: loop (List.drop(vs,Y))
+                   end
+           in "\n" ^ String.concatWith "\n" (loop values) ^ "\n"
+           end
+         | _ => flat()
     end
        
 end

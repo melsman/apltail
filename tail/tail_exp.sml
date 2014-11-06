@@ -111,10 +111,10 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
       isIn opr ["addd","subd","muld","divd","resd","maxd","mind"]
 
   fun isBinOpIIB opr =
-      isIn opr ["lti","ltei","eqi"]
+      isIn opr ["lti","ltei","eqi","gti","gtei"]
 
   fun isBinOpDDB opr =
-      isIn opr ["ltd","lted","eqd"]
+      isIn opr ["ltd","lted","eqd","gtd","gted"]
 
   fun isBinOpBBB opr =
       isIn opr ["andb","orb","eqb","xorb","norb","nandb"]
@@ -139,7 +139,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
 
   fun tyVc ts =
       case ts of
-          nil => Arr (TyVarB()) (rnk 1)
+          nil => Vcc (TyVarB()) (rnk 0)
         | _ => 
           let val oneInt = List.foldl (fn (e,a) => a orelse isInt' e) false ts
               val oneBool = List.foldl (fn (e,a) => a orelse isBool' e) false ts
@@ -291,7 +291,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                SOME (_,n) => Vcc IntB n
              | NONE => VecB IntB)
         | ("shape", [t]) =>
-          (case unVcc t of
+          (case unVec0 t of
                SOME (_,n) => SV IntB n
              | NONE => 
                let val (_,r) = unArr' "shape argument" t
@@ -415,14 +415,14 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                SOME (bt, r) => (assertB opr IntB bt; Vcc IntB r)
              | NONE => raise Fail (opr ^ " expects argument of singleton type"))
         | ("shapeV", [t]) => 
-          (case unVcc t of
+          (case unVec0 t of
                SOME (_,n) => SV IntB n
-             | NONE => raise Fail "shapeV expects argument of shape type")
+             | NONE => raise Fail "shapeV expects argument of sized vector type")
         | ("rotateV",[t1,t2]) =>
           (assert_sub opr t1 Int;           
            case unVcc t2 of
                SOME _ => t2
-             | NONE => raise Fail (opr ^ " expects second argument to be a shape type"))
+             | NONE => raise Fail (opr ^ " expects second argument to be a sized vector type"))
         | ("prSclI",[t]) => (assert_sub opr t Int; t)
         | ("prSclB",[t]) => (assert_sub opr t Bool; t)
         | ("prSclD",[t]) => (assert_sub opr t Double; t)
@@ -586,7 +586,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
       case b of
           Ib b => Int.toString b
         | Db b => pr_double b
-        | Bb b => Bool.toString b
+        | Bb true => "1"
+        | Bb false => "0"
         | Fb _ => "fn"
                       
   fun pr_value v = Apl.pr pr_bv v
@@ -617,7 +618,9 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
 
   fun resType (_,_,_,_,_,_,t) = t
 
-  fun prArr v = (pr_value v; v)
+  fun println s = print (s ^ "\n")
+
+  fun prArr v = (println(pr_value v); v)
 
   fun eval DE e : value =
       case e of
