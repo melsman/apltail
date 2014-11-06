@@ -6,8 +6,8 @@ type 'a t = int vector   (* shape vector *)
           * 'a vector    (* elements *)
           * 'a           (* default element *)
 
-fun scl (v:'a) : 'a t = 
-    (V.fromList [], V.fromList [v], v)
+fun scl (def:'a) (v:'a) : 'a t = 
+    (V.fromList [], V.fromList [v], def)
 
 fun vec v (vs: 'a list) : 'a t =
     (V.fromList [length vs], V.fromList vs, v)
@@ -19,10 +19,10 @@ fun unScl s (v: 'a t) : 'a =
     in if len = 0 then V.sub(#2 v,0)
        else raise Fail ("expecting scalar argument for " ^ s ^ " - got array of rank " ^ Int.toString len)
     end
-fun liftU f v =
-    scl(f (unScl "liftU" v))
-fun liftB f (v1,v2) =
-    scl(f (unScl "liftB:1" v1, unScl "liftB:1" v2))
+fun liftU def f v =
+    scl def (f (unScl "liftU" v))
+fun liftB def f (v1,v2) =
+    scl def (f (unScl "liftB:1" v1, unScl "liftB:1" v2))
 
 fun unVec s (v: 'a t) : 'a vector =
     if V.length (#1 v) = 1 then #2 v
@@ -36,6 +36,7 @@ fun shape (a : 'a t) : int t =
 fun product (v: int vector) : int =
     V.foldl (op * ) 1 v
 
+(* resize: for reshape operation *)
 fun resize (n:int) (x:'a) (v: 'a vector) : 'a vector =
     let val n0 = V.length v
     in V.tabulate (n,
@@ -58,7 +59,7 @@ fun ravel (a : 'a t) : 'a t =
 fun first (a : 'a t) : 'a t =
     let val vs = #2 a
         val v = if V.length vs > 0 then V.sub(vs,0) else #3 a
-    in scl v
+    in scl (#3 a) v
     end
 
 fun iota (n : int t) : int t =
@@ -66,17 +67,17 @@ fun iota (n : int t) : int t =
     in (V.fromList[n], V.tabulate(n, fn x => x + 1), 0)
     end
 
-fun unliftU s (f : 'a t -> 'b t) : 'a -> 'b =
-    unScl s o f o scl
+fun unliftU s (def: 'a) (f : 'a t -> 'b t) : 'a -> 'b =
+    unScl s o f o (scl def)
 
-fun unliftB s (f : 'a t * 'b t -> 'c t) : 'a * 'b -> 'c =
-    fn (x,y) => unScl s (f (scl x, scl y))
+fun unliftB s (defa: 'a) (defb: 'b) (f : 'a t * 'b t -> 'c t) : 'a * 'b -> 'c =
+    fn (x,y) => unScl s (f (scl defa x, scl defb y))
 
 fun each (x:'b) (f: 'a t -> 'b t) (a : 'a t) : 'b t =
-    (#1 a, V.map (unliftU "each" f) (#2 a), x)
+    (#1 a, V.map (unliftU "each" (#3 a) f) (#2 a), x)
 
-fun map (f: 'a -> 'b) (a : 'a t) : 'b t =
-    (#1 a, V.map f (#2 a), f (#3 a))
+fun map (def: 'b) (f: 'a -> 'b) (a : 'a t) : 'b t =
+    (#1 a, V.map f (#2 a), def)
     
 fun list (v: 'a vector) : 'a list = V.foldr (op ::) nil v
 fun reduce (f: 'a t * 'a t -> 'a t) (n:'a t) (a:'a t) : 'a t =
@@ -90,8 +91,8 @@ fun reduce (f: 'a t * 'a t -> 'a t) (n:'a t) (a:'a t) : 'a t =
             fun loop i =
                 let fun run j a =
                         if j >= m then a
-                        else run (j+1) (f(scl(V.sub(vs0,i+j)),a))
-                in unScl "loop" (run 1 (scl(V.sub(vs0,i))))
+                        else run (j+1) (f(scl(#3 a)(V.sub(vs0,i+j)),a))
+                in unScl "loop" (run 1 (scl(#3 a)(V.sub(vs0,i))))
                 end
             val vs = V.tabulate(k, fn i => loop (i*m))
         in (ns, vs, #3 a)
@@ -145,15 +146,6 @@ fun transpose (a: 'a t) : 'a t =
 fun exchange nil xs = nil
   | exchange (i::I) xs = List.nth (xs,i-1) :: exchange I xs
 
-(*
-fun exchange I xs =
-    let fun loop nil = nil
-          | loop (i::I) =
-            List.nth (xs,i-1)::loop I
-    in loop I
-    end
-*)
-
 fun transpose2 (I: int t, a: 'a t) : 'a t =
     let val I = list(#2 I)
         val sh = list(#1 a)
@@ -193,7 +185,7 @@ fun cons (v,a) = catenate (ext v, a)
 fun snoc (a,v) = catenate (a, ext v)
 
 fun zipWith (x:'c) (f: 'a t * 'b t -> 'c t) (a : 'a t) (b : 'b t) : 'c t =
-    (#1 a, V.fromList(ListPair.map (unliftB "zipWith" f) (list(#2 a),list(#2 b))), x)
+    (#1 a, V.fromList(ListPair.map (unliftB "zipWith" (#3 a) (#3 b) f) (list(#2 a),list(#2 b))), x)
 
 fun rot 0 a = a
   | rot n nil = nil
@@ -250,7 +242,7 @@ structure Vs = VectorSlice
 fun drop (i : int t, a: 'a t) : 'a t =
     let val i = unScl "drop" i
         val sh = list(#1 a)
-    in if i < 0 then take (scl(hd sh + i),a)
+    in if i < 0 then take (scl 0 (hd sh + i),a)
        else case sh of
                 nil => a
               | [0] => a
@@ -266,17 +258,30 @@ fun drop (i : int t, a: 'a t) : 'a t =
 and take (i : int t, a: 'a t) : 'a t =
     let val i = unScl "take" i
         val sh = list(#1 a)
-    in if i < 0 then drop (scl(hd sh + i),a)
-       else case sh of
-                nil => let val v = V.sub(#2 a,0)
-                       in (V.fromList[i],V.tabulate(i,fn _ => v),#3 a)
-                       end
-              | [0] => (V.fromList[i],V.tabulate(i,fn _ => #3 a),#3 a)
-              | _ => 
-                let val sh' = i :: tl sh
-                    val sz = prod sh'
-                in (V.fromList sh', resize sz (#3 a) (#2 a), #3 a)
-                end
+    in if i < 0 then
+         let val (sh',subsh,b) = case sh of nil => ([~i], nil, 1)
+                                          | b :: sh => (~i :: sh, sh, b)
+             val sz = prod sh'
+             val subsz = prod subsh
+             val values = #2 a
+             val offset = if ~i > b then (~i - b)*subsz
+                          else i*subsz
+         in (V.fromList sh',
+             V.tabulate (sz, fn n => if n < offset then #3 a
+                                     else V.sub(values,n-offset)),
+             #3 a)
+         end
+       else
+         let val sh' = case sh of nil => [i]
+                                | _ :: sh => i :: sh
+             val sz = prod sh'
+         in (V.fromList sh', adjust sz (#3 a) (#2 a), #3 a)
+         end
+    end
+and adjust (n:int) (x:'a) (v: 'a vector) : 'a vector =   (* adjust: for take/drop operations *)
+    let val n0 = V.length v
+    in V.tabulate (n,fn i => if i >= n0 then x
+                             else V.sub(v,i))
     end
 
 fun iff (b : bool t, f1,f2) =

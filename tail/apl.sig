@@ -5,13 +5,13 @@
 
 signature APL = sig
   type 'a t
-  val scl       : 'a -> 'a t
+  val scl       : 'a -> 'a -> 'a t     (* scl default value *)
   val unScl     : string -> 'a t -> 'a
   val vec       : 'a -> 'a list -> 'a t
   val zilde     : 'a -> 'a t
-  val liftU     : ('a -> 'b) -> 'a t -> 'b t
-  val liftB     : ('a * 'b -> 'c) -> 'a t * 'b t -> 'c t
-  val map       : ('a -> 'b) -> 'a t -> 'b t
+  val liftU     : 'b -> ('a -> 'b) -> 'a t -> 'b t
+  val liftB     : 'c -> ('a * 'b -> 'c) -> 'a t * 'b t -> 'c t
+  val map       : 'b -> ('a -> 'b) -> 'a t -> 'b t
                                                        
   val shape     : 'a t -> int t
   val reshape   : int t * 'a t -> 'a t

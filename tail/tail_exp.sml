@@ -257,7 +257,10 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                     t2)
       in case unSii t1 of
              SOME i => (case unArr t2 of
-                            SOME (bt, _) => Vcc bt (rnk(abs i))
+                            SOME (bt, r) => 
+                            (case unRnk r of
+                                 SOME 1 => Vcc bt (rnk(abs i))
+                               | _ => default())
                           | NONE => 
                             case unVcc t2 of
                                 SOME (bt,_) => Vcc bt (rnk(abs i))
@@ -570,7 +573,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
 
   type value = bv Apl.t
 
-  fun Dvalue v = Apl.scl (Db v)
+  fun Dvalue v = Apl.scl (Db 0.0) (Db v)
   fun unDvalue _ = raise Fail "exp.unDvalue: not implemented"
   val Uvalue = Dvalue 0.0
 
@@ -614,7 +617,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
       end
 
   fun default t =
-      unBase "default" t (fn() => Ib 0) (fn() => Db 0.0) (fn() => Bb true)
+      unBase "default" t (fn() => Ib 0) (fn() => Db 0.0) (fn() => Bb false)
 
   fun resType (_,_,_,_,_,_,t) = t
 
@@ -628,11 +631,11 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           (case lookup DE x of
                SOME v => v
              | NONE => raise Fail ("eval.cannot locate variable " ^ x))
-        | I i => Apl.scl (Ib i)
-        | D d => Apl.scl (Db d)
-        | B b => Apl.scl (Bb b)
+        | I i => Apl.scl (Ib 0) (Ib i)
+        | D d => Apl.scl (Db 0.0) (Db d)
+        | B b => Apl.scl (Bb false) (Bb b)
         | Iff (e1,e2,e3,t) =>
-          let val b = Apl.liftU (fn Bb b => b | _ => raise Fail "eval:Iff") (eval DE e1)
+          let val b = Apl.liftU false (fn Bb b => b | _ => raise Fail "eval:Iff") (eval DE e1)
           in Apl.iff(b,fn() => eval DE e2, fn() => eval DE e3)
           end
         | Vc (nil,t) => Apl.zilde (default t)
@@ -647,39 +650,39 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                                 else fail()
           in case (opr,es) of
                  ("zilde", []) => Apl.zilde (default t)
-               | ("i2d", [e]) => Apl.liftU (fn Ib i => Db(real i) | _ => raise Fail "eval:i2d") (eval DE e)
-               | ("b2i", [e]) => Apl.liftU (fn Bb b => Ib(if b then 1 else 0) | _ => raise Fail "eval:b2i") (eval DE e)
-               | ("negi", [e]) => Apl.liftU (fn Ib i => Ib(~i) | _ => raise Fail "eval:negi") (eval DE e)
-               | ("absi", [e]) => Apl.liftU (fn Ib i => Ib(Int.abs i) | _ => raise Fail "eval:absi") (eval DE e)
-               | ("negd", [e]) => Apl.liftU (fn Db i => Db(Real.~i) | _ => raise Fail "eval:negd") (eval DE e)
-               | ("absd", [e]) => Apl.liftU (fn Db i => Db(Real.abs i) | _ => raise Fail "eval:absd") (eval DE e)
-               | ("notb", [e]) => Apl.liftU (fn Bb b => Bb(not b) | _ => raise Fail "eval:notb") (eval DE e)
-               | ("iota", [e]) => Apl.map Ib (Apl.iota (Apl.map unIb (eval DE e)))
+               | ("i2d", [e]) => Apl.liftU (Db 0.0) (fn Ib i => Db(real i) | _ => raise Fail "eval:i2d") (eval DE e)
+               | ("b2i", [e]) => Apl.liftU (Ib 0) (fn Bb b => Ib(if b then 1 else 0) | _ => raise Fail "eval:b2i") (eval DE e)
+               | ("negi", [e]) => Apl.liftU (Ib 0) (fn Ib i => Ib(~i) | _ => raise Fail "eval:negi") (eval DE e)
+               | ("absi", [e]) => Apl.liftU (Ib 0) (fn Ib i => Ib(Int.abs i) | _ => raise Fail "eval:absi") (eval DE e)
+               | ("negd", [e]) => Apl.liftU (Db 0.0) (fn Db i => Db(Real.~i) | _ => raise Fail "eval:negd") (eval DE e)
+               | ("absd", [e]) => Apl.liftU (Db 0.0) (fn Db i => Db(Real.abs i) | _ => raise Fail "eval:absd") (eval DE e)
+               | ("notb", [e]) => Apl.liftU (Bb false) (fn Bb b => Bb(not b) | _ => raise Fail "eval:notb") (eval DE e)
+               | ("iota", [e]) => Apl.map (Ib 0) Ib (Apl.iota (Apl.map 0 unIb (eval DE e)))
                | ("reshape", [e1,e2]) =>
-                 let val v1 = Apl.map unIb (eval DE e1)
+                 let val v1 = Apl.map 0 unIb (eval DE e1)
                  in Apl.reshape(v1,eval DE e2)
                  end
                | ("shape", [e]) =>
                  let val v = Apl.shape(eval DE e)
-                 in Apl.map Ib v
+                 in Apl.map (Ib 0) Ib v
                  end
                | ("drop", [e1,e2]) =>
-                 let val v1 = Apl.map unIb (eval DE e1)
+                 let val v1 = Apl.map 0 unIb (eval DE e1)
                  in Apl.drop(v1,eval DE e2)
                  end
                | ("take", [e1,e2]) =>
-                 let val v1 = Apl.map unIb (eval DE e1)
+                 let val v1 = Apl.map 0 unIb (eval DE e1)
                  in Apl.take(v1,eval DE e2)
                  end
                | ("rotate", [e1,e2]) =>
-                 let val v1 = Apl.map unIb (eval DE e1)
+                 let val v1 = Apl.map 0 unIb (eval DE e1)
                  in Apl.rotate(v1,eval DE e2)
                  end
                | ("reverse", [e]) => Apl.reverse (eval DE e)
                | ("first", [e]) => Apl.first (eval DE e)
                | ("transp", [e]) => Apl.transpose (eval DE e)
                | ("transp2", [e1,e2]) =>
-                 let val v1 = Apl.map unIb (eval DE e1)
+                 let val v1 = Apl.map 0 unIb (eval DE e1)
                  in Apl.transpose2(v1,eval DE e2)
                  end
                | ("cons", [e1,e2]) => Apl.cons(eval DE e1,eval DE e2)
@@ -692,11 +695,11 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                  in Apl.reduce (applyBin F) n a
                  end
                | ("compress", [e1,e2]) => 
-                 let val v1 = Apl.map (fn Bb b => b | _ => raise Fail "eval:compress") (eval DE e1)
+                 let val v1 = Apl.map false (fn Bb b => b | _ => raise Fail "eval:compress") (eval DE e1)
                  in Apl.compress(v1,eval DE e2)
                  end
                | ("replicate", [_,e1,e2]) => 
-                 let val v1 = Apl.map (fn Ib i => i | _ => raise Fail "eval:replicate") (eval DE e1)
+                 let val v1 = Apl.map 0 (fn Ib i => i | _ => raise Fail "eval:replicate") (eval DE e1)
                  in Apl.replicate(v1,eval DE e2)
                  end
                | ("each", [e1,e2]) =>
@@ -734,7 +737,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                | (opr, _) => tryShOpr()
           end
         | Let (v,t,e1,e2,t') => eval (addDE DE v (eval DE e1)) e2
-        | Fn (v,t,e,t') => Apl.scl (Fb(DE,v,t,e,t'))
+        | Fn (v,t,e,t') => Apl.scl (Ib ~1000) (Fb(DE,v,t,e,t'))
   and unFb2 DE s e =
       let val (DE0,x,tx,e,_) = unFb(Apl.unScl (s ^ ", first function argument") (eval DE e))
           val (_,y,ty,e,t) = unFb(Apl.unScl (s ^ ", second function argument") (eval DE e))
@@ -756,7 +759,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                       | "mini" => (fn (x,y) => if x < y then x else y)
                       | "mod" => (op mod)
                       | _ => raise Fail ("evalBinOpIII: unsupported int*int->int operator " ^ opr)
-      in Apl.liftB (fn (b1,b2) => Ib(fct(unIb b1, unIb b2))) (v1,v2)
+      in Apl.liftB (Ib 0) (fn (b1,b2) => Ib(fct(unIb b1, unIb b2))) (v1,v2)
       end
   and evalBinOpIIB opr v1 v2 =
       let val fct = case opr of
@@ -766,7 +769,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                       | "gtei" => (op >=)
                       | "eqi" => (op =)
                       | _ => raise Fail ("evalBinOpIIB: unsupported int*int->bool operator " ^ opr)
-      in Apl.liftB (fn (b1,b2) => Bb(fct(unIb b1, unIb b2))) (v1,v2)
+      in Apl.liftB (Bb false) (fn (b1,b2) => Bb(fct(unIb b1, unIb b2))) (v1,v2)
       end
   and evalBinOpDDD opr v1 v2 =
       let val fct = case opr of
@@ -779,7 +782,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                       | "maxd" => (fn (x,y) => if x > y then x else y)
                       | "mind" => (fn (x,y) => if x < y then x else y)
                       | _ => raise Fail ("evalBinOpDDD: unsupported double*double->double operator " ^ opr)
-      in Apl.liftB (fn (b1,b2) => Db(fct(unDb b1, unDb b2))) (v1,v2)
+      in Apl.liftB (Db 0.0) (fn (b1,b2) => Db(fct(unDb b1, unDb b2))) (v1,v2)
       end
   and evalBinOpDDB opr v1 v2 =
       let val fct = case opr of
@@ -789,7 +792,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                       | "gted" => (op >=)
                       | "eqd" => Real.==
                       | _ => raise Fail ("evalBinOpDDB: unsupported double*double->bool operator " ^ opr)
-      in Apl.liftB (fn (b1,b2) => Bb(fct(unDb b1, unDb b2))) (v1,v2)
+      in Apl.liftB (Bb false) (fn (b1,b2) => Bb(fct(unDb b1, unDb b2))) (v1,v2)
       end
   and evalBinOpBBB opr v1 v2 =
       let val fct = case opr of
@@ -800,7 +803,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                       | "nandb" => (fn (x,y) => not(x andalso y))
                       | "norb" => (fn (x,y) => not(x orelse y))
                       | _ => raise Fail ("evalBinOpBBB: unsupported bool*bool->bool operator " ^ opr)
-      in Apl.liftB (fn (b1,b2) => Bb(fct(unBb b1, unBb b2))) (v1,v2)
+      in Apl.liftB (Bb false) (fn (b1,b2) => Bb(fct(unBb b1, unBb b2))) (v1,v2)
       end
 
 end
