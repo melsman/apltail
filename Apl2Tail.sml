@@ -298,6 +298,11 @@ fun compileAst flags e =
                      | _ => compErr r "dyadic operator (of class (2,2)) expecting 2 operator arguments",
                     noii),
                 emp)
+            | LambE((2,1),e,r) => (* dyadic operator => monadic function *)
+              k(Fs (fn [f,g] => compLam21 G e (f,g)
+                     | _ => compErr r "dyadic operator (of class (2,1)) expecting 2 operator arguments",
+                    noii),
+                emp)
             | LambE((1,1),e,r) => (* monadic operator => monadic function *)
               k(Fs (fn [f] => compLam11 G e f
                      | _ => compErr r "monadic operator (of class (1,1)) expecting 1 operator argument",
@@ -579,7 +584,7 @@ fun compileAst flags e =
                     noii))
         and compLam12 G e f =
             rett(Fs(fn [x,y] =>
-                       let val G' = [(Symb L.Alphaalpha, f),(Symb L.Omega, x),(Symb L.Alpha, y)]
+                       let val G' = [(Symb L.Alphaalpha, f),(Symb L.Omega, y),(Symb L.Alpha, x)]
                        in comp (G++G') e (fn (s,_) => rett s)
                        end
                      | _ => raise Fail "compLam12: expecting 2 arguments",
@@ -589,7 +594,14 @@ fun compileAst flags e =
                        let val G' = [(Symb L.Alphaalpha, f),(Symb L.Omegaomega, g),(Symb L.Omega, y),(Symb L.Alpha, x)]
                        in comp (G++G') e (fn (s,_) => rett s)
                        end
-                     | _ => raise Fail "compLam12: expecting 2 arguments",
+                     | _ => raise Fail "compLam22: expecting 2 arguments",
+                    noii))
+        and compLam21 G e (f,g) =
+            rett(Fs(fn [x] =>
+                       let val G' = [(Symb L.Alphaalpha, f),(Symb L.Omegaomega, g),(Symb L.Omega, x)]
+                       in comp (G++G') e (fn (s,_) => rett s)
+                       end
+                     | _ => raise Fail "compLam21: expecting 2 arguments",
                     noii))
         and compLam01 G e x =
             let val G' = [(Symb L.Omega,x)]
