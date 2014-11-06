@@ -37,7 +37,7 @@ is currently no support for characters and strings.
 <tr><td>N ↑ A</td><td>Take</td><td>Returns the vector resulting from taking N elements from A (row-major order).</td><td>When N is negative, values are taken from the right.</td></tr>
 <tr><td>N ↓ A</td><td>Drop</td><td>Returns the vector resulting from dropping N elements from A (row-major order).</td><td>When N is negative, values are dropped from the right.</td></tr>
 <tr><td>N ⌽ A</td><td>Rotate</td><td>Returns the vector resulting from rotating values in A to the left N steps (row-major order).</td><td>When N is negative, values are right-rotated.</td></tr>
-<tr><td>N ⊖ A</td><td>Rotate last</td><td>Returns the vector resulting from rotating values (in A) N steps along the last axis (column-major order).</td><td>When N is negative, values are rotated in teh opposite directions.</td></tr>
+<tr><td>N ⊖ A</td><td>Rotate last</td><td>Returns the vector resulting from rotating values (in A) N steps along the last axis (column-major order).</td><td>When N is negative, values are rotated in the opposite directions.</td></tr>
 <tr><td>B , A</td><td>Catenate</td><td>Returns the vector resulting from catenating elements in B with elements in A (row-major order).</td><td></td></tr>
 <tr><td>B ⍪ A</td><td>Catenate last</td><td>Returns the vector resulting from catenating elements in B with elements in A (column-major order).</td><td></td></tr>
 <tr><td>B ∨ A</td><td>Boolean or</td><td>Returns the logical disjunction of B and A.</td><td>Scalar expansion supported.</td></tr>
