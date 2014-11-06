@@ -32,6 +32,11 @@ all: $(TLFILES) test
 .PHONY: test
 test: $(RESFILES)
 	@cat $(RESFILES)
+	@echo "-------T E S T --- R E P O R T-------"
+	@echo "Tests succeeded:   `grep "OK" $(RESFILES) | wc -l` /`grep "Test" $(RESFILES) | wc -l`"
+	@echo "Test errors:       `grep "ERR" $(RESFILES) | wc -l` /`grep "Test" $(RESFILES) | wc -l`"
+	@echo "-------------------------------------"
+
 
 clean:
 	rm -f *.tl *.out *.res
