@@ -289,15 +289,16 @@ fun iff (b : bool t, f1,f2) =
 
 fun pr p (a: 'a t) : string =
     let fun prv p s e v =
-            s ^ String.concatWith "," (List.map p (list v)) ^ e
-        val shape = #1 a
-        val values = #2 a
+            s ^ String.concatWith "," (List.map p v) ^ e
+        val shape = list (#1 a)
+        val values = list (#2 a)
         fun flat () =
-            (prv Int.toString "[" "]" (shape) ^
+            (prv Int.toString "[" "]" shape ^
              prv p "(" ")" values)
-    in case list shape of
-           [X,Y] =>
-           let val values = List.map p (list values)
+    in case shape of
+           [X,Y] => 
+           if prod shape = 0 then flat() else
+           let val values = List.map p values
                val sz = List.foldl Int.max 0 (List.map size values)
                fun padn 0 = ""
                  | padn n = " " ^ padn (n-1)
