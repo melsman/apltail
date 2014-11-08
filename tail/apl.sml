@@ -238,50 +238,46 @@ fun rotate (i : int t, a: 'a t) : 'a t =
        else (sh,V.fromList (rot i (list(#2 a))),#3 a)
     end
 
-structure Vs = VectorSlice
-fun drop (i : int t, a: 'a t) : 'a t =
+fun drop (i : int t, (sh,src,default): 'a t) : 'a t =
     let val i = unScl "drop" i
-        val sh = list(#1 a)
-    in if i < 0 then take (scl 0 (hd sh + i),a)
-       else case sh of
-                nil => a
-              | [0] => a
-              | _ => 
-                let val d = i * prod(tl sh)
-                    val t = hd sh - i
-                in if t < 1 then zilde (#3 a)
-                   else let val sh' = t :: tl sh
-                        in (V.fromList sh', Vs.vector(Vs.slice(#2 a, d, NONE)), #3 a)
-                        end
-                end
+        val x = Int.abs i
+    in case list sh of
+           nil => (sh,src,default)
+         | n::subsh =>
+           let val subsz = prod subsh
+               val sh' = Int.max(0,n-x) :: subsh
+               val sz = prod sh'
+               val offset = Int.max(0,i * subsz)
+           in (V.fromList sh',
+               V.tabulate(sz, fn i => V.sub(src,i+offset)),
+               default)
+           end
     end
-and take (i : int t, a: 'a t) : 'a t =
-    let val i = unScl "take" i
-        val sh = list(#1 a)
-    in if i < 0 then
-         let val (sh',subsh,b) = case sh of nil => ([~i], nil, 1)
-                                          | b :: sh => (~i :: sh, sh, b)
+
+fun take (n : int t, (sh,src,default): 'a t) : 'a t =
+    let val n = unScl "take" n
+    in if n < 0 then
+         let val (sh',subsh,b) = case list sh of nil => ([~n], nil, 1)
+                                               | b :: sh => (~n :: sh, sh, b)
              val sz = prod sh'
              val subsz = prod subsh
-             val values = #2 a
-             val offset = if ~i > b then (~i - b)*subsz
-                          else i*subsz
+             val offset = if ~n > b then (~n - b)*subsz
+                          else n*subsz
          in (V.fromList sh',
-             V.tabulate (sz, fn n => if n < offset then #3 a
-                                     else V.sub(values,n-offset)),
-             #3 a)
+             V.tabulate (sz, fn i => if i < offset then default
+                                     else V.sub(src,i-offset)),
+             default)
          end
        else
-         let val sh' = case sh of nil => [i]
-                                | _ :: sh => i :: sh
+         let val sh' = case list sh of nil => [n]
+                                     | _ :: sh => n :: sh
              val sz = prod sh'
-         in (V.fromList sh', adjust sz (#3 a) (#2 a), #3 a)
+             val srcsz = V.length src
+         in (V.fromList sh', 
+             V.tabulate (sz, fn i => if i >= srcsz then default
+                                     else V.sub(src,i)),
+             default)
          end
-    end
-and adjust (n:int) (x:'a) (v: 'a vector) : 'a vector =   (* adjust: for take/drop operations *)
-    let val n0 = V.length v
-    in V.tabulate (n,fn i => if i >= n0 then x
-                             else V.sub(v,i))
     end
 
 fun iff (b : bool t, f1,f2) =
