@@ -226,7 +226,22 @@ fun reverse (a: 'a t) : 'a t =
        else (sh,V.fromList (rev (list(#2 a))),#3 a)
     end
 
-fun vrotate _ = raise Fail "vrotate not implemented"
+fun vrotate (n : int t, (sh,src,default): 'a t) : 'a t =
+    let val n = unScl "vrotate" n
+        val shl = list sh
+    in case shl of
+           nil => (sh,src,default) (* scalar *) 
+         | 0::_ => (sh,src,default) (* empty vector *)
+         | s::sh' =>
+           let val sz = prod shl
+               val n = n mod s
+               val n = if n > 0 then n else s - n 
+               val offset = n * prod sh'
+           in (sh, 
+               V.tabulate(sz, fn i => V.sub(src, (i+offset) mod sz)),
+               default)
+           end
+    end
 
 fun vreverse ((sh,src,default): 'a t) : 'a t =
     let val shl = list sh

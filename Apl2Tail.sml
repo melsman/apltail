@@ -103,8 +103,6 @@ local
   fun StoD s = Real.fromString(repair s)
 in
 
-fun vrotate a b = transpose(rotate a (transpose b))
-
 fun compOpr2_i8a2a e opr1 opr2 opr3 =
  fn (Is i1, Ais a2) => S(Ais(opr1 i1 a2))
   | (Is i1, Ads a2) => S(Ads(opr2 i1 a2))

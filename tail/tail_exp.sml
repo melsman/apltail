@@ -318,7 +318,6 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | ("snocV",[t1,t2]) => conssnoc true opr t2 t1
         | ("first",[t]) => type_first false t
         | ("firstV",[t]) => type_first true t
-        | ("reverse",[t]) => (unArr' "reverse" t; t)
         | ("vreverse",[t]) => (unArr' "vreverse" t; t)
         | ("transp",[t]) => (unArr' "transp" t; t)
         | ("transp2",[t1,t2]) =>
@@ -326,10 +325,6 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           in assert "first argument to transpose2" (Vcc IntB r) t1;
              t2
           end
-        | ("rotate",[t1,t2]) =>
-          (unArr' "rotate" t2;
-           assert_sub "first argument to rotate" t1 Int;
-           t2)
         | ("vrotate",[t1,t2]) =>
           (unArr' "vrotate" t2;
            assert_sub "first argument to vrotate" t1 Int;
@@ -426,11 +421,10 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           (case unVec0 t of
                SOME (_,n) => SV IntB n
              | NONE => raise Fail "shapeV expects argument of sized vector type")
-        | ("rotateV",[t1,t2]) =>
-          (assert_sub opr t1 Int;           
-           case unVcc t2 of
-               SOME _ => t2
-             | NONE => raise Fail (opr ^ " expects second argument to be a sized vector type"))
+        | ("vreverseV",[t1]) =>
+          (case unVcc t1 of
+               SOME _ => t1
+             | NONE => raise Fail (opr ^ " expects argument to be a sized vector type"))
         | ("vrotateV",[t1,t2]) =>
           (assert_sub opr t1 Int;           
            case unVcc t2 of
@@ -527,7 +521,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
       |  ("cons"    , _        , _        , SOME _   ) => true
       |  ("snoc"    , _        , _        , SOME _   ) => true
       |  ("iota"    , _        , _        , SOME _   ) => true
-      |  ("rotate"  , _        , _        , SOME _   ) => true
+      |  ("vreverse", _        , _        , SOME _   ) => true
       |  ("vrotate" , _        , _        , SOME _   ) => true
       |  ("each"    , _        , _        , SOME _   ) => true
       |  ("b2i"     , SOME _   , _        , _        ) => true
@@ -685,15 +679,10 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                  let val v1 = Apl.map 0 unIb (eval DE e1)
                  in Apl.take(v1,eval DE e2)
                  end
-               | ("rotate", [e1,e2]) =>
-                 let val v1 = Apl.map 0 unIb (eval DE e1)
-                 in Apl.rotate(v1,eval DE e2)
-                 end
                | ("vrotate", [e1,e2]) =>
                  let val v1 = Apl.map 0 unIb (eval DE e1)
                  in Apl.vrotate(v1,eval DE e2)
                  end
-               | ("reverse", [e]) => Apl.reverse (eval DE e)
                | ("vreverse", [e]) => Apl.vreverse (eval DE e)
                | ("first", [e]) => Apl.first (eval DE e)
                | ("transp", [e]) => Apl.transpose (eval DE e)

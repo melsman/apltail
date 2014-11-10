@@ -173,8 +173,6 @@ fun catenate e1 e2 =
 fun take e1 e2 = Op_e("take", [e1,e2])
 fun drop e1 e2 = Op_e("drop", [e1,e2])
 fun mem e = Op_e("mem",[e])
-fun rotate e1 e2 = Op_e("rotate", [e1,e2])
-fun vrotate e1 e2 = Op_e("vrotate", [e1,e2])
 fun reshape e1 e2 = Op_e("reshape", [e1,e2])
 fun shape e = Op_e("shape",[e])
 fun prod f g e m1 m2 s a =
@@ -200,8 +198,10 @@ fun replicate v b a = Op_e("replicate",[v,b,a])
 
 fun transpose e = Op_e("transp", [e])
 fun transpose2 e1 e2 = Op_e("transp2", [e1,e2])
-fun reverse e = Op_e("reverse", [e])
 fun vreverse e = Op_e("vreverse", [e])
+fun reverse e = transpose(vreverse(transpose e))
+fun vrotate e1 e2 = Op_e("vrotate", [e1,e2])
+fun rotate e1 e2 = transpose(vrotate e1 (transpose e2))
 fun catenate_first e1 e2 =
     transpose(catenate (transpose e1) (transpose e2))
 fun lett' e f =
@@ -264,9 +264,8 @@ and peepOp E (opr,es,t) =
       | ("b2iV", [B true]) => I 1
       | ("b2iV", [B false]) => I 0
       | ("reduce", [f,n,Op("zilde",[],_)]) => n
-      | ("reverse", [Vc(es,t)]) => Vc(rev es, t)
       | ("vreverse", [Vc(es,t)]) => Vc(rev es, t)
-      | ("rotateV", [I 0,e]) => e
+      | ("vrotateV", [I 0,e]) => e
       | ("shape", [e]) => (case getShape E e of
                                SOME e => e
                              | NONE => Op (opr,[e],t))
@@ -293,7 +292,7 @@ and peepOp E (opr,es,t) =
         if v=v' then Vc(List.map (fn e => peepOp E ("b2i",[e],t')) es',t)
         else Op(opr,es,t)
       | ("catV", [Vc([],_),e]) => e
-      | ("rotateV", [I n,Vc(es,_)]) => Vc(rot n es,t)
+      | ("vrotateV", [I n,Vc(es,_)]) => Vc(rot n es,t)
       | _ => Op(opr,es,t)
                
 and getShape (E:env) (e : Exp.exp) : Exp.exp option =
@@ -314,7 +313,7 @@ and getShape (E:env) (e : Exp.exp) : Exp.exp option =
          | Vc(es,_) => SOME(Vc([I(length es)],SV IntB (rnk(length es))))
          | Op("transp", [e], _) =>
            (case getShape E e of
-                SOME sh => SOME(peepOp E ("reverse",[sh],typeOf sh))
+                SOME sh => SOME(peepOp E ("vreverse",[sh],typeOf sh))
               | NONE => NONE)
          | _ => NONE
     end
@@ -397,8 +396,8 @@ fun prInstanceLists opr es t =
          | ("cat", [t1,t2]) => wrap [bt t1] [rnk t1]
          | ("cons", [t1,t2]) => wrap [bt t1] [rnk t1]
          | ("snoc", [t1,t2]) => wrap [bt t1] [rnk t2]
-         | ("rotate", [_,t2]) => wrap [bt t2] [rnk t2]
          | ("vrotate", [_,t2]) => wrap [bt t2] [rnk t2]
+         | ("vreverse", [t1]) => wrap [bt t1] [rnk t1]
          | ("first", [ta]) => wrap [bt ta] [rnk ta]
          | ("transp", [ta]) => wrap [bt ta] [rnk ta]
          | ("transp2", [_,ta]) => wrap [bt ta] [rnk ta]
