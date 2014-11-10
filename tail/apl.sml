@@ -226,6 +226,25 @@ fun reverse (a: 'a t) : 'a t =
        else (sh,V.fromList (rev (list(#2 a))),#3 a)
     end
 
+fun vrotate _ = raise Fail "vrotate not implemented"
+
+fun vreverse ((sh,src,default): 'a t) : 'a t =
+    let val shl = list sh
+        val sz = prod shl
+    in case shl of
+           nil => (sh,src,default)
+         | n :: subsh =>
+          let val subsz = prod subsh
+          in (sh,
+              V.tabulate(sz, fn i => 
+                                let val y = n - (i div subsz) - 1
+                                    val x = i mod subsz
+                                in V.sub(src,y*subsz+x)
+                                end),
+              default)
+          end
+    end
+
 fun rotate (i : int t, a: 'a t) : 'a t =
     let val i = unScl "rotate" i
         val sh = #1 a
@@ -257,15 +276,13 @@ fun drop (i : int t, (sh,src,default): 'a t) : 'a t =
 fun take (n : int t, (sh,src,default): 'a t) : 'a t =
     let val n = unScl "take" n
     in if n < 0 then
-         let val (sh',subsh,b) = case list sh of nil => ([~n], nil, 1)
-                                               | b :: sh => (~n :: sh, sh, b)
-             val sz = prod sh'
-             val subsz = prod subsh
-             val offset = if ~n > b then (~n - b)*subsz
-                          else n*subsz
+         let val (sh',subsz,b) = 
+                 case list sh of nil => ([~n], 1, 1)
+                               | b :: sh => (~n :: sh, prod sh, b)
+             val offset = (~n - b)*subsz
          in (V.fromList sh',
-             V.tabulate (sz, fn i => if i < offset then default
-                                     else V.sub(src,i-offset)),
+             V.tabulate (prod sh', fn i => if i < offset then default
+                                           else V.sub(src,i-offset)),
              default)
          end
        else

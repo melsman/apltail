@@ -36,4 +36,6 @@
                      ⍝       3 4
 ⎕ ← 0 ↓ ⍬            ⍝ -->   [0]()
 
+⍝ MEMO: drop from scalars!?
+
 0

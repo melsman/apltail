@@ -103,15 +103,27 @@ local
   fun StoD s = Real.fromString(repair s)
 in
 
-fun vreverse a = transpose(reverse(transpose a))
 fun vrotate a b = transpose(rotate a (transpose b))
 
 fun compOpr2_i8a2a e opr1 opr2 opr3 =
  fn (Is i1, Ais a2) => S(Ais(opr1 i1 a2))
   | (Is i1, Ads a2) => S(Ads(opr2 i1 a2))
   | (Is i1, Abs a2) => S(Abs(opr3 i1 a2))
+  | (Is i1,Is i2) => S(Is i2)
+  | (Is i1,Ds d2) => S(Ds d2)
+  | (Is i1,Bs b2) => S(Bs b2)
   | (Bs b1, e2) => compOpr2_i8a2a e opr1 opr2 opr3 (Is(b2i b1),e2)
   | _ => raise Fail ("compOpr2_i8a2a: expecting integer and array arguments in " ^ pr_exp e)
+
+fun compOpr2_i8a2a_td e opr1 opr2 opr3 =
+ fn (Is i1, Ais a2) => S(Ais(opr1 i1 a2))
+  | (Is i1, Ads a2) => S(Ads(opr2 i1 a2))
+  | (Is i1, Abs a2) => S(Abs(opr3 i1 a2))
+  | (Is i1,Is i2) => S(Ais(opr1 i1 (vec(fromList Int [i2]))))
+  | (Is i1,Ds d2) => S(Ads(opr2 i1 (vec(fromList Double [d2]))))
+  | (Is i1,Bs b2) => S(Abs(opr3 i1 (vec(fromList Bool [b2]))))
+  | (Bs b1, e2) => compOpr2_i8a2a_td e opr1 opr2 opr3 (Is(b2i b1),e2)
+  | _ => raise Fail ("compOpr2_i8a2a_td: expecting integer and array arguments in " ^ pr_exp e)
 
 fun compCat opr1 opr2 opr3 =
  fn (Ais a1, Ais a2) => S(Ais(opr1 a1 a2))
@@ -517,8 +529,8 @@ fun compileAst flags e =
                                                            | Ds a => S(Ds a)
                                                            | Bs a => S(Bs a)
                                                            | _ => compErr r "expecting an array or a scalar as right argument to disclose operation")
-            | IdE(Symb L.Take,r) => compPrimFunD k r (compOpr2_i8a2a e take take take) noii
-            | IdE(Symb L.Drop,r) => compPrimFunD k r (compOpr2_i8a2a e drop drop drop) noii
+            | IdE(Symb L.Take,r) => compPrimFunD k r (compOpr2_i8a2a_td e take take take) noii
+            | IdE(Symb L.Drop,r) => compPrimFunD k r (compOpr2_i8a2a_td e drop drop drop) noii
             | IdE(Symb L.Rot,r) => compPrimFunMD k r (fn Ais a => S(Ais(reverse a))
                                                        | Ads a => S(Ads(reverse a))
                                                        | Abs a => S(Abs(reverse a))
@@ -527,7 +539,10 @@ fun compileAst flags e =
             | IdE(Symb L.Vrot,r) => compPrimFunMD k r (fn Ais a => S(Ais(vreverse a))
                                                         | Ads a => S(Ads(vreverse a))
                                                         | Abs a => S(Abs(vreverse a))
-                                                        | _ => compErr r "expecting array as right argument to reverse last operation",
+                                                        | Is a => S(Is a)
+                                                        | Ds a => S(Ds a)
+                                                        | Bs a => S(Bs a)
+                                                        | _ => compErr r "expecting array as right argument to reverse-last operation",
                                                       compOpr2_i8a2a e vrotate vrotate vrotate) noii
             | IdE(Symb L.Add,r) => compPrimFunMD k r (S,
                                                       compOpr2 addi addd) (LRii 0, LRii 0.0, NOii)
