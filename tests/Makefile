@@ -2,7 +2,7 @@ TESTS=test test1 test2 test3 test4 test5 test6 test7 test9 test10 \
       test11 test12 test13 test14 test15 test16 test19 signal \
       test21 test28 residue mult0 mult sierpinski0 slashbar primes0 \
       compress primes replicate cons boolean innerLegrand5.3 quadassign \
-      opr1 opr2 opr3 fun2 take drop vrev vrot rot rotfirst first life
+      opr1 opr2 opr3 fun2 take drop vrev vrot rot rotfirst first life pow
 
 APLFILES=$(TESTS:%=%.apl)
 TLFILES=$(APLFILES:%.apl=%.tl)

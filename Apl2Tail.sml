@@ -184,7 +184,7 @@ fun compBoolOp opb =
   | (Abs bs1, Abs bs2) => S(Abs(zipWith (ret o opb) bs1 bs2))
   | (Abs bs1, Bs b2) => S(Abs(each (fn x => ret(opb(x,b2)))bs1))
   | (Bs b1, Abs bs2) => S(Abs(each (fn x => ret(opb(b1,x)))bs2))
-  | _ => raise Fail "compBoolOp.function"
+  | _ => raise Fail "compBoolOp.function expecting boolean argument"
 
 fun compCmp opi opd =
  fn (Is i1, Is i2) => S(Bs(opi(i1,i2)))
@@ -261,10 +261,19 @@ local
           Is _ => INT_C
         | Bs _ => BOOL_C
         | Ds _ => DOUBLE_C
+        | Abs _ => BOOL_C
+        | Ais _ => INT_C
+        | Ads _ => DOUBLE_C
         | _ => UNKNOWN_C
 in
 fun classifyReduce (f: s list -> s N) : classifier =
     case f [dummyBoolS,dummyBoolS] of
+        S v => class v
+      | M m => case runHack m of
+                   SOME v => class v
+                 | NONE => UNKNOWN_C
+fun classifyPow (f: s list -> s N) : classifier =
+    case f [Abs(zilde())] of
         S v => class v
       | M m => case runHack m of
                    SOME v => class v
@@ -407,6 +416,13 @@ fun compileAst flags e =
                                       case f of
                                         Fs (f,_) => f [s1,s2] >>>= (fn s => k(s,G2++G1++G0))
                                       | _ => compErr r "expecting dyadic operator")))
+            | IdE(Symb L.StarDia,r) => 
+              k(Fs (fn [Fs (f,ii),Is n] =>
+                       rett(Fs (compPow r f n,
+                                noii))
+                     | _ => compErr r "expecting function argument and integer argument",
+                    noii), 
+                emp)
             | IdE(Symb L.Slash,r) => 
               k(Fs (fn [Fs (f,ii)] =>
                        rett(Fs (fn [Ads x] => S(reduce (fn (x,y) =>
@@ -632,6 +648,20 @@ fun compileAst flags e =
             let val G' = [(Symb L.Omega,y),(Symb L.Alpha,x)]
             in comp (G++G') e (fn (s,_) => rett s)
             end
+        and compPow r f n =
+            fn [Ais m] => S(Ais(pow (fn x =>
+                                        subM(f[Ais x] >>>= (fn Ais z => rett z
+                                                           | _ => compErr r "expecting integer array as result of power")))
+                                    n m))
+             | [Abs m] =>
+               (case classifyPow f of
+                    INT_C => compPow r f n [Ais(each (ret o b2i) m)]
+                  | BOOL_C => S(Abs(pow (fn x =>
+                                            subM(f[Abs x] >>>= (fn Abs z => rett z
+                                                               | _ => compErr r "expecting boolean array as result of power")))
+                                    n m))
+                  | _ => compErr r "expecting boolean or integer array as result of power")
+             | _ => compErr r "expecting boolean or integer array as argument to power"
         val c = comp emp e (fn (s,_) => rett s)
         val c' = subM c >>= (fn s =>
                                 case s of

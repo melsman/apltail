@@ -121,11 +121,11 @@ fun siz t = Op_e("siz",[t])
 fun dim t = Op_e("dim",[t])   (* or I(#2 t) *)
 fun rav t = Op_e("rav",[t])
 fun rav0 t = t
-fun each f e =
+fun mkFn1 f =
     let val v = newVar()
         val t = TyVar()
-        val e0 = f (Var(v,t)) (fn x => x)
-    in Op_e("each",[Fn_e(v,t,e0),e])
+        val e0 = f (Var(v,t))
+    in Fn_e(v,t,e0)
     end
 fun mkFn2 f =
     let val (v1, v2) = (newVar(), newVar())
@@ -134,7 +134,9 @@ fun mkFn2 f =
     in Fn_e(v1,t1,Fn_e(v2,t2,e0))
     end
 fun mkFn2m f = mkFn2 (fn a => f a (fn x=>x))
+fun mkFn1m f = mkFn1 (fn a => f a (fn x=>x))
 
+fun each f e = Op_e("each",[mkFn1m f,e])
 fun red f n e = Op_e("red",[mkFn2 f,n,e])
 fun mif (b,e1,e2) = If(b,e1,e2)
 fun zipWith f e1 e2 = Op_e("zipWith",[mkFn2m f,e1,e2])
@@ -195,6 +197,7 @@ fun reduce f e1 e2 s a =
 
 fun compress b a = Op_e("compress",[b,a])
 fun replicate v b a = Op_e("replicate",[v,b,a])
+fun pow f e1 e2 = Op_e("pow",[mkFn1m f,e1,e2])
 
 fun transpose e = Op_e("transp", [e])
 fun transpose2 e1 e2 = Op_e("transp2", [e1,e2])

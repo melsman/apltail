@@ -17,13 +17,16 @@ signature TAIL = sig
   val Vec       : 'a T -> 'a Vec T
   val prType    : 'a T -> string
 
-  (* Monadic encapsulation of program construction *)
-  type 'a M    
+  (* Monadic encapsulation of program construction. Allows for
+     introducing target-language let-constructs using the lett and
+     letm combinators below. 
+   *)
+  type 'a M
   val >>=       : 'a M * ('a -> 'b M) -> 'b M
   val ret       : 'a -> 'a M
 
   (* Terms *)
-  type 'a t                      (* terms *)
+  type 'a t                    (* terms *)
   type 'a v     = 'a Vec t        (* vector terms *)
 
   type 'a NUM   = 'a Num t        (* basic term types *)
@@ -154,6 +157,8 @@ signature TAIL = sig
 
   val compress  : Bool m -> 'a m -> 'a m
   val replicate : 'a t -> Int Num m -> 'a m -> 'a m
+
+  val pow       : ('a m -> 'a m M) -> INT -> 'a m -> 'a m
 
   val transpose : 'a m -> 'a m
   val transpose2 : Int Num v -> 'a m -> 'a m

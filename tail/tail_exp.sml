@@ -25,6 +25,16 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                    | NONE => bt
               end
 
+  fun unUnaryFun s ty =
+      let fun err t = 
+              raise Fail ("expected function type, but got " ^ prType t)
+      in case unFun ty of
+             SOME (t1,t2) =>
+             (unScl "function argument" t1,
+              unScl "function result" t2)
+           | NONE => err ty
+      end
+
   fun unBinFun s ty =
       let fun err t = 
               raise Fail ("expected function type, but got " ^ prType t)
@@ -310,6 +320,10 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | ("takeV",[t1,t2]) => type_take true t1 t2
         | ("drop",[t1,t2]) => type_drop false t1 t2
         | ("dropV",[t1,t2]) => type_drop true t1 t2
+        | ("rav",[t]) => 
+          let val (bt,_) = unArr' "argument to ravel" t
+          in Arr bt (rnk 1)
+          end
         | ("cat",[t1,t2]) => type_cat false t1 t2
         | ("catV",[t1,t2]) => type_cat true t1 t2
         | ("cons",[t1,t2]) => conssnoc false opr t1 t2
@@ -337,6 +351,16 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
            ; assertB "second argument to zipWith" bt2 bt2'
            ; assertR "zipWith argument ranks" r1 r2
            ; Arr bt r1
+          end
+        | ("pow", [tf,tn,tv]) =>
+          let val (t1,t2) = 
+                  case unFun tf of
+                      SOME(t1,t2) => (t1,t2)
+                    | NONE => raise Fail "expecting function type" 
+          in assert_sub opr tn Int
+           ; assert opr t1 t2
+           ; assert_sub opr tv t2
+           ; t2
           end
         | ("reduce", [tf,tn,tv]) =>
           let val (bt1,bt2,bt) = unBinFun "first argument to reduce" tf
@@ -692,6 +716,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                  end
                | ("cons", [e1,e2]) => Apl.cons(eval DE e1,eval DE e2)
                | ("snoc", [e1,e2]) => Apl.snoc(eval DE e1,eval DE e2)
+               | ("rav", [e]) => Apl.ravel(eval DE e)
                | ("cat", [e1,e2]) => Apl.catenate(eval DE e1,eval DE e2)
                | ("reduce", [f,n,a]) =>
                  let val F = unFb2 DE "reduce" f
@@ -706,6 +731,11 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                | ("replicate", [_,e1,e2]) => 
                  let val v1 = Apl.map 0 (fn Ib i => i | _ => raise Fail "eval:replicate") (eval DE e1)
                  in Apl.replicate(v1,eval DE e2)
+                 end
+               | ("pow", [ef,en,a]) =>
+                 let val (DE0,v,_,e,_) = unFb(Apl.unScl"eval:pow"(eval DE ef))
+                     val vn = Apl.map 0 unIb (eval DE en)
+                 in Apl.pow (fn y => eval (addDE DE0 v y) e) vn (eval DE a)
                  end
                | ("each", [e1,e2]) =>
                  let val (DE0,v,t,e,t') = unFb(Apl.unScl"eval:each"(eval DE e1))

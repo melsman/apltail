@@ -13,21 +13,12 @@ life ← {
   (n=3) ∨ (n=4) ∧ ⍵
 }
 
-life5 ← {
-  b ← ⍵
-  b ← ⎕ ← life b 
-  b ← ⎕ ← life b 
-  b ← ⎕ ← life b 
-  b ← ⎕ ← life b 
-  b ← ⎕ ← life b 
+lifepr ← {
+  ⎕ ← life ⍵
 }
-
-life20 ← {
-  b ← ⍵
-  b ← ⎕ ← life5 b 
-  b ← ⎕ ← life5 b 
-  b ← ⎕ ← life5 b 
-  b ← ⎕ ← life5 b
+ 
+nlife ← {
+  lifepr ⍣ ⍺ ⍵
 }
 
 glider ← 3 3⍴1 1 1 1 0 0 0 1 0
@@ -40,6 +31,6 @@ board ← ⍉ ¯10 ↑ ⍉ ¯10 ↑ glider
 
 ⍝ ⎕ ← neighbor board
 
-⎕ ← life20 board
+a ← 20 nlife board
 
 0

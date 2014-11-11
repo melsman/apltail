@@ -76,6 +76,13 @@ fun unliftB s (defa: 'a) (defb: 'b) (f : 'a t * 'b t -> 'c t) : 'a * 'b -> 'c =
 fun each (x:'b) (f: 'a t -> 'b t) (a : 'a t) : 'b t =
     (#1 a, V.map (unliftU "each" (#3 a) f) (#2 a), x)
 
+fun pow (f: 'a t -> 'a t) (n : int t) (a : 'a t) : 'a t =
+    let val n = unScl "pow" n
+    in if n < 0 then raise Fail "pow: negative number of iterations not supported"
+       else if n = 0 then a
+       else pow f (scl 0 (n-1)) (f a)
+    end
+                
 fun map (def: 'b) (f: 'a -> 'b) (a : 'a t) : 'b t =
     (#1 a, V.map f (#2 a), def)
     
