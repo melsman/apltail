@@ -1,7 +1,7 @@
 MLCOMP ?= mlton -mlb-path-map $(HOME)/.mlton/mlb-path-map
 FILES=apl2tail.mlb Apl2Tail.sml $(shell ls -1 tail/*.sig tail/*.sml tail/*.mlb)
 SMACKAGE ?= $(HOME)/.smackage/lib
-APLPARSE_LIB ?= $(SMACKAGE)/aplparse/v2.1
+APLPARSE_LIB ?= $(SMACKAGE)/aplparse/v2.2
 
 .PHONY: all
 all: aplt

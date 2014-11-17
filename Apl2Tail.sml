@@ -228,6 +228,21 @@ fun compOpr1d opd =
   | Abs a => compOpr1d opd (Ais(each (ret o b2i) a))
   | _ => raise Fail "compOpr1d.function"
 
+fun compOpr2d opd =
+ fn (Ds d1,Ds d2) => S(Ds(opd(d1,d2)))
+  | (Ads a1,Ads a2) => S(Ads(zipWith (ret o opd) a1 a2))
+  | (Ads a1,Ds d2) => S(Ads(each (ret o (fn x => opd(x,d2))) a1))
+  | (Ds d1,Ads a2) => S(Ads(each (ret o (fn x => opd(d1,x))) a2))
+  | (Is i1,a2) => compOpr2d opd (Ds(i2d i1),a2)
+  | (a1,Is i2) => compOpr2d opd (a1,Ds(i2d i2))
+  | (Bs b1,a2) => compOpr2d opd (Is(b2i b1),a2)
+  | (a1,Bs b2) => compOpr2d opd (a1,Is(b2i b2))
+  | (Ais a1,a2) => compOpr2d opd (Ads(each (ret o i2d) a1),a2)
+  | (a1,Ais a2) => compOpr2d opd (a1,Ads(each (ret o i2d) a2))
+  | (Abs a1,a2) => compOpr2d opd (Ads(each (ret o i2d o b2i) a1),a2)
+  | (a1,Abs a2) => compOpr2d opd (a1,Ads(each (ret o i2d o b2i) a2))
+  | _ => raise Fail "compOpr2d.function"
+
 fun compOpr1i opi opd =
  fn Is i => S(Is(opi i))
   | Ds d => S(Is(opd d))
@@ -272,7 +287,7 @@ fun classifyReduce (f: s list -> s N) : classifier =
       | M m => case runHack m of
                    SOME v => class v
                  | NONE => UNKNOWN_C
-fun classifyPow (f: s list -> s N) : classifier =
+fun classifyPower (f: s list -> s N) : classifier =
     case f [Abs(zilde())] of
         S v => class v
       | M m => case runHack m of
@@ -355,39 +370,25 @@ fun compileAst flags e =
             | IdE(Symb L.Alphaalpha,r) => compId G (Symb L.Alphaalpha,r) k
             | IdE(Symb L.Zilde,_) => k (Ais (zilde ()),emp)
             | VecE(es,r) =>
-              let fun collect f =
-                      List.foldr (fn (IntE (s,_),SOME acc) =>
-                                     (case StoI s of
-                                          SOME i => (case f i of
-                                                         SOME v => SOME(v::acc)
-                                                       | NONE => NONE)
-                                        | NONE => NONE)
-                                 | _ => NONE) (SOME[]) es
-                  fun tryBools () = collect (fn 0 => SOME (B false)
-                                            | 1 => SOME (B true)
-                                            | _ => NONE)
-                  fun tryInts () = collect (fn i => SOME (I i))
-              in case tryBools () of
-                     SOME bs => k(Abs(vec(fromList Bool bs)),emp)
-                   | NONE =>
-                 case tryInts() of
-                     SOME is => k(Ais(vec(fromList Int is)),emp)
-                   | NONE =>
-                     let val ds =
-                             List.foldr (fn (e,acc) =>
-                                            let val s = case e of
-                                                            IntE (s,_) => s
-                                                          | DoubleE (s,_) => s
-                                                          | _ => compErr r "expecting only integers or doubles in immediate vectors"
-                                            in case StoD s of
-                                                   SOME d => D d :: acc
-                                                 | NONE => compErr r ("could not parse double value " ^ s)
-                                            end) [] es
-                     in case ds of
-                            [] => compErr r "expecting a non-empty sequence of integers or doubles in immediate vector"
-                          | _ => k(Ads(vec(fromList Double ds)),emp)
-                     end
-              end
+              comps G (rev es) (fn (nil,G1) => k (Ais (zilde ()),G1)
+                                 | ([s],_) => compErr r "singleton vectors should not appear" 
+                                 | (ss,G1) => 
+                                   let val ss = rev ss
+                                       fun vec' t ss = vec (fromList t ss)
+                                   in if List.exists (fn Ds _ => true | _ => false) ss then
+                                        k(Ads(vec' Double (List.map (fn Is e => i2d e
+                                                                      | Ds d => d
+                                                                      | Bs b => i2d(b2i b)
+                                                                      | _ => compErr r ("nested vectors not supported")) ss)),G1)
+                                      else if List.exists (fn Is _ => true | _ => false) ss then
+                                        k(Ais(vec' Int (List.map (fn Is e => e
+                                                                 | Ds d => compErr r ("vec compilation: impossible")
+                                                                 | Bs b => b2i b
+                                                                 | _ => compErr r ("nested vectors not supported")) ss)),G1)
+                                      else if List.all (fn Bs _ => true | _ => false) ss then
+                                        k(Abs(vec' Bool (List.map (fn Bs b => b | _ => compErr r ("vec compilation: impossible (bool)")) ss)),G1)
+                                      else compErr r ("nested vectors not supported")
+                                   end)
             | App1E(e0,e1,r) =>
               comp G e1 (fn (s,G') =>
               comp (G++G') e0 (fn (f,G'') =>
@@ -418,9 +419,9 @@ fun compileAst flags e =
                                       | _ => compErr r "expecting dyadic operator")))
             | IdE(Symb L.StarDia,r) => 
               k(Fs (fn [Fs (f,ii),Is n] =>
-                       rett(Fs (compPow r f n,
+                       rett(Fs (compPower r f n,
                                 noii))
-                     | _ => compErr r "expecting function argument and integer argument",
+                     | _ => compErr r "power operation expects function and integer arguments",
                     noii), 
                 emp)
             | IdE(Symb L.Slash,r) => 
@@ -505,10 +506,16 @@ fun compileAst flags e =
             | IdE(Symb L.Trans,r) => compPrimFunMD k r (fn Ais a => S(Ais(transpose a))
                                                          | Ads a => S(Ads(transpose a))
                                                          | Abs a => S(Abs(transpose a))
+                                                         | Is a => S(Is a)
+                                                         | Bs a => S(Bs a)
+                                                         | Ds a => S(Ds a)
                                                          | _ => compErr r "expecting array as right argument to transpose",
                                                         fn (Ais a1, Ais a2) => S(Ais(transpose2 (rav0 a1) a2))
                                                          | (Ais a1, Ads a2) => S(Ads(transpose2 (rav0 a1) a2))
                                                          | (Ais a1, Abs a2) => S(Abs(transpose2 (rav0 a1) a2))
+                                                         | (_, Is a) => S(Is a)
+                                                         | (_, Bs a) => S(Bs a)
+                                                         | (_, Ds a) => S(Ds a)
                                                          | _ => compErr r "expecting arrays as arguments to dyadic transpose") noii
             | IdE(Symb L.Rho,r) => 
               let val rec compDyn = 
@@ -565,10 +572,13 @@ fun compileAst flags e =
             | IdE(Symb L.Times,r) => compPrimFunMD k r (compOpr1i signi signd,
                                                         compOpr2 muli muld) (LRii 1,LRii 1.0,NOii)
             | IdE(Symb L.Div,r) => compPrimFunMD k r (compOpr1d (fn x => divd(D 1.0,x)),
-                                                      compOpr2 divi divd) (Rii 1,Rii 1.0,NOii)
+                                                      compOpr2d divd) (Rii 1,Rii 1.0,NOii)
+            | IdE(Symb L.Pow,r) => compPrimFunMD k r (compOpr1d (fn x => powd(D Math.e,x)),
+                                                      compOpr2d powd) (Rii 1, Rii 1.0, NOii)
             | IdE(Symb L.Pipe,r) => compPrimFunMD k r (compOpr1 absi absd,
                                                        compOpr2 resi resd) (Lii 0,Lii 0.0,NOii)
-            | IdE(Symb L.Max,r) => compPrimFunD k r (compOpr2 (uncurry maxi) (uncurry maxd)) (LRii(minInt()), LRii(Real.negInf),NOii)
+            | IdE(Symb L.Max,r) => compPrimFunMD k r (compOpr1i (fn x => x) ceil,
+                                                      compOpr2 (uncurry maxi) (uncurry maxd)) (LRii(minInt()), LRii(Real.negInf),NOii)
             | IdE(Symb L.Min,r) => compPrimFunD k r (compOpr2 (uncurry mini) (uncurry mind)) (LRii(maxInt()), LRii(Real.posInf),NOii)
             | IdE(Symb L.Lt,r) => compPrimFunD k r (compCmp lti ltd) (LRii 0,LRii 0.0,LRii false)
             | IdE(Symb L.Lteq,r) => compPrimFunD k r (compCmp ltei lted) (LRii 1,LRii 1.0,LRii true)
@@ -582,6 +592,8 @@ fun compileAst flags e =
             | IdE(Symb L.Nor,r) => compPrimFunD k r (compBoolOp norb) (NOii,NOii,NOii)
             | IdE(Symb L.Tilde,r) => compPrimFunM k r (compOpr1b notb)
             | e => raise Fail ("compile.expression " ^ pr_exp e ^ " not implemented")
+        and comps G nil k = k(nil,emp)
+          | comps G (e::es) k = comp G e (fn (s,G1) => comps (G++G1) es (fn (ss,G2) => k(s::ss,G1++G2)))
         and compPrimFunMD k r (mon,dya) ii =
             k(Fs (fn [x1,x2] => failWrap r dya (x1,x2)
                    | [x] => failWrap r mon x
@@ -648,15 +660,15 @@ fun compileAst flags e =
             let val G' = [(Symb L.Omega,y),(Symb L.Alpha,x)]
             in comp (G++G') e (fn (s,_) => rett s)
             end
-        and compPow r f n =
-            fn [Ais m] => S(Ais(pow (fn x =>
+        and compPower r f n =
+            fn [Ais m] => S(Ais(power (fn x =>
                                         subM(f[Ais x] >>>= (fn Ais z => rett z
                                                            | _ => compErr r "expecting integer array as result of power")))
                                     n m))
              | [Abs m] =>
-               (case classifyPow f of
-                    INT_C => compPow r f n [Ais(each (ret o b2i) m)]
-                  | BOOL_C => S(Abs(pow (fn x =>
+               (case classifyPower f of
+                    INT_C => compPower r f n [Ais(each (ret o b2i) m)]
+                  | BOOL_C => S(Abs(power (fn x =>
                                             subM(f[Abs x] >>>= (fn Abs z => rett z
                                                                | _ => compErr r "expecting boolean array as result of power")))
                                     n m))

@@ -118,7 +118,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
       isIn opr ["addi","subi","muli","divi","maxi","mini","mod","resi"]
 
   fun isBinOpDDD opr =
-      isIn opr ["addd","subd","muld","divd","resd","maxd","mind"]
+      isIn opr ["addd","subd","muld","divd","resd","maxd","mind","powd"]
 
   fun isBinOpIIB opr =
       isIn opr ["lti","ltei","eqi","gti","gtei"]
@@ -313,7 +313,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | ("reshape", [t1,t2]) =>
           let val (bt,_) = unArr' "second argument to reshape" t2
               val r = RnkVar()
-          in assert "first argument to reshape" (Vcc IntB r) t1;
+          in assert_sub "first argument to reshape" t1 (Vcc IntB r);
              Arr bt r
           end
         | ("take",[t1,t2]) => type_take false t1 t2
@@ -352,7 +352,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
            ; assertR "zipWith argument ranks" r1 r2
            ; Arr bt r1
           end
-        | ("pow", [tf,tn,tv]) =>
+        | ("power", [tf,tn,tv]) =>
           let val (t1,t2) = 
                   case unFun tf of
                       SOME(t1,t2) => (t1,t2)
@@ -435,6 +435,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                | SOME i => S IntB (rnk(~i))
           end
         | ("negd",[t]) => (assert opr Double t; Double)
+        | ("floor",[t]) => (assert opr Double t; Int)
+        | ("ceil",[t]) => (assert opr Double t; Int)
         | ("absd",[t]) => (assert opr Double t; Double)
         | ("notb",[t]) => (assert opr Bool t; Bool)
         | ("iotaV",[t]) =>
@@ -685,6 +687,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                | ("absi", [e]) => Apl.liftU (Ib 0) (fn Ib i => Ib(Int.abs i) | _ => raise Fail "eval:absi") (eval DE e)
                | ("negd", [e]) => Apl.liftU (Db 0.0) (fn Db i => Db(Real.~i) | _ => raise Fail "eval:negd") (eval DE e)
                | ("absd", [e]) => Apl.liftU (Db 0.0) (fn Db i => Db(Real.abs i) | _ => raise Fail "eval:absd") (eval DE e)
+               | ("floor", [e]) => Apl.liftU (Ib 0) (fn Db i => Ib(Real.floor i) | _ => raise Fail "eval:floor") (eval DE e)
+               | ("ceil", [e]) => Apl.liftU (Ib 0) (fn Db i => Ib(Real.ceil i) | _ => raise Fail "eval:ceil") (eval DE e)
                | ("notb", [e]) => Apl.liftU (Bb false) (fn Bb b => Bb(not b) | _ => raise Fail "eval:notb") (eval DE e)
                | ("iota", [e]) => Apl.map (Ib 0) Ib (Apl.iota (Apl.map 0 unIb (eval DE e)))
                | ("reshape", [e1,e2]) =>
@@ -732,10 +736,10 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                  let val v1 = Apl.map 0 (fn Ib i => i | _ => raise Fail "eval:replicate") (eval DE e1)
                  in Apl.replicate(v1,eval DE e2)
                  end
-               | ("pow", [ef,en,a]) =>
-                 let val (DE0,v,_,e,_) = unFb(Apl.unScl"eval:pow"(eval DE ef))
+               | ("power", [ef,en,a]) =>
+                 let val (DE0,v,_,e,_) = unFb(Apl.unScl"eval:power"(eval DE ef))
                      val vn = Apl.map 0 unIb (eval DE en)
-                 in Apl.pow (fn y => eval (addDE DE0 v y) e) vn (eval DE a)
+                 in Apl.power (fn y => eval (addDE DE0 v y) e) vn (eval DE a)
                  end
                | ("each", [e1,e2]) =>
                  let val (DE0,v,t,e,t') = unFb(Apl.unScl"eval:each"(eval DE e1))
@@ -812,6 +816,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                       | "subd" => (op -)
                       | "muld" => (op * )
                       | "divd" => (op /)
+                      | "powd" => Math.pow
                       | "resd" => (fn(x,y) => if Real.==(x,0.0) then y 
                                               else y - real(Real.floor(y/x)))
                       | "maxd" => (fn (x,y) => if x > y then x else y)

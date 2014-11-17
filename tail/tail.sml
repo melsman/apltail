@@ -33,11 +33,14 @@ val maxi = binOp' "maxi"
 val mini = binOp' "mini"
 fun negi x = Op_e("negi",[x])
 fun absi x = Op_e("absi",[x])
+fun floor x= Op_e("floor",[x])
+fun ceil x = Op_e("ceil",[x])
 val addd = binOp "addd"
 val subd = binOp "subd"
 val muld = binOp "muld"
 val divd = binOp "divd"
 val resd = binOp "resd"
+val powd = binOp "powd"
 val ltd  = binOp "ltd"
 val lted = binOp "lted"
 val gtd  = binOp "gtd"
@@ -197,7 +200,7 @@ fun reduce f e1 e2 s a =
 
 fun compress b a = Op_e("compress",[b,a])
 fun replicate v b a = Op_e("replicate",[v,b,a])
-fun pow f e1 e2 = Op_e("pow",[mkFn1m f,e1,e2])
+fun power f e1 e2 = Op_e("power",[mkFn1m f,e1,e2])
 
 fun transpose e = Op_e("transp", [e])
 fun transpose2 e1 e2 = Op_e("transp2", [e1,e2])

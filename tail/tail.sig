@@ -68,6 +68,8 @@ signature TAIL = sig
 
   type 'a m (* APL multi-dimensional arrays *)
 
+  val ceil      : DOUBLE -> INT
+  val floor     : DOUBLE -> INT
   val addi      : INT * INT -> INT
   val subi      : INT * INT -> INT
   val muli      : INT * INT -> INT
@@ -88,6 +90,7 @@ signature TAIL = sig
   val muld      : DOUBLE * DOUBLE -> DOUBLE
   val divd      : DOUBLE * DOUBLE -> DOUBLE
   val resd      : DOUBLE * DOUBLE -> DOUBLE
+  val powd      : DOUBLE * DOUBLE -> DOUBLE
   val ltd       : DOUBLE * DOUBLE -> BOOL
   val lted      : DOUBLE * DOUBLE -> BOOL
   val gtd       : DOUBLE * DOUBLE -> BOOL
@@ -158,7 +161,7 @@ signature TAIL = sig
   val compress  : Bool m -> 'a m -> 'a m
   val replicate : 'a t -> Int Num m -> 'a m -> 'a m
 
-  val pow       : ('a m -> 'a m M) -> INT -> 'a m -> 'a m
+  val power     : ('a m -> 'a m M) -> INT -> 'a m -> 'a m
 
   val transpose : 'a m -> 'a m
   val transpose2 : Int Num v -> 'a m -> 'a m

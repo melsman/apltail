@@ -9,7 +9,7 @@ Spin ← {⊖⍉ ⍵}
 
 ⎕ ← Spin Spin mat
 
-x ← Spin ⍣ 14 mat
+x ← (Spin ⍣ 14) mat
 
 y ← x = Spin Spin mat
 
