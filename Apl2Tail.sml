@@ -596,7 +596,8 @@ fun compileAst flags e =
                                                        compOpr2 resi resd) (Lii 0,Lii 0.0,NOii)
             | IdE(Symb L.Max,r) => compPrimFunMD k r (compOpr1i (fn x => x) ceil,
                                                       compOpr2 (uncurry maxi) (uncurry maxd)) (LRii(minInt()), LRii(Real.negInf),NOii)
-            | IdE(Symb L.Min,r) => compPrimFunD k r (compOpr2 (uncurry mini) (uncurry mind)) (LRii(maxInt()), LRii(Real.posInf),NOii)
+            | IdE(Symb L.Min,r) => compPrimFunMD k r (compOpr1i (fn x => x) floor,
+                                                      compOpr2 (uncurry mini) (uncurry mind)) (LRii(maxInt()), LRii(Real.posInf),NOii)
             | IdE(Symb L.Lt,r) => compPrimFunD k r (compCmp lti ltd) (LRii 0,LRii 0.0,LRii false)
             | IdE(Symb L.Lteq,r) => compPrimFunD k r (compCmp ltei lted) (LRii 1,LRii 1.0,LRii true)
             | IdE(Symb L.Gt,r) => compPrimFunD k r (compCmp gti gtd) (LRii 0,LRii 0.0,LRii false)
