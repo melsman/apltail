@@ -295,6 +295,57 @@ fun classifyPower (f: s list -> s N) : classifier =
                  | NONE => UNKNOWN_C
 end
 
+fun compSlash r =
+    fn [Fs (f,ii)] =>
+       rett(Fs (fn [Ads x] => S(reduce (fn (x,y) =>
+                                           subM(f[Ds x,Ds y] >>>= (fn Ds z => rett z
+                                                                  | _ => compErr r "expecting double as result of reduce")))
+                                       (D(id_item_double ii)) x Ds Ads)
+                 | [Ais x] => S(reduce (fn (x,y) =>
+                                           subM(f[Is x,Is y] >>>= (fn Is z => rett z
+                                                                  | _ => compErr r "expecting integer as result of reduce")))
+                                       (I(id_item_int ii)) x Is Ais) 
+                 | [Abs x] =>
+                   (case classifyReduce f of
+                        INT_C =>
+                        S(let val x = each (ret o b2i) x
+                          in reduce (fn (x,y) =>
+                                        subM(f[Is x,Is y] >>>= (fn Is z => rett z
+                                                               | _ => compErr r "expecting int as result of reduce")))
+                                    (I(id_item_int ii)) x Is Ais
+                          end)
+                      | BOOL_C => 
+                        S(reduce (fn (x,y) =>
+                                     subM(f[Bs x,Bs y] >>>= (fn Bs z => rett z
+                                                            | _ => compErr r "expecting boolean as result of reduce")))
+                                 (B(id_item_bool ii)) x Bs Abs)
+                      | _ => compErr r "expecting boolean or integer as result of reduce")
+                 | [Ds x] => S(Ds x)
+                 | [Is x] => S(Is x)
+                 | _ => compErr r "expecting array as right argument to reduce",
+                noii))
+  | [Abs x] => rett(Fs (fn [Ais y] => S(Ais(compress x y))
+                         | [Is y] => S(Ais(compress x (scalar y)))
+                         | [Abs y] => S(Abs(compress x y))
+                         | [Bs y] => S(Abs(compress x (scalar y))) 
+                         | [Ads y] => S(Ads(compress x y))
+                         | [Ds y] => S(Ads(compress x (scalar y))) 
+                         | _ => compErr r "compress does not support function arguments as right argument", 
+                        noii))
+  | [Ais x] => rett(Fs (fn [Ais y] => S(Ais(replicate (I 0) x y))
+                         | [Is y] => S(Ais(replicate (I 0) x (scalar y)))
+                         | [Abs y] => S(Abs(replicate (B false) x y))
+                         | [Bs y] => S(Abs(replicate (B false) x (scalar y)))
+                         | [Ads y] => S(Ads(replicate (D 0.0) x y))
+                         | [Ds y] => S(Ads(replicate (D 0.0) x (scalar y)))
+                         | _ => compErr r "replicate does not support function arguments as right argument", 
+                        noii))
+  | [Ads _] => compErr r "replicate does not support double arrays as left argument"
+  | [Ds _] => compErr r "replicate does not support double scalars as left argument"
+  | [Is x] => compSlash r ([Ais(scalar x)])
+  | [Bs x] => compSlash r ([Abs(scalar x)])
+  | _ => compErr r "operator slash (reduce/replicate/compress) takes only one argument (monadic)"
+
 fun compileAst flags e =
     let fun comp (G:env) e (k: s*env -> s N) : s N =
             case e of
@@ -424,45 +475,7 @@ fun compileAst flags e =
                      | _ => compErr r "power operation expects function and integer arguments",
                     noii), 
                 emp)
-            | IdE(Symb L.Slash,r) => 
-              k(Fs (fn [Fs (f,ii)] =>
-                       rett(Fs (fn [Ads x] => S(reduce (fn (x,y) =>
-                                                        subM(f[Ds x,Ds y] >>>= (fn Ds z => rett z
-                                                                                 | _ => compErr r "expecting double as result of reduce")))
-                                                       (D(id_item_double ii)) x Ds Ads)
-                                 | [Ais x] => S(reduce (fn (x,y) =>
-                                                        subM(f[Is x,Is y] >>>= (fn Is z => rett z
-                                                                                 | _ => compErr r "expecting integer as result of reduce")))
-                                                       (I(id_item_int ii)) x Is Ais) 
-                                 | [Abs x] =>
-                                   (case classifyReduce f of
-                                        INT_C =>
-                                        S(let val x = each (ret o b2i) x
-                                          in reduce (fn (x,y) =>
-                                                            subM(f[Is x,Is y] >>>= (fn Is z => rett z
-                                                                                   | _ => compErr r "expecting int as result of reduce")))
-                                                    (I(id_item_int ii)) x Is Ais
-                                          end)
-                                      | BOOL_C => 
-                                        S(reduce (fn (x,y) =>
-                                                         subM(f[Bs x,Bs y] >>>= (fn Bs z => rett z
-                                                                                | _ => compErr r "expecting boolean as result of reduce")))
-                                                 (B(id_item_bool ii)) x Bs Abs)
-                                      | _ => compErr r "expecting boolean or integer as result of reduce")
-                                 | [Ds x] => S(Ds x)
-                                 | [Is x] => S(Is x)
-                                 | _ => compErr r "expecting array as right argument to reduce",
-                                noii))
-                     | [Abs x] => rett(Fs (fn [Ais is] => S(Ais(compress x is))
-                                            | _ => compErr r "compress expects an integer array as right argument", 
-                                           noii))
-                     | [Ais x] => rett(Fs (fn [Ais is] => S(Ais(replicate (I 0) x is))
-                                            | _ => compErr r "replicate expects an integer array as right argument", 
-                                           noii))
-                     | [Ads x] => compErr r "replicate with double array argument not supported"
-                     | _ => compErr r "expecting function as left argument to reduce",
-                    noii), 
-                emp)
+            | IdE(Symb L.Slash,r) => k (Fs (compSlash r, noii), emp)
             | IdE(Symb L.Slashbar,r) => compId G (Var "$slashbar",r) k
             | IdE(Symb L.Dot,r) =>
               (case compIdOpt G (Var "$dot",r) k of
@@ -526,6 +539,10 @@ fun compileAst flags e =
                     | (Ais a1, Ds a2) => S(Ads(reshape (rav0 a1) (scalar a2)))
                     | (Ais a1, Bs a2) => S(Abs(reshape (rav0 a1) (scalar a2)))
                     | (Abs a1, e2) => compDyn(Ais(each (ret o b2i) a1),e2)
+                    | (Is i1, e2) => compDyn(Ais(scalar i1),e2)
+                    | (Bs b1, e2) => compDyn(Is(b2i b1),e2)
+                    | (Ds _,_) => compErr r "left argument to reshape operation cannot be a double"
+                    | (Ads _,_) => compErr r "left argument to reshape operation cannot be an array of type double"
                     | _ => compErr r "expecting arrays as left and right arguments to reshape operation"
               in compPrimFunMD k r (fn Ais a => S(Ais(vec(shape a)))
                                      | Ads a => S(Ais(vec(shape a)))
