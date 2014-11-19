@@ -201,6 +201,7 @@ fun reduce f e1 e2 s a =
 fun compress b a = Op_e("compress",[b,a])
 fun replicate v b a = Op_e("replicate",[v,b,a])
 fun power f e1 e2 = Op_e("power",[mkFn1m f,e1,e2])
+fun powerScl f e1 e2 = Op_e("powerScl",[mkFn1m f,e1,e2])
 
 fun transpose e = Op_e("transp", [e])
 fun transpose2 e1 e2 = Op_e("transp2", [e1,e2])
@@ -299,6 +300,10 @@ and peepOp E (opr,es,t) =
         else Op(opr,es,t)
       | ("catV", [Vc([],_),e]) => e
       | ("vrotateV", [I n,Vc(es,_)]) => Vc(rot n es,t)
+      | ("transp", [Vc e]) => Vc e
+      | ("reshape", [Vc([I n],_), Vc(es',t')]) =>
+        if n = length es' then Vc(es',t')
+        else Op(opr,es,t)
       | _ => Op(opr,es,t)
                
 and getShape (E:env) (e : Exp.exp) : Exp.exp option =

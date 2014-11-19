@@ -469,10 +469,13 @@ fun compileAst flags e =
                                         Fs (f,_) => f [s1,s2] >>>= (fn s => k(s,G2++G1++G0))
                                       | _ => compErr r "expecting dyadic operator")))
             | IdE(Symb L.StarDia,r) => 
-              k(Fs (fn [Fs (f,ii),Is n] =>
-                       rett(Fs (compPower r f n,
-                                noii))
-                     | _ => compErr r "power operation expects function and integer arguments",
+              k(Fs (fn [Fs (f,ii),n] =>
+                       let val n = case n of Is n => n
+                                           | Bs b => b2i b
+                                           | _ => compErr r "power operation expects an integer or a boolean as its second argument"
+                       in rett(Fs (compPower r f n, noii))
+                       end
+                     | _ => compErr r "power operation expects a function as its first argument",
                     noii), 
                 emp)
             | IdE(Symb L.Slash,r) => k (Fs (compSlash r, noii), emp)
@@ -682,6 +685,10 @@ fun compileAst flags e =
             fn [Ais m] => S(Ais(power (fn x =>
                                         subM(f[Ais x] >>>= (fn Ais z => rett z
                                                            | _ => compErr r "expecting integer array as result of power")))
+                                    n m))
+             | [Is m] => S(Is(powerScl (fn x =>
+                                        subM(f[Is x] >>>= (fn Is z => rett z
+                                                          | _ => compErr r "expecting integer scalar as result of power")))
                                     n m))
              | [Abs m] =>
                (case classifyPower f of

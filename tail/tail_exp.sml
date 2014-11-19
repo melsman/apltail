@@ -362,6 +362,17 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
            ; assert_sub opr tv t2
            ; t2
           end
+        | ("powerScl", [tf,tn,tv]) =>
+          let val (t1,t2) = 
+                  case unFun tf of
+                      SOME(t1,t2) => (t1,t2)
+                    | NONE => raise Fail "expecting function type" 
+          in assert_sub opr tn Int
+           ; assert opr t1 t2
+           ; assert_sub opr tv t2
+           ; unScl "powerScl recursive argument" tv
+           ; t2
+          end
         | ("reduce", [tf,tn,tv]) =>
           let val (bt1,bt2,bt) = unBinFun "first argument to reduce" tf
               val btn = unScl "reduce neutral element" tn
@@ -738,6 +749,11 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                  end
                | ("power", [ef,en,a]) =>
                  let val (DE0,v,_,e,_) = unFb(Apl.unScl"eval:power"(eval DE ef))
+                     val vn = Apl.map 0 unIb (eval DE en)
+                 in Apl.power (fn y => eval (addDE DE0 v y) e) vn (eval DE a)
+                 end
+               | ("powerScl", [ef,en,a]) =>
+                 let val (DE0,v,_,e,_) = unFb(Apl.unScl"eval:powerScl"(eval DE ef))
                      val vn = Apl.map 0 unIb (eval DE en)
                  in Apl.power (fn y => eval (addDE DE0 v y) e) vn (eval DE a)
                  end
