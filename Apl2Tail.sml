@@ -268,9 +268,6 @@ fun failWrap r f x =
 
 datatype classifier = BOOL_C | INT_C | DOUBLE_C | UNKNOWN_C
 local
-  val dummyIntS = Is (I 0)
-  val dummyBoolS = Bs (B false)
-  val dummyDoubleS = Ds (D 0.0)
   fun class v =
       case v of
           Is _ => INT_C
@@ -280,19 +277,19 @@ local
         | Ais _ => INT_C
         | Ads _ => DOUBLE_C
         | _ => UNKNOWN_C
+  fun classify (l: s list) (f: s list -> s N) : classifier =
+      case f l of
+          S v => class v
+        | M m => case runHack m of
+                     SOME v => class v
+                   | NONE => UNKNOWN_C
 in
-fun classifyReduce (f: s list -> s N) : classifier =
-    case f [dummyBoolS,dummyBoolS] of
-        S v => class v
-      | M m => case runHack m of
-                   SOME v => class v
-                 | NONE => UNKNOWN_C
-fun classifyPower (f: s list -> s N) : classifier =
-    case f [Abs(zilde())] of
-        S v => class v
-      | M m => case runHack m of
-                   SOME v => class v
-                 | NONE => UNKNOWN_C
+val dummyIntS = Is (I 0)
+val dummyBoolS = Bs (B false)
+val dummyDoubleS = Ds (D 0.0)
+val classifyReduce : (s list -> s N) -> classifier = classify [dummyBoolS,dummyBoolS]
+val classifyEach : s -> (s list -> s N) -> classifier = fn x => classify [x]
+val classifyPower : (s list -> s N) -> classifier = classify [Abs(zilde())]
 end
 
 fun compSlash r =
@@ -503,11 +500,11 @@ fun compileAst flags e =
               k(Fs (fn [Fs (f,_)] =>
                        let exception No
                            fun tryInt g x =
-                               each (fn x => case f[g x] of S(Is v) => ret v
-                                                           | _ => raise No) x
+                               each (fn x => subM(f[g x] >>>= (fn Is v => rett v
+                                                                | _ => raise No))) x
                            fun tryDouble g x =
-                               each (fn x => case f[g x] of S(Ds v) => ret v
-                                                          | _ => raise Fail "Not Ds") x
+                               each (fn x => subM(f[g x] >>>= (fn Ds v => rett v
+                                                                | _ => raise compErr r "problem with each operator - function is perhaps not returning a scalar"))) x
                        in rett(Fs (fn [Ais x] => (S(Ais(tryInt Is x)) handle No => S(Ads(tryDouble Is x)))
                                     | [Ads x] => (S(Ais(tryInt Ds x)) handle No => S(Ads(tryDouble Ds x)))
                                     | _ => compErr r "expecting array as right argument to each operation",
