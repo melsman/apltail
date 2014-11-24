@@ -8,6 +8,7 @@ type Int = unit
 type Double = unit
 type 'a Num = unit
 type Bool = unit
+type Char = unit
 type 'a Vec = unit
 type 'a T = typ
 
@@ -59,8 +60,15 @@ val nandb = binOp "nandb"
 val norb  = binOp "norb"
 fun notb x = Op_e("notb",[x])
 
+val ltc  = binOp "ltc"
+val ltec = binOp "ltec"
+val gtc  = binOp "gtc"
+val gtec = binOp "gtec"
+val eqc  = binOp "eqc"
+
 val neqd = notb o eqd
 val neqi = notb o eqi
+val neqc = notb o eqc
 
 val i2d = fn x => Op_e ("i2d", [x])
 val b2i = fn x => Op_e ("b2i", [x])
@@ -69,6 +77,7 @@ val op % = binOp "mod"
 fun If (b,e1,e2) = Iff_e(b,e1,e2)
 
 val fromList = fn _ => Vc_e
+val fromChars = Vc_e o (List.map C)
 
 type 'a t = exp
 type 'a v = exp
@@ -76,6 +85,7 @@ type 'a NUM = exp
 type INT = exp
 type DOUBLE = exp
 type BOOL = exp
+type CHAR = exp
                 
 type 'a M = ('a -> exp) -> exp
          
@@ -233,9 +243,11 @@ in
 val prArrI = pr "prArrI"
 val prArrB = pr "prArrB"
 val prArrD = pr "prArrD"
+val prArrC = pr "prArrC"
 val prSclI = pr "prSclI"
 val prSclB = pr "prSclB"
 val prSclD = pr "prSclD"
+val prSclC = pr "prSclC"
 end
 
 (* Optimization *)
@@ -350,6 +362,7 @@ fun optimize optlevel e =
               | I i => e
               | D r => e
               | B b => e
+              | C w => e
               | Iff (c,e1,e2,t) => Iff(opt E c,opt E e1,opt E e2,t)
               | Vc(es,t) => Vc (opts E es,t)
               | Op(opr,es,t) => peepOp E (opr,opts E es,t)
@@ -451,6 +464,7 @@ fun pp_exp (prtype:bool) e =
               | D r => $(Real.fmt (StringCvt.FIX (SOME 2)) r)
               | B true => $"tt"
               | B false => $"ff"
+              | C w => $(pr_char w)
               | Iff (c,e1,e2,_) => 
                 let val i' = i + 2
                 in $"if " @@ pp (i+3) c @@ $" then" @@

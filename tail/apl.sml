@@ -322,18 +322,20 @@ fun take (n : int t, (sh,src,default): 'a t) : 'a t =
 fun iff (b : bool t, f1,f2) =
     if unScl "iff" b then f1() else f2()
 
-fun pr p (a: 'a t) : string =
+fun pr (p,sep) (a: 'a t) : string =
     let fun prv p s e v =
-            s ^ String.concatWith "," (List.map p v) ^ e
+            s ^ String.concatWith sep (List.map p v) ^ e
         val shape = list (#1 a)
         val values = list (#2 a)
         fun flat () =
             (prv Int.toString "[" "]" shape ^
              prv p "(" ")" values)
     in case shape of
-           [X,Y] => 
+           [_] => if sep="" then prv p "" "" values else flat()
+         | [X,Y] => 
            if prod shape = 0 then flat() else
-           let val values = List.map p values
+           let val sep = if sep="" then sep else " "
+               val values = List.map p values
                val sz = List.foldl Int.max 0 (List.map size values)
                fun padn 0 = ""
                  | padn n = " " ^ padn (n-1)
@@ -341,7 +343,7 @@ fun pr p (a: 'a t) : string =
                fun loop [] = nil
                  | loop vs =
                    let val vs' = List.take(vs,Y)
-                       val v = " " ^ String.concatWith " " (List.map pad vs')
+                       val v = " " ^ String.concatWith sep (List.map pad vs')
                    in v :: loop (List.drop(vs,Y))
                    end
            in "\n" ^ String.concatWith "\n" (loop values) ^ "\n"

@@ -37,9 +37,11 @@ signature TAIL_TYPE = sig
   val IntB     : bty
   val BoolB    : bty
   val DoubleB  : bty
+  val CharB    : bty
   val isInt    : bty -> bool
   val isDouble : bty -> bool
   val isBool   : bty -> bool
+  val isChar   : bty -> bool
   val TyVarB   : unit -> bty
   val unifyB   : bty -> bty -> string option
   val prBty    : bty -> string
@@ -56,6 +58,7 @@ signature TAIL_TYPE = sig
   val Int      : typ
   val Bool     : typ
   val Double   : typ
+  val Char     : typ
   val Scl      : bty -> typ                (* [bty]0 *)
   val VecB     : bty -> typ                (* [bty]1 *)
   val Vec      : typ -> typ                (* asserts argument is scalar *)

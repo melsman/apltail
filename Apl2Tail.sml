@@ -41,6 +41,7 @@ local
   type mb = Bool m          (* Multidimensional bool array *)
   type mi = Int Num m       (* Multidimensional integer array *)
   type md = Double Num m    (* Multidimensional double array *)
+  type mc = Char m          (* Multidimensional char array *)
 
   infix >>=
 
@@ -56,15 +57,17 @@ local
   fun subM (M c) = c
     | subM (S e) = ret e
 
-  datatype ty = Ity | Dty | Bty | Aty of ty | FUNty of ty list -> ty | APPty of ty list * ty 
+  datatype ty = Ity | Dty | Bty | Cty | Aty of ty | FUNty of ty list -> ty | APPty of ty list * ty 
 
   datatype s =                         (* Terms *)
       Bs of BOOL                       (*   boolean *)
     | Is of INT                        (*   integer *)
     | Ds of DOUBLE                     (*   double *)
+    | Cs of CHAR                       (*   char *)
     | Abs of mb                        (*   boolean array *)
     | Ais of mi                        (*   integer array *)
     | Ads of md                        (*   double array *)
+    | Acs of mc                        (*   char array *)
     | Fs of (s list -> s N) * id_item  (*   function in-lining *)
 
   fun pp_s s =
@@ -72,18 +75,22 @@ local
           Bs _ => "Bs"
         | Is _ => "Is"
         | Ds _ => "Ds"
+        | Cs _ => "Cs"
         | Abs _ => "Abs"
         | Ais _ => "Ais"
         | Ads _ => "Ads"
+        | Acs _ => "Acs"
         | Fs _ => "Fs"
 
   fun lets s = case s of
                    Bs _ => ret s
                  | Is _ => ret s
                  | Ds _ => ret s
+                 | Cs _ => ret s
                  | Abs mb => letm mb >>= (fn x => ret(Abs x))
                  | Ais mi => letm mi >>= (fn x => ret(Ais x))
                  | Ads md => letm md >>= (fn x => ret(Ads x))
+                 | Acs md => letm md >>= (fn x => ret(Acs x))
                  | Fs _ => ret s
 
   open AplAst
@@ -103,41 +110,49 @@ local
   fun StoD s = Real.fromString(repair s)
 in
 
-fun compOpr2_i8a2a e opr1 opr2 opr3 =
+fun compOpr2_i8a2a e opr1 opr2 opr3 opr4 =
  fn (Is i1, Ais a2) => S(Ais(opr1 i1 a2))
   | (Is i1, Ads a2) => S(Ads(opr2 i1 a2))
   | (Is i1, Abs a2) => S(Abs(opr3 i1 a2))
-  | (Is i1,Is i2) => S(Is i2)
-  | (Is i1,Ds d2) => S(Ds d2)
-  | (Is i1,Bs b2) => S(Bs b2)
-  | (Bs b1, e2) => compOpr2_i8a2a e opr1 opr2 opr3 (Is(b2i b1),e2)
+  | (Is i1, Acs a2) => S(Acs(opr4 i1 a2))
+  | (Is i1, Is i2) => S(Is i2)
+  | (Is i1, Ds d2) => S(Ds d2)
+  | (Is i1, Bs b2) => S(Bs b2)
+  | (Is i1, Cs c2) => S(Cs c2)
+  | (Bs b1, e2) => compOpr2_i8a2a e opr1 opr2 opr3 opr4 (Is(b2i b1),e2)
   | _ => raise Fail ("compOpr2_i8a2a: expecting integer and array arguments in " ^ pr_exp e)
 
-fun compOpr2_i8a2a_td e opr1 opr2 opr3 =
+fun compOpr2_i8a2a_td e opr1 opr2 opr3 opr4 =
  fn (Is i1, Ais a2) => S(Ais(opr1 i1 a2))
   | (Is i1, Ads a2) => S(Ads(opr2 i1 a2))
   | (Is i1, Abs a2) => S(Abs(opr3 i1 a2))
-  | (Is i1,Is i2) => S(Ais(opr1 i1 (vec(fromList Int [i2]))))
-  | (Is i1,Ds d2) => S(Ads(opr2 i1 (vec(fromList Double [d2]))))
-  | (Is i1,Bs b2) => S(Abs(opr3 i1 (vec(fromList Bool [b2]))))
-  | (Bs b1, e2) => compOpr2_i8a2a_td e opr1 opr2 opr3 (Is(b2i b1),e2)
+  | (Is i1, Acs a2) => S(Acs(opr4 i1 a2))
+  | (Is i1, Is i2) => S(Ais(opr1 i1 (vec(fromList Int [i2]))))
+  | (Is i1, Ds d2) => S(Ads(opr2 i1 (vec(fromList Double [d2]))))
+  | (Is i1, Bs b2) => S(Abs(opr3 i1 (vec(fromList Bool [b2]))))
+  | (Is i1, Cs c2) => S(Acs(opr4 i1 (vec(fromList Char [c2]))))
+  | (Bs b1, e2) => compOpr2_i8a2a_td e opr1 opr2 opr3 opr4 (Is(b2i b1),e2)
   | _ => raise Fail ("compOpr2_i8a2a_td: expecting integer and array arguments in " ^ pr_exp e)
 
-fun compCat opr1 opr2 opr3 =
+fun compCat opr1 opr2 opr3 opr4 =
  fn (Ais a1, Ais a2) => S(Ais(opr1 a1 a2))
   | (Ads a1, Ads a2) => S(Ads(opr2 a1 a2))
   | (Abs a1, Abs a2) => S(Abs(opr3 a1 a2))
+  | (Acs a1, Acs a2) => S(Acs(opr4 a1 a2))
 
   | (Is v1,Is v2) => S(Ais(opr1 (scl v1) (scl v2)))
   | (Ds v1,Ds v2) => S(Ads(opr2 (scl v1) (scl v2)))
   | (Bs v1,Bs v2) => S(Abs(opr3 (scl v1) (scl v2)))
+  | (Cs v1,Cs v2) => S(Acs(opr4 (scl v1) (scl v2)))
 
   | (Is v1,Ais a2) => S(Ais(opr1 (scl v1) a2))
   | (Ds v1,Ads a2) => S(Ads(opr2 (scl v1) a2))
   | (Bs v1,Abs a2) => S(Abs(opr3 (scl v1) a2))
+  | (Cs v1,Acs a2) => S(Acs(opr4 (scl v1) a2))
   | (Ais a1,Is v2) => S(Ais(opr1 a1 (scl v2)))
   | (Ads a1,Ds v2) => S(Ads(opr2 a1 (scl v2)))
   | (Abs a1,Bs v2) => S(Abs(opr3 a1 (scl v2)))
+  | (Acs a1,Cs v2) => S(Acs(opr4 a1 (scl v2)))
 (*
   | (Is i1,e2) => compCat opr1 opr2 opr3 (Ais(scl i1),e2)
   | (e1, Is i2) => compCat opr1 opr2 opr3 (e1,Ais(scl i2))
@@ -146,17 +161,17 @@ fun compCat opr1 opr2 opr3 =
   | (Bs b1,e2) => compCat opr1 opr2 opr3 (Abs(scl b1),e2)
   | (e1, Bs b2) => compCat opr1 opr2 opr3 (e1,Abs(scl b2))
 *)
-  | (Abs a1, e2) => compCat opr1 opr2 opr3 (Ais(each (ret o b2i) a1),e2)
-  | (e1, Abs a2) => compCat opr1 opr2 opr3 (e1,Ais(each (ret o b2i) a2))
+  | (Abs a1, e2) => compCat opr1 opr2 opr3 opr4 (Ais(each (ret o b2i) a1),e2)
+  | (e1, Abs a2) => compCat opr1 opr2 opr3 opr4 (e1,Ais(each (ret o b2i) a2))
 
-  | (Bs v1, e2) => compCat opr1 opr2 opr3 (Is(b2i v1),e2)
-  | (e1,Bs v2) => compCat opr1 opr2 opr3 (e1,Is(b2i v2))
+  | (Bs v1, e2) => compCat opr1 opr2 opr3 opr4 (Is(b2i v1),e2)
+  | (e1,Bs v2) => compCat opr1 opr2 opr3 opr4 (e1,Is(b2i v2))
 
-  | (Is v1, e2) => compCat opr1 opr2 opr3 (Ds(i2d v1),e2)
-  | (e1,Is v2) => compCat opr1 opr2 opr3 (e1,Ds(i2d v2))
+  | (Is v1, e2) => compCat opr1 opr2 opr3 opr4 (Ds(i2d v1),e2)
+  | (e1,Is v2) => compCat opr1 opr2 opr3 opr4 (e1,Ds(i2d v2))
 
-  | (Ais a1, e2) => compCat opr1 opr2 opr3 (Ads(each (ret o i2d) a1),e2)
-  | (e1, Ais a2) => compCat opr1 opr2 opr3 (e1,Ads(each (ret o i2d) a2))
+  | (Ais a1, e2) => compCat opr1 opr2 opr3 opr4 (Ads(each (ret o i2d) a1),e2)
+  | (e1, Ais a2) => compCat opr1 opr2 opr3 opr4 (e1,Ads(each (ret o i2d) a2))
 
   | _ => raise Fail "compCat: expecting two similar arrays as arguments"
 
@@ -186,29 +201,33 @@ fun compBoolOp opb =
   | (Bs b1, Abs bs2) => S(Abs(each (fn x => ret(opb(b1,x)))bs2))
   | _ => raise Fail "compBoolOp.function expecting boolean argument"
 
-fun compCmp opi opd =
+fun compCmp opi opd opc =
  fn (Is i1, Is i2) => S(Bs(opi(i1,i2)))
   | (Ds d1, Ds d2) => S(Bs(opd(d1,d2)))
+  | (Cs c1, Cs c2) => S(Bs(opc(c1,c2)))
   | (Ais a1, Ais a2) => S(Abs(zipWith (ret o opi) a1 a2))
   | (Ads a1, Ads a2) => S(Abs(zipWith (ret o opd) a1 a2))
+  | (Acs a1, Acs a2) => S(Abs(zipWith (ret o opc) a1 a2))
   | (Ais a1, Is i2) => S(Abs(each (fn x => ret(opi(x,i2)))a1))
   | (Ads a1, Ds d2) => S(Abs(each (fn x => ret(opd(x,d2)))a1))
+  | (Acs a1, Cs c2) => S(Abs(each (fn x => ret(opc(x,c2)))a1))
   | (Is i1, Ais a2) => S(Abs(each (fn x => ret(opi(i1,x)))a2))
   | (Ds d1, Ads a2) => S(Abs(each (fn x => ret(opd(d1,x)))a2))
-  | (Bs b1, e2) => compCmp opi opd (Is(b2i b1),e2)
-  | (e1, Bs b2) => compCmp opi opd (e1,Is(b2i b2))
-  | (Is i1, e2) => compCmp opi opd (Ds(i2d i1),e2)
-  | (e1, Is i2) => compCmp opi opd (e1,Ds(i2d i2))
-  | (Ais a1, e2) => compCmp opi opd (Ads(each (ret o i2d) a1),e2)
-  | (e1, Ais a2) => compCmp opi opd (e1,Ads(each (ret o i2d) a2))
+  | (Cs c1, Acs a2) => S(Abs(each (fn x => ret(opc(c1,x)))a2))
+  | (Bs b1, e2) => compCmp opi opd opc (Is(b2i b1),e2)
+  | (e1, Bs b2) => compCmp opi opd opc (e1,Is(b2i b2))
+  | (Is i1, e2) => compCmp opi opd opc (Ds(i2d i1),e2)
+  | (e1, Is i2) => compCmp opi opd opc (e1,Ds(i2d i2))
+  | (Ais a1, e2) => compCmp opi opd opc (Ads(each (ret o i2d) a1),e2)
+  | (e1, Ais a2) => compCmp opi opd opc (e1,Ads(each (ret o i2d) a2))
   | _ => raise Fail "compCmp.function"
 
-fun compCmp' opi opd opb =
+fun compCmp' opi opd opb opc =
  fn (Bs b1, Bs b2) => S(Bs(opb(b1,b2)))
   | (Abs bs1, Abs bs2) => S(Abs(zipWith (ret o opb) bs1 bs2))
   | (Abs bs1, Bs b2) => S(Abs(each (fn x => ret(opb(x,b2)))bs1))
   | (Bs b1, Abs bs2) => S(Abs(each (fn x => ret(opb(b1,x)))bs2))
-  | p => compCmp opi opd p
+  | p => compCmp opi opd opc p
 
 fun compOpr1 opi opd =
  fn Is i => S(Is(opi i))
@@ -352,6 +371,8 @@ fun compileAst flags e =
                  | SOME 1 => k (Bs(B true),emp)
                  | SOME i => k (Is(I i),emp) 
                  | NONE => compErr r ("Expecting integer, got " ^ s))
+            | StrE ([w],r) => k (Cs(C w),emp)
+            | StrE (ws,r) => k (Acs(vec(fromChars ws)),emp)
             | DoubleE (s,r) =>
               (case StoD s of
                  SOME d => k (Ds(D d),emp)
@@ -367,9 +388,11 @@ fun compileAst flags e =
               in comp G e (fn (Ais a,_) => contA prArrI Ais a
                           | (Ads a,_) => contA prArrD Ads a
                           | (Abs a,_) => contA prArrB Abs a
+                          | (Acs a,_) => contA prArrC Acs a
                           | (Is a,_) => contS prSclI Is a
                           | (Ds a,_) => contS prSclD Ds a
                           | (Bs a,_) => contS prSclB Bs a
+                          | (Cs a,_) => contS prSclC Cs a
                           | (s,_) => k(s,[(Var v,s)]))
               end
             | SeqE ([],r) => compErr r "empty sequence"
@@ -519,69 +542,89 @@ fun compileAst flags e =
             | IdE(Symb L.Trans,r) => compPrimFunMD k r (fn Ais a => S(Ais(transpose a))
                                                          | Ads a => S(Ads(transpose a))
                                                          | Abs a => S(Abs(transpose a))
+                                                         | Acs a => S(Acs(transpose a))
                                                          | Is a => S(Is a)
                                                          | Bs a => S(Bs a)
                                                          | Ds a => S(Ds a)
+                                                         | Cs a => S(Cs a)
                                                          | _ => compErr r "expecting array as right argument to transpose",
                                                         fn (Ais a1, Ais a2) => S(Ais(transpose2 (rav0 a1) a2))
                                                          | (Ais a1, Ads a2) => S(Ads(transpose2 (rav0 a1) a2))
                                                          | (Ais a1, Abs a2) => S(Abs(transpose2 (rav0 a1) a2))
+                                                         | (Ais a1, Acs a2) => S(Acs(transpose2 (rav0 a1) a2))
                                                          | (_, Is a) => S(Is a)
                                                          | (_, Bs a) => S(Bs a)
                                                          | (_, Ds a) => S(Ds a)
+                                                         | (_, Cs a) => S(Cs a)
                                                          | _ => compErr r "expecting arrays as arguments to dyadic transpose") noii
             | IdE(Symb L.Rho,r) => 
               let val rec compDyn = 
                    fn (Ais a1, Ais a2) => S(Ais(reshape (rav0 a1) a2))
                     | (Ais a1, Ads a2) => S(Ads(reshape (rav0 a1) a2))
                     | (Ais a1, Abs a2) => S(Abs(reshape (rav0 a1) a2))
+                    | (Ais a1, Acs a2) => S(Acs(reshape (rav0 a1) a2))
                     | (Ais a1, Is a2) => S(Ais(reshape (rav0 a1) (scalar a2)))
                     | (Ais a1, Ds a2) => S(Ads(reshape (rav0 a1) (scalar a2)))
                     | (Ais a1, Bs a2) => S(Abs(reshape (rav0 a1) (scalar a2)))
+                    | (Ais a1, Cs a2) => S(Acs(reshape (rav0 a1) (scalar a2)))
                     | (Abs a1, e2) => compDyn(Ais(each (ret o b2i) a1),e2)
                     | (Is i1, e2) => compDyn(Ais(scalar i1),e2)
                     | (Bs b1, e2) => compDyn(Is(b2i b1),e2)
                     | (Ds _,_) => compErr r "left argument to reshape operation cannot be a double"
                     | (Ads _,_) => compErr r "left argument to reshape operation cannot be an array of type double"
+                    | (Cs _,_) => compErr r "left argument to reshape operation cannot be a char"
+                    | (Acs _,_) => compErr r "left argument to reshape operation cannot be an array of type char"
                     | _ => compErr r "expecting arrays as left and right arguments to reshape operation"
               in compPrimFunMD k r (fn Ais a => S(Ais(vec(shape a)))
                                      | Ads a => S(Ais(vec(shape a)))
                                      | Abs a => S(Ais(vec(shape a)))
+                                     | Acs a => S(Ais(vec(shape a)))
                                      | _ => compErr r "expecting array as right argument to shape operation",
                                     compDyn) noii
               end
             | IdE(Symb L.Cat,r) => compPrimFunMD k r (fn Ais a => S(Ais(rav a))
                                                        | Ads a => S(Ads(rav a))
                                                        | Abs a => S(Abs(rav a))
+                                                       | Acs a => S(Acs(rav a))
                                                        | _ => compErr r "expecting array as right argument to ravel operation",
-                                                      compCat catenate catenate catenate) noii
+                                                      compCat catenate catenate catenate catenate) noii
             | IdE(Symb L.Vcat,r) => compPrimFunMD k r (fn Ais a => S(Ais(rav a))
                                                         | Ads a => S(Ads(rav a))
                                                         | Abs a => S(Abs(rav a))
+                                                        | Acs a => S(Acs(rav a))
                                                         | _ => compErr r "expecting array as right argument to ravel operation",
-                                                       compCat catenate_first catenate_first catenate_first) noii
+                                                       compCat catenate_first catenate_first catenate_first catenate_first) noii
             | IdE(Symb L.Disclose,r) => compPrimFunM k r (fn Ais a => S(Is(first a))
                                                            | Ads a => S(Ds(first a))
                                                            | Abs a => S(Bs(first a))
+                                                           | Acs a => S(Cs(first a))
                                                            | Is a => S(Is a)
                                                            | Ds a => S(Ds a)
                                                            | Bs a => S(Bs a)
+                                                           | Cs a => S(Cs a)
                                                            | _ => compErr r "expecting an array or a scalar as right argument to disclose operation")
-            | IdE(Symb L.Take,r) => compPrimFunD k r (compOpr2_i8a2a_td e take take take) noii
-            | IdE(Symb L.Drop,r) => compPrimFunD k r (compOpr2_i8a2a_td e drop drop drop) noii
+            | IdE(Symb L.Take,r) => compPrimFunD k r (compOpr2_i8a2a_td e take take take take) noii
+            | IdE(Symb L.Drop,r) => compPrimFunD k r (compOpr2_i8a2a_td e drop drop drop drop) noii
             | IdE(Symb L.Rot,r) => compPrimFunMD k r (fn Ais a => S(Ais(reverse a))
                                                        | Ads a => S(Ads(reverse a))
                                                        | Abs a => S(Abs(reverse a))
+                                                       | Acs a => S(Acs(reverse a))
+                                                       | Is a => S(Is a)
+                                                       | Ds a => S(Ds a)
+                                                       | Bs a => S(Bs a)
+                                                       | Cs a => S(Cs a)
                                                        | _ => compErr r "expecting array as right argument to reverse operation",
-                                                      compOpr2_i8a2a e rotate rotate rotate) noii
+                                                      compOpr2_i8a2a e rotate rotate rotate rotate) noii
             | IdE(Symb L.Vrot,r) => compPrimFunMD k r (fn Ais a => S(Ais(vreverse a))
                                                         | Ads a => S(Ads(vreverse a))
                                                         | Abs a => S(Abs(vreverse a))
+                                                        | Acs a => S(Acs(vreverse a))
                                                         | Is a => S(Is a)
                                                         | Ds a => S(Ds a)
                                                         | Bs a => S(Bs a)
+                                                        | Cs a => S(Cs a)
                                                         | _ => compErr r "expecting array as right argument to reverse-last operation",
-                                                      compOpr2_i8a2a e vrotate vrotate vrotate) noii
+                                                      compOpr2_i8a2a e vrotate vrotate vrotate vrotate) noii
             | IdE(Symb L.Add,r) => compPrimFunMD k r (S,
                                                       compOpr2 addi addd) (LRii 0, LRii 0.0, NOii)
             | IdE(Symb L.Sub,r) => compPrimFunMD k r (compOpr1 negi negd,
@@ -598,12 +641,12 @@ fun compileAst flags e =
                                                       compOpr2 (uncurry maxi) (uncurry maxd)) (LRii(minInt()), LRii(Real.negInf),NOii)
             | IdE(Symb L.Min,r) => compPrimFunMD k r (compOpr1i (fn x => x) floor,
                                                       compOpr2 (uncurry mini) (uncurry mind)) (LRii(maxInt()), LRii(Real.posInf),NOii)
-            | IdE(Symb L.Lt,r) => compPrimFunD k r (compCmp lti ltd) (LRii 0,LRii 0.0,LRii false)
-            | IdE(Symb L.Lteq,r) => compPrimFunD k r (compCmp ltei lted) (LRii 1,LRii 1.0,LRii true)
-            | IdE(Symb L.Gt,r) => compPrimFunD k r (compCmp gti gtd) (LRii 0,LRii 0.0,LRii false)
-            | IdE(Symb L.Gteq,r) => compPrimFunD k r (compCmp gtei gted) (LRii 1,LRii 1.0,LRii true)
-            | IdE(Symb L.Eq,r) => compPrimFunD k r (compCmp' eqi eqd eqb) (LRii 1,LRii 1.0,LRii true)
-            | IdE(Symb L.Neq,r) => compPrimFunD k r (compCmp' neqi neqd xorb) (LRii 0,LRii 0.0,LRii false)
+            | IdE(Symb L.Lt,r) => compPrimFunD k r (compCmp lti ltd ltc) (LRii 0,LRii 0.0,LRii false)
+            | IdE(Symb L.Lteq,r) => compPrimFunD k r (compCmp ltei lted ltec) (LRii 1,LRii 1.0,LRii true)
+            | IdE(Symb L.Gt,r) => compPrimFunD k r (compCmp gti gtd gtc) (LRii 0,LRii 0.0,LRii false)
+            | IdE(Symb L.Gteq,r) => compPrimFunD k r (compCmp gtei gted gtec) (LRii 1,LRii 1.0,LRii true)
+            | IdE(Symb L.Eq,r) => compPrimFunD k r (compCmp' eqi eqd eqb eqc) (LRii 1,LRii 1.0,LRii true)
+            | IdE(Symb L.Neq,r) => compPrimFunD k r (compCmp' neqi neqd xorb neqc) (LRii 0,LRii 0.0,LRii false)
             | IdE(Symb L.And,r) => compPrimFunD k r (compBoolOp andb) (NOii,NOii,LRii true)
             | IdE(Symb L.Or,r) => compPrimFunD k r (compBoolOp orb) (NOii,NOii,LRii false)
             | IdE(Symb L.Nand,r) => compPrimFunD k r (compBoolOp nandb) (NOii,NOii,NOii)
@@ -702,7 +745,7 @@ fun compileAst flags e =
                                   Is i => ret (i2d i)
                                 | Bs b => ret (i2d(b2i b))
                                 | Ds d => ret d
-                                | _ => raise Fail "expecting scalar value as the result of a program")
+                                | _ => raise Fail "expecting scalar double value as the result of a program")
     in runM flags Double c'
     end
 end

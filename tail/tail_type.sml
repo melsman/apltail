@@ -12,6 +12,7 @@ withtype rnk = r uref
 datatype b = IntT
            | DoubleT
            | BoolT
+           | CharT
            | Bv of bv 
 withtype bty = b uref
 datatype t = ArrT of bty * rnk
@@ -43,6 +44,7 @@ fun unRnk r = case !!r of R i => SOME i | _ => NONE
 val IntB    = uref IntT
 val DoubleB = uref DoubleT
 val BoolB   = uref BoolT
+val CharB   = uref CharT
 
 fun Arr bt r = uref(ArrT(bt,r))
 fun Vcc bt r = uref(VccT(bt,r))
@@ -55,6 +57,7 @@ fun VecB bt = Arr bt rnk1
 val Int     = Scl IntB
 val Double  = Scl DoubleB
 val Bool    = Scl BoolB
+val Char    = Scl CharB
 
 val Sh = Vcc IntB
 val Si = S IntB
@@ -67,6 +70,7 @@ and prB b =
         IntT => "int"
       | DoubleT => "double"
       | BoolT => "bool"
+      | CharT => "char"
       | Bv bv => bv
 and prBty bty = prB(!!bty)
 and prT t =
@@ -91,6 +95,7 @@ fun check f t = case f t of SOME s => raise Fail s | NONE => ()
 fun isInt    bt = case !!bt of IntT    => true | _ => false
 fun isDouble bt = case !!bt of DoubleT => true | _ => false
 fun isBool   bt = case !!bt of BoolT   => true | _ => false
+fun isChar   bt = case !!bt of CharT   => true | _ => false
 
 fun Vec t =
     case unArr t of
@@ -109,6 +114,7 @@ fun combB (b1,b2) =
       | (IntT, IntT) => b1
       | (DoubleT, DoubleT) => b1
       | (BoolT, BoolT) => b1
+      | (CharT, CharT) => b1
       | _ => raise Fail ("cannot unify " ^ prB b1 ^ " and " ^ prB b2)
 and unifB b1 b2 = URef.unify combB (b1,b2)
 and combT (t1,t2) =

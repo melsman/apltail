@@ -16,6 +16,7 @@ signature TAIL_EXP = sig
          | I of int
          | D of real
          | B of bool
+         | C of word
          | Iff of exp * exp * exp * typ
          | Vc of exp list * typ
          | Op of opr * exp list * typ
@@ -49,4 +50,6 @@ signature TAIL_EXP = sig
 
   val eval : denv -> exp -> value
   
+  val pr_char : word -> string
+
 end

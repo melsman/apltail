@@ -8,12 +8,14 @@ signature TAIL = sig
   (* Types *)
   eqtype Int and Double and 'a Num  (* numeric types *)
      and Bool                       (* booleans *)
+     and Char                       (* characters *)
      and 'a Vec                     (* vectors *)
 
   eqtype 'a T                       (* Type constructors *)
   val Int       : Int Num T
   val Double    : Double Num T
   val Bool      : Bool T
+  val Char      : Char T
   val Vec       : 'a T -> 'a Vec T
   val prType    : 'a T -> string
 
@@ -33,15 +35,18 @@ signature TAIL = sig
   type INT      = Int NUM
   type DOUBLE   = Double NUM
   type BOOL     = Bool t
+  type CHAR     = Char t
 
   val I         : int -> INT
   val D         : real -> DOUBLE
   val B         : bool -> BOOL
+  val C         : word -> CHAR
   val %         : INT * INT -> INT
   val i2d       : INT -> DOUBLE
   val b2i       : BOOL -> INT
   val If        : BOOL * 'a t * 'a t -> 'a t
   val fromList  : 'a T -> 'a t list -> 'a v
+  val fromChars : word list -> Char v
 
   (* Compiled Programs *)
   type ('a,'b) prog
@@ -110,6 +115,13 @@ signature TAIL = sig
   val norb      : BOOL * BOOL -> BOOL
   val notb      : BOOL -> BOOL
 
+  val ltc       : CHAR * CHAR -> BOOL
+  val ltec      : CHAR * CHAR -> BOOL
+  val gtc       : CHAR * CHAR -> BOOL
+  val gtec      : CHAR * CHAR -> BOOL
+  val eqc       : CHAR * CHAR -> BOOL
+  val neqc      : CHAR * CHAR -> BOOL
+
   val zilde     : unit -> 'a m
   val scl       : 'a t -> 'a m   (* identity! *)
   val scalar    : 'a t -> 'a m
@@ -171,7 +183,9 @@ signature TAIL = sig
   val prArrI    : Int Num m -> Int Num m
   val prArrB    : Bool m -> Bool m
   val prArrD    : Double Num m -> Double Num m
-  val prSclI    : Int Num t -> Int Num t
-  val prSclB    : Bool t -> Bool t
-  val prSclD    : Double Num t -> Double Num t
+  val prArrC    : Char m -> Char m
+  val prSclI    : INT -> INT
+  val prSclB    : BOOL -> BOOL
+  val prSclD    : DOUBLE -> DOUBLE
+  val prSclC    : CHAR -> CHAR
 end

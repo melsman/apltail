@@ -83,6 +83,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
          | I of int
          | D of real
          | B of bool
+         | C of word
          | Iff of exp * exp * exp * typ
          | Vc of exp list * typ
          | Op of opr * exp list * typ
@@ -128,6 +129,9 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
 
   fun isBinOpBBB opr =
       isIn opr ["andb","orb","eqb","xorb","norb","nandb"]
+
+  fun isBinOpCCB opr =
+      isIn opr ["ltc","ltec","eqc","gtc","gtec"]
 
   fun isInt' t =
       case unArr t of
@@ -470,15 +474,18 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | ("prSclI",[t]) => (assert_sub opr t Int; t)
         | ("prSclB",[t]) => (assert_sub opr t Bool; t)
         | ("prSclD",[t]) => (assert_sub opr t Double; t)
+        | ("prSclC",[t]) => (assert_sub opr t Char; t)
         | ("prArrI",[t]) => (assert_sub opr t (Arr IntB (RnkVar())); t)
         | ("prArrB",[t]) => (assert_sub opr t (Arr BoolB (RnkVar())); t)
         | ("prArrD",[t]) => (assert_sub opr t (Arr DoubleB (RnkVar())); t)
+        | ("prArrC",[t]) => (assert_sub opr t (Arr CharB (RnkVar())); t)
         | (_,[t1,t2]) =>
           if isBinOpIII opr then tyBin Int Int Int opr t1 t2
           else if isBinOpDDD opr then tyBin Double Double Double opr t1 t2
           else if isBinOpIIB opr then tyBin Int Int Bool opr t1 t2
           else if isBinOpDDB opr then tyBin Double Double Bool opr t1 t2
           else if isBinOpBBB opr then tyBin Bool Bool Bool opr t1 t2
+          else if isBinOpCCB opr then tyBin Char Char Bool opr t1 t2
           else raise Fail ("binary operator " ^ qq opr ^ " not supported")
         | _ => raise Fail ("operator " ^ qq opr ^ ", with " 
                            ^ Int.toString (length ts) 
@@ -504,6 +511,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                 | D _ => Double
                 | B true => S BoolB (rnk 1)
                 | B false => S BoolB (rnk 0)
+                | C _ => Char
                 | Iff (c,e1,e2,t0) =>
                   (assert_sub "conditional" (ty E c) Bool;
                    assert_sub "conditional true branch" (ty E e1) t0;
@@ -542,6 +550,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | D _ => Double
         | B true => S BoolB (rnk 1)
         | B false => S BoolB (rnk 0)
+        | C _ => Char
         | Iff(_,_,_,t) => t
         | Vc(_,t) => t
         | Op(_,_,t) => t
@@ -574,6 +583,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | I _ => e
         | D _ => e
         | B _ => e
+        | C _ => e
         | Iff(e1,e2,e3,t) => Iff(resolveShOpr e1,resolveShOpr e2,resolveShOpr e3,t)
         | Vc(es,t) => Vc(List.map resolveShOpr es,t)
         | Op(opr,es,t) => Op(prOpr t opr, List.map resolveShOpr es,t)
@@ -610,6 +620,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   datatype bv = Ib of int
               | Db of real
               | Bb of bool
+              | Cb of word
               | Fb of denv * var * typ * exp * typ
   withtype denv = (var * bv Apl.t) list
 
@@ -627,15 +638,24 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
               else s ^ ".0"
            end
 
+  fun pr_char w =
+      if w < 0w128 then
+        let val c = Char.chr (Word.toInt w)
+        in if Char.isAscii c then Char.toString c
+           else Word.toString w
+        end
+      else Word.toString w
+
   fun pr_bv b =
       case b of
           Ib b => Int.toString b
         | Db b => pr_double b
         | Bb true => "1"
         | Bb false => "0"
+        | Cb w => pr_char w
         | Fb _ => "fn"
                       
-  fun pr_value v = Apl.pr pr_bv v
+  fun pr_value v = Apl.pr (pr_bv,",") v
 
   val empDEnv = nil
   val addDE = add
@@ -649,23 +669,24 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   fun unFb (Fb b) = b
     | unFb _ = raise Fail "exp.unFb"
 
-
-  fun unBase s t fi fd fb =
+  fun unBase s t fi fd fb fc =
       let val (bt,_) = unArr' ("unBase:" ^ s) t
       in if isInt bt then fi()
          else if isDouble bt then fd()
          else if isBool bt then fb()
+         else if isChar bt then fc()
          else raise Fail ("exp.unBase: expecting base type: " ^ s)
       end
 
   fun default t =
-      unBase "default" t (fn() => Ib 0) (fn() => Db 0.0) (fn() => Bb false)
+      unBase "default" t (fn() => Ib 0) (fn() => Db 0.0) (fn() => Bb false) (fn() => Cb 0w32)
 
   fun resType (_,_,_,_,_,_,t) = t
 
   fun println s = print (s ^ "\n")
 
   fun prArr v = (println(pr_value v); v)
+  fun prArrC v = (println(Apl.pr (pr_bv,"") v); v)
 
   fun eval DE e : value =
       case e of
@@ -676,6 +697,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | I i => Apl.scl (Ib 0) (Ib i)
         | D d => Apl.scl (Db 0.0) (Db d)
         | B b => Apl.scl (Bb false) (Bb b)
+        | C w => Apl.scl (Cb 0w32) (Cb w)
         | Iff (e1,e2,e3,t) =>
           let val b = Apl.liftU false (fn Bb b => b | _ => raise Fail "eval:Iff") (eval DE e1)
           in Apl.iff(b,fn() => eval DE e2, fn() => eval DE e3)
@@ -774,11 +796,13 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                  in Apl.dot (applyBin F) (applyBin G) n v1 v2
                  end
                | ("prArrI",[e]) => prArr (eval DE e)
-               | ("prArrD",[e]) => prArr (eval DE e)
                | ("prArrB",[e]) => prArr (eval DE e)
+               | ("prArrD",[e]) => prArr (eval DE e)
+               | ("prArrC",[e]) => prArrC (eval DE e)
                | ("prSclI",[e]) => prArr (eval DE e)
                | ("prSclB",[e]) => prArr (eval DE e)
                | ("prSclD",[e]) => prArr (eval DE e)
+               | ("prSclC",[e]) => prArr (eval DE e)
                | (opr,[e1,e2]) =>
                  let val v1 = eval DE e1
                      val v2 = eval DE e2
