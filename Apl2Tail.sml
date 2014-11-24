@@ -338,6 +338,8 @@ fun compSlash r =
                       | _ => compErr r "expecting boolean or integer as result of reduce")
                  | [Ds x] => S(Ds x)
                  | [Is x] => S(Is x)
+                 | [Cs x] => compErr r "char not supported as right argument to reduce"
+                 | [Acs x] => compErr r "char array not supported as right argument to reduce"
                  | _ => compErr r "expecting array as right argument to reduce",
                 noii))
   | [Abs x] => rett(Fs (fn [Ais y] => S(Ais(compress x y))
@@ -346,6 +348,8 @@ fun compSlash r =
                          | [Bs y] => S(Abs(compress x (scalar y))) 
                          | [Ads y] => S(Ads(compress x y))
                          | [Ds y] => S(Ads(compress x (scalar y))) 
+                         | [Acs y] => S(Acs(compress x y))
+                         | [Cs y] => S(Acs(compress x (scalar y))) 
                          | _ => compErr r "compress does not support function arguments as right argument", 
                         noii))
   | [Ais x] => rett(Fs (fn [Ais y] => S(Ais(replicate (I 0) x y))
@@ -354,6 +358,8 @@ fun compSlash r =
                          | [Bs y] => S(Abs(replicate (B false) x (scalar y)))
                          | [Ads y] => S(Ads(replicate (D 0.0) x y))
                          | [Ds y] => S(Ads(replicate (D 0.0) x (scalar y)))
+                         | [Acs y] => S(Acs(replicate (C 0w32) x y))
+                         | [Cs y] => S(Acs(replicate (C 0w32) x (scalar y)))
                          | _ => compErr r "replicate does not support function arguments as right argument", 
                         noii))
   | [Ads _] => compErr r "replicate does not support double arrays as left argument"
