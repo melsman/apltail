@@ -585,6 +585,10 @@ fun compileAst flags e =
                                      | Ads a => S(Ais(vec(shape a)))
                                      | Abs a => S(Ais(vec(shape a)))
                                      | Acs a => S(Ais(vec(shape a)))
+                                     | Is _ => S(Ais(zilde()))
+                                     | Ds _ => S(Ais(zilde()))
+                                     | Bs _ => S(Ais(zilde()))
+                                     | Cs _ => S(Ais(zilde()))
                                      | _ => compErr r "expecting array as right argument to shape operation",
                                     compDyn) noii
               end

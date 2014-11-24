@@ -675,7 +675,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
          else if isDouble bt then fd()
          else if isBool bt then fb()
          else if isChar bt then fc()
-         else raise Fail ("exp.unBase: expecting base type: " ^ s)
+         else fi() (*raise Fail ("exp.unBase: expecting base type: " ^ s) *) 
+                   (* an unused zilde results in a type variable not being unified... *)
       end
 
   fun default t =
