@@ -5,6 +5,8 @@
 
 signature TAIL = sig
 
+  structure Exp : TAIL_EXP
+
   (* Types *)
   eqtype Int and Double and 'a Num  (* numeric types *)
      and Bool                       (* booleans *)
@@ -28,7 +30,7 @@ signature TAIL = sig
   val ret       : 'a -> 'a M
 
   (* Terms *)
-  type 'a t                    (* terms *)
+  type 'a t     = Exp.exp         (* terms *)
   type 'a v     = 'a Vec t        (* vector terms *)
 
   type 'a NUM   = 'a Num t        (* basic term types *)
@@ -75,6 +77,17 @@ signature TAIL = sig
 
   val ceil      : DOUBLE -> INT
   val floor     : DOUBLE -> INT
+  val ln        : DOUBLE -> DOUBLE
+  val cos       : DOUBLE -> DOUBLE
+  val sin       : DOUBLE -> DOUBLE
+  val tan       : DOUBLE -> DOUBLE
+  val acos      : DOUBLE -> DOUBLE
+  val asin      : DOUBLE -> DOUBLE
+  val atan      : DOUBLE -> DOUBLE
+  val cosh      : DOUBLE -> DOUBLE
+  val sinh      : DOUBLE -> DOUBLE
+  val tanh      : DOUBLE -> DOUBLE
+  val pi        : unit   -> DOUBLE
   val addi      : INT * INT -> INT
   val subi      : INT * INT -> INT
   val muli      : INT * INT -> INT

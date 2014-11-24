@@ -4,12 +4,12 @@ local
    $(SMACKAGE)/kitlib/v1/finmap/finmap.mlb
    $(SMACKAGE)/kitlib/v1/set/set.mlb
 in
-   tail.sig
-
    apl.mlb   (* interpreter *)
 
    tail_type.sig
    tail_exp.sig
+   tail.sig
+
    tail_exp.sml        (* functor *)
    tail_type.sml
    tail.sml

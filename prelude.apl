@@ -25,3 +25,8 @@ $out ← {
 $slashbar ← {
   ⍉ ⍺⍺ / ⍉ ⍵
 }
+
+$log ← {
+  ⍝ Dyadic logarithm
+  (⍟⍵)÷⍟⍺
+}
