@@ -497,8 +497,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
 
   fun tyIff (tc,t1,t2) =
       ( assert_sub "conditional expression" Bool tc
-      ; assert "else-branch" t1 t2
-      ; t1)
+      ; join t1 t2 handle Fail s => raise Fail (s ^ " in conditional branches"))
 
   datatype 't report = OK of 't | ERR of string
   fun typeExp (E:env) e : typ report =
