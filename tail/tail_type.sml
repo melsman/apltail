@@ -140,36 +140,70 @@ and unifR r1 r2 = URef.unify combR (r1,r2)
 fun relateR _ = raise Fail "relateR not implemented"
 fun relateR2 _ = raise Fail "relateR2 not implemented"
 
-fun wrap f x y = (f x y; NONE) handle Fail s => SOME s
-val unify = wrap unif
-val unifyR = wrap unifR
-val unifyB = wrap unifB
-
 (* The applications of unify below should be replaced with conditional unifications *)
 
-fun unify_btr (bt1,r1) (bt2,r2) =
-    (unifyB bt1 bt2; unifyR r1 r2)
+fun unif_btr (bt1,r1) (bt2,r2) =
+    (unifB bt1 bt2; unifR r1 r2)
 
 fun subtype t1 t2 =
     case unS t1 of
         SOME btr1 => (case unS t2 of
-                          SOME btr2 => unify_btr btr1 btr2
-                        | NONE => unify t2 (Scl (#1 btr1))
+                          SOME btr2 => unif_btr btr1 btr2
+                        | NONE => unif t2 (Scl (#1 btr1))
                      )
       | NONE => 
         case unSV t1 of
             SOME btr1 => (case unSV t2 of
-                              SOME btr2 => unify_btr btr1 btr2
+                              SOME btr2 => unif_btr btr1 btr2
                             | NONE => case unVcc t2 of
-                                          SOME (bt2,r2) => (unifyB (#1 btr1) bt2; 
-                                                            unifyR rnk1 r2)
-                                        | NONE => unify t2 (VecB (#1 btr1))
+                                          SOME (bt2,r2) => (unifB (#1 btr1) bt2; 
+                                                            unifR rnk1 r2)
+                                        | NONE => unif t2 (VecB (#1 btr1))
                          )
           | NONE =>
             case unVcc t1 of
                 SOME btr1 => (case unVcc t2 of
-                                  SOME btr2 => unify_btr btr1 btr2
-                                | NONE => unify t2 (VecB (#1 btr1))
+                                  SOME btr2 => unif_btr btr1 btr2
+                                | NONE => unif t2 (VecB (#1 btr1))
                              )
-              | NONE => unify t1 t2
+              | NONE => unif t1 t2
+
+fun join t1 t2 =
+    case (unS t1, unS t2) of
+        (SOME (bt1,r1), SOME (bt2,r2)) => 
+        (unifB bt1 bt2;
+         case (unRnk r1, unRnk r2) of
+             (SOME i1, SOME i2) => if i1 = i2 then t1
+                                   else Scl bt1
+           | _ => (unifR r1 r2; t1))
+      | (SOME(bt1,_), NONE) => join (Scl bt1) t2
+      | (NONE, SOME(bt2,_)) => join t1 (Scl bt2)
+      | _ => 
+        case (unSV t1, unSV t2) of
+            (SOME (bt1,r1), SOME (bt2,r2)) =>
+            (unifB bt1 bt2;
+             case (unRnk r1, unRnk r2) of
+                 (SOME i1, SOME i2) => if i1 = i2 then t1
+                                       else Vcc bt1 (rnk 1)
+               | _ => (unifR r1 r2; t1))
+          | (SOME(bt1,_), NONE) => join (Vcc bt1 (rnk 1)) t2
+          | (NONE, SOME(bt2,_)) => join t1 (Vcc bt2 (rnk 1))
+          | _ => 
+            case (unVcc t1, unVcc t2) of
+                (SOME (bt1,r1), SOME (bt2,r2)) =>
+                (unifB bt1 bt2;
+                 case (unRnk r1, unRnk r2) of
+                     (SOME i1, SOME i2) => if i1 = i2 then t1
+                                           else VecB bt1
+                   | _ => (unifR r1 r2; t1))
+              | (SOME(bt1,_), NONE) => join (VecB bt1) t2
+              | (NONE, SOME(bt2,_)) => join t1 (VecB bt2)
+              | _ => (unif t1 t2; t1)
+                
+fun wrap f x y = (f x y; NONE) handle Fail s => SOME s
+val unify = wrap unif
+val subtype = wrap subtype
+val unifyR = wrap unifR
+val unifyB = wrap unifB
+
 end            

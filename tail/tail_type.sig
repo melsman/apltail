@@ -73,5 +73,6 @@ signature TAIL_TYPE = sig
   val TyVar    : unit -> typ
   val subtype  : typ -> typ -> string option
   val unify    : typ -> typ -> string option
+  val join     : typ -> typ -> typ  (* least common supertype; may raise Fail *)
   val prType   : typ -> string
 end
