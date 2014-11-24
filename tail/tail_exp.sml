@@ -302,6 +302,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   fun tyOp opr ts =
       case (opr, ts) of
           ("zilde", nil) => tyVc nil
+        | ("pi", nil) => Double
         | ("iota", [t]) =>
           (assert_sub "iota expression" t Int;
            case unS t of
@@ -454,6 +455,16 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | ("ceil",[t]) => (assert opr Double t; Int)
         | ("absd",[t]) => (assert opr Double t; Double)
         | ("notb",[t]) => (assert opr Bool t; Bool)
+        | ("ln",[t]) => (assert opr Double t; Double)
+        | ("cos",[t]) => (assert opr Double t; Double)
+        | ("sin",[t]) => (assert opr Double t; Double)
+        | ("tan",[t]) => (assert opr Double t; Double)
+        | ("acos",[t]) => (assert opr Double t; Double)
+        | ("asin",[t]) => (assert opr Double t; Double)
+        | ("atan",[t]) => (assert opr Double t; Double)
+        | ("cosh",[t]) => (assert opr Double t; Double)
+        | ("sinh",[t]) => (assert opr Double t; Double)
+        | ("tanh",[t]) => (assert opr Double t; Double)
         | ("iotaV",[t]) =>
           (case unS t of
                SOME (bt, r) => (assertB opr IntB bt; Vcc IntB r)
@@ -715,6 +726,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                                 else fail()
           in case (opr,es) of
                  ("zilde", []) => Apl.zilde (default t)
+               | ("pi", []) => Apl.scl (default t) (Db Math.pi)
                | ("i2d", [e]) => Apl.liftU (Db 0.0) (fn Ib i => Db(real i) | _ => raise Fail "eval:i2d") (eval DE e)
                | ("b2i", [e]) => Apl.liftU (Ib 0) (fn Bb b => Ib(if b then 1 else 0) | _ => raise Fail "eval:b2i") (eval DE e)
                | ("negi", [e]) => Apl.liftU (Ib 0) (fn Ib i => Ib(~i) | _ => raise Fail "eval:negi") (eval DE e)
@@ -724,6 +736,16 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                | ("floor", [e]) => Apl.liftU (Ib 0) (fn Db i => Ib(Real.floor i) | _ => raise Fail "eval:floor") (eval DE e)
                | ("ceil", [e]) => Apl.liftU (Ib 0) (fn Db i => Ib(Real.ceil i) | _ => raise Fail "eval:ceil") (eval DE e)
                | ("notb", [e]) => Apl.liftU (Bb false) (fn Bb b => Bb(not b) | _ => raise Fail "eval:notb") (eval DE e)
+               | ("ln", [e]) => Apl.liftU (Db 0.0) (fn Db d => Db(Math.ln d) | _ => raise Fail "eval:ln") (eval DE e)
+               | ("sin", [e]) => Apl.liftU (Db 0.0) (fn Db d => Db(Math.sin d) | _ => raise Fail "eval:sin") (eval DE e)
+               | ("cos", [e]) => Apl.liftU (Db 0.0) (fn Db d => Db(Math.cos d) | _ => raise Fail "eval:cos") (eval DE e)
+               | ("tan", [e]) => Apl.liftU (Db 0.0) (fn Db d => Db(Math.tan d) | _ => raise Fail "eval:tan") (eval DE e)
+               | ("asin", [e]) => Apl.liftU (Db 0.0) (fn Db d => Db(Math.asin d) | _ => raise Fail "eval:asin") (eval DE e)
+               | ("acos", [e]) => Apl.liftU (Db 0.0) (fn Db d => Db(Math.acos d) | _ => raise Fail "eval:acos") (eval DE e)
+               | ("atan", [e]) => Apl.liftU (Db 0.0) (fn Db d => Db(Math.atan d) | _ => raise Fail "eval:atan") (eval DE e)
+               | ("sinh", [e]) => Apl.liftU (Db 0.0) (fn Db d => Db(Math.sinh d) | _ => raise Fail "eval:sinh") (eval DE e)
+               | ("cosh", [e]) => Apl.liftU (Db 0.0) (fn Db d => Db(Math.cosh d) | _ => raise Fail "eval:cosh") (eval DE e)
+               | ("tanh", [e]) => Apl.liftU (Db 0.0) (fn Db d => Db(Math.tanh d) | _ => raise Fail "eval:tanh") (eval DE e)
                | ("iota", [e]) => Apl.map (Ib 0) Ib (Apl.iota (Apl.map 0 unIb (eval DE e)))
                | ("reshape", [e1,e2]) =>
                  let val v1 = Apl.map 0 unIb (eval DE e1)

@@ -134,6 +134,13 @@ fun compOpr2_i8a2a_td e opr1 opr2 opr3 opr4 =
   | (Bs b1, e2) => compOpr2_i8a2a_td e opr1 opr2 opr3 opr4 (Is(b2i b1),e2)
   | _ => raise Fail ("compOpr2_i8a2a_td: expecting integer and array arguments in " ^ pr_exp e)
 
+fun compOpr2_i8d2d e opr =
+ fn (Is i1,Is i2) => S(Ds (opr i1 (i2d i2)))
+  | (Is i1,Ds d2) => S(Ds (opr i1 d2))
+  | (Is i1,Bs b2) => S(Ds (opr i1 (i2d (b2i b2))))
+  | (Bs b1, e2) => compOpr2_i8d2d e opr (Is(b2i b1),e2)
+  | _ => raise Fail ("compOpr2_i8d2d: expecting integer and double arguments in " ^ pr_exp e)
+
 fun compCat opr1 opr2 opr3 opr4 =
  fn (Ais a1, Ais a2) => S(Ais(opr1 a1 a2))
   | (Ads a1, Ads a2) => S(Ads(opr2 a1 a2))
@@ -279,8 +286,32 @@ fun compOpr1b opb =
 fun signi x = If(lti(x,I 0),I ~1, I 1)
 fun signd x = If(ltd(x,D 0.0),I ~1, I 1)
 
+
 fun compErr r msg =
     raise Fail ("Compile Error: " ^ Region.pp r ^ ".\n  " ^ msg ^ ".")
+
+fun circularOp r x y = 
+    case Exp.T.unS (Exp.typeOf x) of
+        NONE => compErr r ("Incorrect type (" ^ Exp.T.prType (Exp.typeOf x) ^
+                           ") of left-argument to circular-operator.")
+      | SOME (_,rnk) => 
+          (case Exp.T.unRnk rnk of
+              NONE => compErr r "c"
+            | SOME ~4 => muld(addd(y, D 1.0),
+                              powd(divd(subd(y, D 1.0), addd(y, D 1.0)), D 0.5))
+            | SOME ~3 => atan y
+            | SOME ~2 => acos y
+            | SOME ~1 => asin y
+            | SOME  0 => powd(subd(D 1.0, powd(y, D 2.0)), D 0.5)
+            | SOME  1 => sin y
+            | SOME  2 => cos y
+            | SOME  3 => tan y
+            | SOME  4 => powd(addd(D 1.0, powd(y, D 2.0)), D 0.5)
+            | SOME  5 => sinh y
+            | SOME  6 => cosh y
+            | SOME  7 => tanh y
+            | SOME xi => compErr r ("Unsupported left-argument (" ^ Int.toString xi ^
+                                    ") to circular-operator."))
 
 fun failWrap r f x =
     f x handle Fail s => raise Fail (s ^ " at " ^ Region.pp r)
@@ -657,6 +688,9 @@ fun compileAst flags e =
             | IdE(Symb L.Gteq,r) => compPrimFunD k r (compCmp gtei gted gtec) (LRii 1,LRii 1.0,LRii true)
             | IdE(Symb L.Eq,r) => compPrimFunD k r (compCmp' eqi eqd eqb eqc) (LRii 1,LRii 1.0,LRii true)
             | IdE(Symb L.Neq,r) => compPrimFunD k r (compCmp' neqi neqd xorb neqc) (LRii 0,LRii 0.0,LRii false)
+            | IdE(Symb L.Circstar,r) => compPrimFunM k r (compOpr1d (fn x => ln x))
+            | IdE(Symb L.Circ,r) => compPrimFunMD k r (compOpr1d (fn x => muld (x, pi ())),
+                                                       compOpr2_i8d2d e (circularOp r)) (NOii,NOii,NOii)
             | IdE(Symb L.And,r) => compPrimFunD k r (compBoolOp andb) (NOii,NOii,LRii true)
             | IdE(Symb L.Or,r) => compPrimFunD k r (compBoolOp orb) (NOii,NOii,LRii false)
             | IdE(Symb L.Nand,r) => compPrimFunD k r (compBoolOp nandb) (NOii,NOii,NOii)
