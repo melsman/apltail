@@ -128,6 +128,8 @@ signature TAIL = sig
   val norb      : BOOL * BOOL -> BOOL
   val notb      : BOOL -> BOOL
 
+  val roll      : INT -> DOUBLE
+
   val ltc       : CHAR * CHAR -> BOOL
   val ltec      : CHAR * CHAR -> BOOL
   val gtc       : CHAR * CHAR -> BOOL

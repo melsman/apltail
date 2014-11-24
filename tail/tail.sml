@@ -71,6 +71,8 @@ val nandb = binOp "nandb"
 val norb  = binOp "norb"
 fun notb x = Op_e("notb",[x])
 
+fun roll x = Op_e("roll",[x])
+
 val ltc  = binOp "ltc"
 val ltec = binOp "ltec"
 val gtc  = binOp "gtc"

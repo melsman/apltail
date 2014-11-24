@@ -465,6 +465,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | ("cosh",[t]) => (assert opr Double t; Double)
         | ("sinh",[t]) => (assert opr Double t; Double)
         | ("tanh",[t]) => (assert opr Double t; Double)
+        | ("roll",[t]) => (assert opr Int t; Double)
         | ("iotaV",[t]) =>
           (case unS t of
                SOME (bt, r) => (assertB opr IntB bt; Vcc IntB r)
@@ -699,6 +700,10 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   fun prArr v = (println(pr_value v); v)
   fun prArrC v = (println(Apl.pr (pr_bv,"") v); v)
 
+  val rgen = ref (Random.newgen ())
+  fun roll 0 = Random.random (!rgen)
+    | roll i = real (Random.range (0,i) (!rgen))
+
   fun eval DE e : value =
       case e of
           Var(x,_) =>
@@ -745,6 +750,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                | ("sinh", [e]) => Apl.liftU (Db 0.0) (fn Db d => Db(Math.sinh d) | _ => raise Fail "eval:sinh") (eval DE e)
                | ("cosh", [e]) => Apl.liftU (Db 0.0) (fn Db d => Db(Math.cosh d) | _ => raise Fail "eval:cosh") (eval DE e)
                | ("tanh", [e]) => Apl.liftU (Db 0.0) (fn Db d => Db(Math.tanh d) | _ => raise Fail "eval:tanh") (eval DE e)
+               | ("roll", [e]) => Apl.liftU (Db 0.0) (fn Ib i => Db(roll i) | _ => raise Fail "eval:roll") (eval DE e)
                | ("iota", [e]) => Apl.map (Ib 0) Ib (Apl.iota (Apl.map 0 unIb (eval DE e)))
                | ("reshape", [e1,e2]) =>
                  let val v1 = Apl.map 0 unIb (eval DE e1)
