@@ -4,8 +4,9 @@ This page documents the functionality of the APL2Tail compiler `aplt`.
 
 ### Datatypes
 
-Currently, only booleans, integers, and doubles are supported. There
-is currently no support for characters and strings.
+Supported datatypes include booleans, integers, doubles, and
+characters. Strings are represented as character arrays. Nested arrays
+are currently not supported.
 
 ### Monadic Functions
 
@@ -18,6 +19,8 @@ is currently no support for characters and strings.
 | - A           | Negation         | Returns the array A with all elements negated.  | |
 | ÷ A           | Reciprocal       | Returns the array A with elements being the reciprocal values of the values in A.  | |
 | × A           | Sign             | Returns the array A with elements being -1 for negative values in A and 1 for positive values in A.  | |
+| ⌈ A           | Ceil             | Returns A with elements ceiled. | The function returns an integer array. |
+| ⌊ A           | Floor            | Returns A with elements floored. | The function returns an integer array. |
 | ⍉ A           | Transpose        | Returns the transposed version of A.  | |
 | ~ A           | Logical negation | Returns A with boolean elements negated.  |  Assumes A to be of boolean type. |
 | ○ A           | Pi times         | Returns A with all elements multiplied by pi. |
@@ -28,7 +31,7 @@ is currently no support for characters and strings.
 
 | Expression    | Name             | Meaning              | Notes         |
 |---------------|------------------|----------------------|---------------|
-| B ⍴ A         | Reshape          | Returns an array with shape B and values taken from ,A (rotated if there are not sufficiently many values in A).         | |
+| B ⍴ A         | Reshape          | Returns an array with shape B and values taken from ,A (rotated if there are not sufficiently many values in A). | The length of the vector B must be statically decided. |
 | B ⍉ A         | Dyadic transpose | Returns the generalized transposed version of A, according to the dimension index vector B. | B must be an integer vector of the same length as A. |
 | B + A         | Addition         | Pair-wise addition of elements in B and A. | Scalar expansion supported: Arrays A and B must be of the same shape unless one of the arrays is a scalar value in which case the array is extended to match the shape of the other array. |
 | B - A         | Subtraction      | Pair-wise subtraction of elements in B and A. | Scalar expansion supported. |
@@ -112,3 +115,17 @@ underlying values.
 |---------------|------------------|----------------------|---------------|
 | ⎕ReadFile file| READ FILE        | Takes a filepath as parameter and returns a vector of characters | Fails in case the file cannot be read. |
 | ⎕ReadIntVecFile file| READ INT VECTOR FROM FILE | Takes a filepath as parameter and returns a vector of integers | Fails in case the input file cannot be read or does not contain a sequence of integers separated by space characters. |
+
+
+### Using the aplt compiler
+
+Here is the output from executing `aplt` on the command-line:
+
+    bash-3.2$ ./aplt
+    Usage: ./aplt [-o ofile] [-c] [-v] [-noopt] [-p_types] file.apl...
+       -o file  : write TAIL program to file
+       -c       : compile only (no evaluation)
+       -noopt   : disable optimizations
+       -p_tail  : print TAIL program
+       -p_types : print types in TAIL code
+       -v       : verbose
