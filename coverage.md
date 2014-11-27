@@ -15,11 +15,14 @@ is currently no support for characters and strings.
 | ⍳ N           | Iota             | Returns a vector of length N with values [1,...,N].  | |
 | , A           | Ravel            | Returns the vector of values appearing in A in row-major order.  | |
 | + A           | Identity         | Returns A.           |               |
-| - A           | Negation         | Returns the array A with all values negated.  | |
+| - A           | Negation         | Returns the array A with all elements negated.  | |
 | ÷ A           | Reciprocal       | Returns the array A with elements being the reciprocal values of the values in A.  | |
 | × A           | Sign             | Returns the array A with elements being -1 for negative values in A and 1 for positive values in A.  | |
 | ⍉ A           | Transpose        | Returns the transposed version of A.  | |
 | ~ A           | Logical negation | Returns A with boolean elements negated.  |  Assumes A to be of boolean type. |
+| ○ A           | Pi times         | Returns A with all elements multiplied by pi. |
+| ⍟ A           | Log              | Returns A with the natural logarithm applied to all elements. | 
+| ? A           | Random           | Returns random values between 0 and 1 (if the argument is 0) and otherwise between 0 and the argument (whole number). | 
 
 ### Dyadic Functions
 
@@ -51,6 +54,7 @@ is currently no support for characters and strings.
 | B ≥ A         | Greater than or equal|Pair-wise greater that or equal comparison of elements in B and A. | Scalar expansion supported. |
 | B / A         | Compress         | Returns the elements in A (as a vector) for which the corresponding elements in the boolean vector B are true. | Assumes A to be a vector of the same length as the boolean vector B. |
 | B / A         | Replicate        | Returns repeated elements from A (as a vector) with the repetition controlled by the corresponding elements in the integer vector B. | Assumes A to be a vector of the same length as the integer vector B. |
+| B ○ A         | Circ             | Returns the trigonometric function on A dependent on the integer value B; 1:sin, 2:cos, 3:tan. | The value of B has to be statically determined. | 
 
 ### Monadic Operators
 
