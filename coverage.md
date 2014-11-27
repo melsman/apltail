@@ -14,6 +14,19 @@ is currently no support for characters and strings.
 |ost | 3 | 5 |
 |hans| 30 | 51 |
 
+|    Expression       |     Name      |        Meaning       |        Notes  |
+|---------------------|---------------|----------------------|---------------|
+| ⍴ A                 | Shape         | Returns the shape of the array A as a vector of integers. | |
+| ⍳ N                 | Iota          | Returns a vector of length N with values [1,...,N].  | |
+| , A                 | Ravel         | Returns the vector of values appearing in A in row-major order.  | |
+| + A                 | Identity      | Returns A.           | |
+| - A                 | Negation      | Returns the array A with all values negated.  | |
+| ÷ A                 | Reciprocal    | Returns the array A with elements being the reciprocal values of the values in A.  | |
+| × A                 | Sign          | Returns the array A with elements being -1 for negative values in A and 1 for positive values in A.  | |
+| ⍉ A                 | Transpose     | Returns the transposed version of A.  | |
+| ~ A                 | Logical negation | Returns A with boolean elements negated.  |  Assumes A to be of boolean type. |
+
+
 
 <table>
 <tr><th>Expression</th><th>Name</th><th>Meaning</th><th>Notes</th></tr>
