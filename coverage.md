@@ -9,39 +9,48 @@ is currently no support for characters and strings.
 
 ### Monadic Functions
 
-|test| a | b |
-|----|---|---|
-|ost | 3 | 5 |
-|hans| 30 | 51 |
-
-|    Expression       |     Name      |        Meaning       |        Notes  |
-|---------------------|---------------|----------------------|---------------|
-| ⍴ A                 | Shape         | Returns the shape of the array A as a vector of integers. | |
-| ⍳ N                 | Iota          | Returns a vector of length N with values [1,...,N].  | |
-| , A                 | Ravel         | Returns the vector of values appearing in A in row-major order.  | |
-| + A                 | Identity      | Returns A.           | |
-| - A                 | Negation      | Returns the array A with all values negated.  | |
-| ÷ A                 | Reciprocal    | Returns the array A with elements being the reciprocal values of the values in A.  | |
-| × A                 | Sign          | Returns the array A with elements being -1 for negative values in A and 1 for positive values in A.  | |
-| ⍉ A                 | Transpose     | Returns the transposed version of A.  | |
-| ~ A                 | Logical negation | Returns A with boolean elements negated.  |  Assumes A to be of boolean type. |
-
-
-
-<table>
-<tr><th>Expression</th><th>Name</th><th>Meaning</th><th>Notes</th></tr>
-<tr><td>⍴ A</td><td>Shape</td><td>Returns the shape of the array A as a vector of integers.</td><td></td></tr>
-<tr><td>⍳ N</td><td>Iota</td><td>Returns a vector of length N with values [1,...,N].</td><td></td></tr>
-<tr><td>, A</td><td>Ravel</td><td>Returns the vector of values appearing in A in row-major order.</td><td></td></tr>
-<tr><td>+ A</td><td>Identity</td><td>Returns A.</td><td></td></tr>
-<tr><td>- A</td><td>Negation</td><td>Returns the array A with all values negated.</td><td></td></tr>
-<tr><td>÷ A</td><td>Reciprocal</td><td>Returns the array A with elements being the reciprocal values of the values in A.</td><td></td></tr>
-<tr><td>× A</td><td>Sign</td><td>Returns the array A with elements being -1 for negative values in A and 1 for positive values in A.</td><td></td></tr>
-<tr><td>⍉ A</td><td>Transpose</td><td>Returns the transposed version of A.</td><td></td></tr>
-<tr><td>~ A</td><td>Logical negation</td><td>Returns A with boolean elements negated.</td><td>Assumes A to be of boolean type.</td></tr>
-</table>
+| Expression    | Name             | Meaning              | Notes         |
+|---------------|------------------|----------------------|---------------|
+| ⍴ A           | Shape            | Returns the shape of the array A as a vector of integers. | |
+| ⍳ N           | Iota             | Returns a vector of length N with values [1,...,N].  | |
+| , A           | Ravel            | Returns the vector of values appearing in A in row-major order.  | |
+| + A           | Identity         | Returns A.           |               |
+| - A           | Negation         | Returns the array A with all values negated.  | |
+| ÷ A           | Reciprocal       | Returns the array A with elements being the reciprocal values of the values in A.  | |
+| × A           | Sign             | Returns the array A with elements being -1 for negative values in A and 1 for positive values in A.  | |
+| ⍉ A           | Transpose        | Returns the transposed version of A.  | |
+| ~ A           | Logical negation | Returns A with boolean elements negated.  |  Assumes A to be of boolean type. |
 
 ### Dyadic Functions
+
+| Expression    | Name             | Meaning              | Notes         |
+|---------------|------------------|----------------------|---------------|
+| B ⍴ A         | Reshape          | Returns an array with shape B and values taken from ,A (rotated if there are not sufficiently many values in A).         | |
+| B ⍉ A         | Dyadic transpose | Returns the generalized transposed version of A, according to the dimension index vector B. | B must be an integer vector of the same length as A. |
+| B + A         | Addition         | Pair-wise addition of elements in B and A. | Scalar expansion supported: Arrays A and B must be of the same shape unless one of the arrays is a scalar value in which case the array is extended to match the shape of the other array. |
+| B - A         | Subtraction      | Pair-wise subtraction of elements in B and A. | Scalar expansion supported. |
+| B ÷ A         | Division         | Pair-wise division of elements in B and A. | Scalar expansion supported. |
+| B × A         | Multiplication   | Pair-wise multiplication of elements in B and A. | Scalar expansion supported. |
+| B ⌈ A         | Maximum          | Pair-wise maximum of elements in B and A. | Scalar expansion supported. |
+| B ⌊ A         | Minimum          | Pair-wise minimum of elements in B and A. | Scalar expansion supported. |
+| N ↑ A         | Take             | Returns the vector resulting from taking N elements from A (row-major order). | When N is negative, values are taken from the right. |
+| N ↓ A         | Drop             | Returns the vector resulting from dropping N elements from A (row-major order). | When N is negative, values are dropped from the right. |
+| N ⌽ A         | Rotate           | Returns the vector resulting from rotating values in A to the left N steps (row-major order). | When N is negative, values are right-rotated. |
+| N ⊖ A         | Rotate last      | Returns the vector resulting from rotating values (in A) N steps along the last axis (column-major order). | When N is negative, values are rotated in the opposite directions. |
+| B , A         | Catenate         | Returns the vector resulting from catenating elements in B with elements in A (row-major order). | |
+| B ⍪ A         | Catenate last    | Returns the vector resulting from catenating elements in B with elements in A (column-major order). | |
+| B ∨ A         | Boolean or       | Returns the logical disjunction of B and A. | Scalar expansion supported. |
+| B ∧ A         | Boolean and      | Returns the logical conjunction of B and A. | Scalar expansion supported. |
+| B ⍱ A         | Boolean nor      | Returns the negation of the logical disjunction of B and A. | Scalar expansion supported. |
+| B ⍲ A         | Boolean nand     | Returns the negation of the logical conjunction of B and A. | Scalar expansion supported. |
+| B = A         | Equality         | Pair-wise equality of elements in B and A. | Scalar expansion supported. |
+| B ≠ A         | Not equal        | Pair-wise inequality of elements in B and A. | Scalar expansion supported. |
+| B < A         | Less than        | Pair-wise less than comparison of elements in B and A. | Scalar expansion supported. |
+| B ≤ A         | Less than or equal| Pair-wise less than or equal comparison of elements in B and A. | Scalar expansion supported. |
+| B > A         | Greater than     | Pair-wise greater than comparison of elements in B and A. | Scalar expansion supported. |
+| B ≥ A         | Greater than or equal|Pair-wise greater that or equal comparison of elements in B and A. | Scalar expansion supported. |
+| B / A         | Compress         | Returns the elements in A (as a vector) for which the corresponding elements in the boolean vector B are true. | Assumes A to be a vector of the same length as the boolean vector B. |
+| B / A         | Replicate        | Returns repeated elements from A (as a vector) with the repetition controlled by the corresponding elements in the integer vector B. | Assumes A to be a vector of the same length as the integer vector B. |
 
 <table>
 <tr><th>Expression</th><th>Name</th><th>Meaning</th><th>Notes</th></tr>
