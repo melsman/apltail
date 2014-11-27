@@ -180,9 +180,6 @@ signature TAIL = sig
   val reshape   : Int Num v -> 'a m -> 'a m
   val shape     : 'a m -> Int Num v
 
-  val prod      : ('a t * 'a t -> 'a t M) -> ('a t * 'a t -> 'a t M) -> 'a t
-                  -> 'a m -> 'a m -> ('a t -> 'b) -> ('a m -> 'b) -> 'b
-
   val reduce    : ('a t * 'a t -> 'a t M) -> 'a t -> 'a m -> ('a t -> 'b) -> ('a m -> 'b) -> 'b
 
   val compress  : Bool m -> 'a m -> 'a m
@@ -203,4 +200,9 @@ signature TAIL = sig
   val prSclB    : BOOL -> BOOL
   val prSclD    : DOUBLE -> DOUBLE
   val prSclC    : CHAR -> CHAR
+
+  (* File access *)
+  val readFile  : Char m -> Char m
+  val readIntVecFile : Char m -> Int Num m
+                                 
 end

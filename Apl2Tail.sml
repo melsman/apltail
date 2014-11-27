@@ -399,7 +399,7 @@ fun compSlash r =
   | [Bs x] => compSlash r ([Abs(scalar x)])
   | _ => compErr r "operator slash (reduce/replicate/compress) takes only one argument (monadic)"
 
-fun compileAst flags e =
+fun compileAst flags G0 e =
     let fun comp (G:env) e (k: s*env -> s N) : s N =
             case e of
               IntE (s,r) =>
@@ -537,25 +537,7 @@ fun compileAst flags e =
                 emp)
             | IdE(Symb L.Slash,r) => k (Fs (compSlash r, noii), emp)
             | IdE(Symb L.Slashbar,r) => compId G (Var "$slashbar",r) k
-            | IdE(Symb L.Dot,r) =>
-              (case compIdOpt G (Var "$dot",r) k of
-                   SOME res => res
-                 | NONE =>
-                   k(Fs (fn [Fs(f1,ii),Fs(f2,_)] =>
-                            rett(Fs (fn [Ais a1, Ais a2] => 
-                                        S(prod (fn (x,y) =>
-                                                       subM(f1[Is x,Is y] >>>= (fn Is z => rett z
-                                                                               | _ => compErr r "expecting int as result of dot operation")))
-                                               (fn (x,y) =>  
-                                                   subM(f2[Is x,Is y] >>>= (fn Is z => rett z
-                                                                           | _ => compErr r "expecting int as result of dot operation")))
-                                               (I(id_item_int noii)) a1 a2 Is Ais)
-                                    | _ => compErr r "expecting two arrays as arguments to function-specialized dot operator",
-                                     noii))
-                        | _ => compErr r "expecting two functions as arguments to dot operator",
-                         noii),
-                     emp)
-              )
+            | IdE(Symb L.Dot,r) => compId G (Var "$dot",r) k
             | IdE(Symb L.Each,r) => 
               k(Fs (fn [Fs (f,_)] =>
                        let exception No
@@ -725,7 +707,7 @@ fun compileAst flags e =
                 SOME r => r
               | NONE => 
                 let val id = AplAst.pr_id id
-                    fun consider id = if List.exists (fn x => id = x) ["$out","$slashbar"] then 
+                    fun consider id = if List.exists (fn x => id = x) ["$dot","$out","$slashbar"] then 
                                         ". Consider including the prelude.apl file"
                                       else ""
                 in compErr r ("identifier " ^ id ^ " not in the environment" ^ consider id)
@@ -788,7 +770,7 @@ fun compileAst flags e =
                                     n m))
                   | _ => compErr r "expecting boolean or integer array as result of power")
              | _ => compErr r "expecting boolean or integer array as argument to power"
-        val c = comp emp e (fn (s,_) => rett s)
+        val c = comp G0 e (fn (s,_) => rett s)
         val c' = subM c >>= (fn s =>
                                 case s of
                                   Is i => ret (i2d i)
@@ -797,6 +779,22 @@ fun compileAst flags e =
                                 | _ => raise Fail "expecting scalar double value as the result of a program")
     in runM flags Double c'
     end
+
+fun Fun1Acs2 g s f =
+    (s, Fs (fn [Acs x] => rett(g (f x))
+           | l => raise Fail ("Compile Error: monadic function " ^ s ^ " expects character vector as argument"),
+            noii))
+
+val initialB =
+    let val initial =
+            [Fun1Acs2 Acs "Quad$ReadFile" readFile,
+             Fun1Acs2 Ais "Quad$ReadIntVecFile" readIntVecFile]
+        open AplParse
+        val initialPE = List.foldl (fn ((id,_),e) => add (id, [fun1]) e) env0 initial
+        val initialCE = List.map (fn (id,x) => (Var id,x)) initial
+    in (initialPE, initialCE)
+    end
+
 end
 
 fun flag_p flags s =
@@ -843,14 +841,14 @@ fun parseFiles flags (pe0 : AplParse.env) (fs: string list) : AplAst.exp =
     in parseFs pe0 (fs,NONE)
     end
 
-fun compileExp flags e =
+fun compileExp flags G e =
     let val compile_only_p = flag_p flags "-c"
         val verbose_p = flag_p flags "-v"
         val p_tail = flag_p flags "-p_tail"
         val p_types = flag_p flags "-p_types"
         val optlevel = if flag_p flags "-noopt" then 0 else 1
         val outfile = flag flags "-o"
-        val p = compileAst {verbose=verbose_p, optlevel=optlevel, prtype=p_types} e
+        val p = compileAst {verbose=verbose_p, optlevel=optlevel, prtype=p_types} G e
         val () =
             case outfile of
                 SOME ofile => X.outprog p_types ofile p
@@ -883,13 +881,15 @@ fun compileAndRun flags s =
         val () = pr (fn () => "Program lexed:")
         val () = pr (fn () => " " ^ AplLex.pr_tokens (map #1 ts))
         val () = pr (fn () => "Parsing tokens...")
-        val (e,_) = AplParse.parse AplParse.env0 ts
+        val (e,_) = AplParse.parse (#1 initialB) ts
     in pr(fn () => "Parse success:\n " ^ AplAst.pr_exp e);
-       compileExp flags e
+       compileExp flags (#2 initialB) e
     end handle ? => errHandler ?
 
+
 fun compileAndRunFiles flags fs =
-    let val e = parseFiles flags AplParse.env0 fs
-    in compileExp flags e
+    let val (PE,CE) = initialB
+        val e = parseFiles flags PE fs
+    in compileExp flags CE e
     end handle ? => errHandler ?
 end

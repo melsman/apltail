@@ -4,7 +4,8 @@ TESTS=test test1 test2 test3 test4 test5 test6 test7 test9 test10 \
       compress primes replicate cons boolean innerLegrand5.3 quadassign \
       opr1 opr2 opr3 fun2 take drop vrev vrot rot rotfirst first life pow \
       vec zfunc repl ceilfloormaxmin easter eacheaster else chars shape \
-      innerproduct sign ln circ timespi blackscholes pi
+      innerproduct sign ln circ timespi blackscholes pi readfile \
+      readintvecfile
 
 APLFILES=$(TESTS:%=%.apl)
 TLFILES=$(APLFILES:%.apl=%.tl)

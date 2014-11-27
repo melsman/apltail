@@ -203,17 +203,6 @@ fun drop e1 e2 = Op_e("drop", [e1,e2])
 fun mem e = Op_e("mem",[e])
 fun reshape e1 e2 = Op_e("reshape", [e1,e2])
 fun shape e = Op_e("shape",[e])
-fun prod f g e m1 m2 s a =
-    let open Int
-        val r = case (getRank "prod" m1, getRank "prod" m2) of
-                    (0,_) => raise Fail "rank error: prod1"
-                  | (_,0) => raise Fail "rank error: prod2"
-                  | (r1,r2) => r1+r2-2
-        val res = Op_e("prod",[mkFn2m f,mkFn2m g,e,m1,m2])
-    in if r < 0 then raise Fail "rank error: prod3"
-       else if r = 0 then s res
-       else a res
-    end
 fun reduce f e1 e2 s a =
     case getRank "reduce" e2 of
         0 => s e2
@@ -440,7 +429,6 @@ fun prInstanceLists opr es t =
          | ("transp2", [_,ta]) => wrap [bt ta] [rnk ta]
          | ("reshape", [_,ta]) => wrap [bt t] [rnk ta,rnk t]
          | ("zipWith", [ft,t1,t2]) => wrap [bt t1,bt t2,bt t] [rnk t1]
-         | ("prod",[ft,gt,et,t1,t2]) => none
          | _ => none
     end
 
@@ -546,5 +534,8 @@ fun eval p v =
         val v' = Exp.eval de p
     in v'
     end
+
+fun readFile e = Op_e("readFile", [e])
+fun readIntVecFile e = Op_e("readIntVecFile", [e])
     
 end

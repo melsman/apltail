@@ -1,0 +1,2 @@
+This is the content
+of a text file (2 lines).

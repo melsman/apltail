@@ -1,0 +1,10 @@
+[Reading file: ../prelude.apl]
+[Reading file: readintvecfile.apl]
+Evaluating
+Number of integers in file:
+[](16)
+File content:
+[16](23,45,2323,4,0,34,34,34,2,1,3,4,5,543243,5543,2)
+File content reversed:
+[16](2,5543,543243,5,4,3,1,2,34,34,34,0,4,2323,45,23)
+Result is [](0.0)

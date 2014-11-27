@@ -406,28 +406,6 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           end
         | ("each", [tf,tv]) => type_each opr tf tv
         | ("eachV", [tf,tv]) => type_each opr tf tv
-        | ("prod",[tf,tg,tn,t1,t2]) =>
-          let val t = unScl "prod neutral element" tn
-              val (f1,f2,f3) = unBinFun "first argument to prod" tf
-              val (g1,g2,g3) = unBinFun "second argument to prod" tg
-              val (v1t,r1) = unArr' "prod" t1
-              val (v2t,r2) = unArr' "prod" t2
-              val () = List.app (fn (t1,t2) => assertB "prod" t1 t2) 
-                                [(f1,f2),(f2,f3),(f3,t),
-                                 (g1,g2),(g2,g3),(g3,t),
-                                 (v1t,v2t),(v2t,t)]
-              val rv = RnkVar()
-              val rv1 = RnkVarCon (fn i1 =>
-                                      let val rv2 = RnkVarCon (fn i2 =>
-                                                                  let val r = i1 + i2 - 2
-                                                                  in if r < 0 then SOME "Negative rank for prod"
-                                                                     else unifyR rv (rnk r)
-                                                                  end)
-                                      in unifyR rv2 r2
-                                      end)
-          in assertR "rank for prod" r1 rv1;
-             Arr t rv
-          end
         | ("i2d",[t]) => (assert_sub opr t Int; Double)
         | ("b2i",[t]) =>
           (assert_sub opr t Bool;
@@ -491,6 +469,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | ("prArrB",[t]) => (assert_sub opr t (Arr BoolB (RnkVar())); t)
         | ("prArrD",[t]) => (assert_sub opr t (Arr DoubleB (RnkVar())); t)
         | ("prArrC",[t]) => (assert_sub opr t (Arr CharB (RnkVar())); t)
+        | ("readFile",[t]) => (assert_sub opr t (VecB CharB); VecB CharB)
+        | ("readIntVecFile",[t]) => (assert_sub opr t (VecB CharB); VecB IntB)
         | (_,[t1,t2]) =>
           if isBinOpIII opr then tyBin Int Int Int opr t1 t2
           else if isBinOpDDD opr then tyBin Double Double Double opr t1 t2
@@ -604,19 +584,19 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   fun Iff_e (c,e1,e2) =
       let val t0 = tyIff(typeOf c, typeOf e1, typeOf e2)
       in Iff(c,e1,e2,t0)
-      end
+      end handle Fail s => raise Fail ("Iff_e: " ^ s)
          
   fun Vc_e es =
       let val ts = List.map typeOf es
           val t = tyVc ts
       in Vc(es,t)
-      end
+      end handle Fail s => raise Fail ("Vc_e: " ^ s)
 
   fun Op_e (opr,es) =
       let val ts = List.map typeOf es
           val t = tyOp opr ts
       in Op(opr,es,t)
-      end
+      end handle Fail s => raise Fail ("Op_e: " ^ s)
 
   fun Let_e (v,t,e,e') =
       let val t' = typeOf e'
@@ -648,6 +628,14 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
            in if CharVector.exists (fn c => c = #".") s then s
               else s ^ ".0"
            end
+
+  fun wordToChar w =
+      if w < 0w128 then
+        let val c = Char.chr (Word.toInt w)
+        in if Char.isAscii c then c
+           else raise Fail "non-printable character not allowed"
+        end
+      else raise Fail "non-printable character not allowed"
 
   fun pr_char w =
       if w < 0w128 then
@@ -703,6 +691,19 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   val rgen = ref (Random.newgen ())
   fun roll 0 = Random.random (!rgen)
     | roll i = real (Random.range (0,i) (!rgen))
+
+  fun fileVecReader fname (f: string -> 'a list) (d: 'a) (g : 'a -> 'b) : 'b Apl.t =
+      let val v = Apl.map #" " (fn Cb w => wordToChar w 
+                                 | _ => raise Fail "eval:fileVecReader") fname
+          fun finally x f g =
+              (f x before g x) handle ? => (g x; raise ?)
+          fun readFile fname = 
+              finally (TextIO.openIn fname) TextIO.inputAll TextIO.closeIn
+          val fname = Apl.pr (Char.toString,"") v
+          val content = readFile fname
+          val list = f content
+      in Apl.vec (g d) (List.map g list)
+      end
 
   fun eval DE e : value =
       case e of
@@ -815,14 +816,6 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                  let val F = unFb2 DE "zipWith" f
                  in Apl.zipWith (default (resType F)) (applyBin F) (eval DE e2) (eval DE e3)
                  end
-               | ("prod",[f,g,n,v1,v2]) =>
-                 let val F = unFb2 DE "prod first" f
-                     val G = unFb2 DE "prod second" g
-                     val n = eval DE n
-                     val v1 = eval DE v1
-                     val v2 = eval DE v2
-                 in Apl.dot (applyBin F) (applyBin G) n v1 v2
-                 end
                | ("prArrI",[e]) => prArr (eval DE e)
                | ("prArrB",[e]) => prArr (eval DE e)
                | ("prArrD",[e]) => prArr (eval DE e)
@@ -831,6 +824,16 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                | ("prSclB",[e]) => prArr (eval DE e)
                | ("prSclD",[e]) => prArr (eval DE e)
                | ("prSclC",[e]) => prArr (eval DE e)
+               | ("readFile",[e]) => fileVecReader (eval DE e) (List.map (Word.fromInt o Char.ord) o explode) 0w32 Cb 
+               | ("readIntVecFile",[e]) =>
+                 let fun scanner s =
+                         let val ints = String.tokens Char.isSpace s
+                         in List.map (fn s => case Int.fromString s of
+                                                  SOME i => i
+                                                | NONE => raise Fail ("expecting only integers in file - found '" ^ s ^ "'")) ints
+                         end
+                 in fileVecReader (eval DE e) scanner 0 Ib
+                 end
                | (opr,[e1,e2]) =>
                  let val v1 = eval DE e1
                      val v2 = eval DE e2
