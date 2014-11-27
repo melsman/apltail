@@ -9,6 +9,12 @@ is currently no support for characters and strings.
 
 ### Monadic Functions
 
+|test| a | b |
+|----|---|---|
+|ost | 3 | 5 |
+|hans| 30 | 51 |
+
+
 <table>
 <tr><th>Expression</th><th>Name</th><th>Meaning</th><th>Notes</th></tr>
 <tr><td>⍴ A</td><td>Shape</td><td>Returns the shape of the array A as a vector of integers.</td><td></td></tr>
