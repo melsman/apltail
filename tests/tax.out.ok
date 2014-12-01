@@ -1,0 +1,8 @@
+[Reading file: ../prelude.apl]
+[Reading file: tax.apl]
+Evaluating
+tax(400000) = 
+[](180800.0)
+tax(400000, 220000) = 
+[2](180800.0,78800.0)
+Result is [](0.0)
