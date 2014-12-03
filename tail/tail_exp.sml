@@ -661,6 +661,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
 
   fun unIb (Ib b) = b
     | unIb _ = raise Fail "exp.unIb"
+  fun unCb (Cb w) = w
+    | unCb _ = raise Fail "exp.unCb"
   fun unDb (Db b) = b
     | unDb _ = raise Fail "exp.unDb"
   fun unBb (Bb b) = b
@@ -840,6 +842,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                  in if isBinOpIII opr then evalBinOpIII opr v1 v2
                     else if isBinOpDDD opr then evalBinOpDDD opr v1 v2
                     else if isBinOpIIB opr then evalBinOpIIB opr v1 v2
+                    else if isBinOpCCB opr then evalBinOpCCB opr v1 v2
                     else if isBinOpDDB opr then evalBinOpDDB opr v1 v2
                     else if isBinOpBBB opr then evalBinOpBBB opr v1 v2
                     else tryShOpr()
@@ -880,6 +883,16 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                       | "eqi" => (op =)
                       | _ => raise Fail ("evalBinOpIIB: unsupported int*int->bool operator " ^ opr)
       in Apl.liftB (Bb false) (fn (b1,b2) => Bb(fct(unIb b1, unIb b2))) (v1,v2)
+      end
+  and evalBinOpCCB opr v1 v2 =
+      let val fct = case opr of
+                        "ltc" => (op <)
+                      | "ltec" => (op <=)
+                      | "gtc" => (op >)
+                      | "gtec" => (op >=)
+                      | "eqc" => (op =)
+                      | _ => raise Fail ("evalBinOpCCB: unsupported char*char->bool operator " ^ opr)
+      in Apl.liftB (Bb false) (fn (b1,b2) => Bb(fct(unCb b1, unCb b2))) (v1,v2)
       end
   and evalBinOpDDD opr v1 v2 =
       let val fct = case opr of

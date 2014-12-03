@@ -1,0 +1,16 @@
+[Reading file: ../prelude.apl]
+[Reading file: abcd.apl]
+Evaluating
+
+ CCCAAC
+ BAADAB
+ CAACDC
+ ACDDBC
+ DDCCCB
+ ADCBCC
+ CACCCB
+ CCBACC
+
+Result:
+[8](0,0,0,1,0,1,0,0)
+Result is [](0.0)

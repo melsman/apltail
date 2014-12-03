@@ -6,6 +6,12 @@ type 'a t = int vector   (* shape vector *)
           * 'a vector    (* elements *)
           * 'a           (* default element *)
 
+fun list (v: 'a vector) : 'a list = 
+    V.foldr (op ::) nil v
+
+fun pp_sh v =
+    "[" ^ String.concatWith "," (List.map Int.toString (list v)) ^ "]"
+
 fun scl (def:'a) (v:'a) : 'a t = 
     (V.fromList [], V.fromList [v], def)
 
@@ -86,7 +92,6 @@ fun power (f: 'a t -> 'a t) (n : int t) (a : 'a t) : 'a t =
 fun map (def: 'b) (f: 'a -> 'b) (a : 'a t) : 'b t =
     (#1 a, V.map f (#2 a), def)
     
-fun list (v: 'a vector) : 'a list = V.foldr (op ::) nil v
 fun reduce (f: 'a t * 'a t -> 'a t) (n:'a t) (a:'a t) : 'a t =
     case rev (list (#1 a)) of
         nil => a  (* scalar value: reduce is the identity! *)
@@ -153,6 +158,18 @@ fun transpose (a: 'a t) : 'a t =
 fun exchange nil xs = nil
   | exchange (i::I) xs = List.nth (xs,i-1) :: exchange I xs
 
+fun appi0 _ f nil = ()
+  | appi0 n f (x::xs) = (f (x,n); appi0 (n+1) f xs)
+  
+fun appi f xs = appi0 0 f xs
+
+fun exchange' ctrl xs =
+    let val sz = length ctrl
+        val a = Array.tabulate (sz,fn _ => 0)
+    in appi (fn (c,i) => Array.update(a,c-1,List.nth(xs,i))) ctrl
+     ; Array.foldr(op::) nil a
+    end
+
 fun transpose2 (I: int t, a: 'a t) : 'a t =
     let val I = list(#2 I)
         val sh = list(#1 a)
@@ -165,7 +182,7 @@ fun transpose2 (I: int t, a: 'a t) : 'a t =
                               else raise Fail "transpose2: index vector not a permutation"
                       in check (length I)
                       end
-        val sh' = exchange I sh
+        val sh' = exchange' I sh
         val vs = #2 a
     in (V.fromList sh',
         V.tabulate(V.length vs, fn i => V.sub(vs, fromSh sh (exchange I (toSh sh' i)))),
@@ -192,7 +209,13 @@ fun cons (v,a) = catenate (ext v, a)
 fun snoc (a,v) = catenate (a, ext v)
 
 fun zipWith (x:'c) (f: 'a t * 'b t -> 'c t) (a : 'a t) (b : 'b t) : 'c t =
-    (#1 a, V.fromList(ListPair.map (unliftB "zipWith" (#3 a) (#3 b) f) (list(#2 a),list(#2 b))), x)
+    let val sha = #1 a
+        val shb = #1 b
+    in if sha <> shb then
+         raise Fail ("incompatible shapes in zipWith operation: shape " ^ pp_sh sha ^ " is incompatible with " ^ pp_sh shb)
+       else 
+         (#1 a, V.fromList(ListPair.map (unliftB "zipWith" (#3 a) (#3 b) f) (list(#2 a),list(#2 b))), x)
+    end
 
 fun rot 0 a = a
   | rot n nil = nil
@@ -323,15 +346,15 @@ fun iff (b : bool t, f1,f2) =
     if unScl "iff" b then f1() else f2()
 
 fun pr (p,sep) (a: 'a t) : string =
-    let fun prv p s e v =
+    let fun prv sep p s e v =
             s ^ String.concatWith sep (List.map p v) ^ e
         val shape = list (#1 a)
         val values = list (#2 a)
         fun flat () =
-            (prv Int.toString "[" "]" shape ^
-             prv p "(" ")" values)
+            (prv "," Int.toString "[" "]" shape ^
+             prv sep p "(" ")" values)
     in case shape of
-           [_] => if sep="" then prv p "" "" values else flat()
+           [_] => if sep="" then prv sep p "" "" values else flat()
          | [X,Y] => 
            if prod shape = 0 then flat() else
            let val sep = if sep="" then sep else " "
