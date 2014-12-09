@@ -10,6 +10,7 @@ TESTS=test test1 test2 test3 test4 test5 test6 test7 test9 test10 \
 APLFILES=$(TESTS:%=%.apl)
 TLFILES=$(APLFILES:%.apl=%.tl)
 RESFILES=$(APLFILES:%.apl=%.res) $(APLFILES:%.apl=%.resn)
+OUTVFILES=$(APLFILES:%.apl=%.outv)
 
 .PHONY: all
 all: $(TLFILES) test
@@ -22,6 +23,9 @@ all: $(TLFILES) test
 
 %.outn: %.apl Makefile ../aplt
 	../aplt -noopt ../prelude.apl $< > $@
+
+%.outv: %.apl Makefile ../aplt
+	../aplt -p_tail -p_types -noopt ../prelude.apl $< > $@
 
 %.res: %.out
 	@(diff -aq $< $<.ok > /dev/null 2>&1; \
@@ -55,6 +59,8 @@ test: $(RESFILES)
 	@echo "Test errors:       `grep "ERR" $(RESFILES) | wc -l` /`grep "Test" $(RESFILES) | wc -l`"
 	@echo "-------------------------------------"
 
+outv: $(OUTVFILES)
+
 
 clean:
-	rm -f *.tl *.out *.res *.resn *.outn *~
+	rm -f *.tl *.out *.res *.resn *.outn *~ *.outv
