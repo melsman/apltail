@@ -191,6 +191,9 @@ signature TAIL = sig
   val transpose : 'a m -> 'a m
   val transpose2 : Int Num v -> 'a m -> 'a m
 
+  val idxS      : int -> INT -> 'a m -> ('a t -> 'b) -> ('a m -> 'b) -> 'b
+  val idx       : int -> Int Num m -> 'a m -> 'a m
+
   (* Printing routines *)
   val prArrI    : Int Num m -> Int Num m
   val prArrB    : Bool m -> Bool m

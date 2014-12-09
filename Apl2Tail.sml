@@ -414,7 +414,40 @@ fun compileAst flags G0 e =
               (case StoD s of
                  SOME d => k (Ds(D d),emp)
                | NONE => compErr r ("Expecting double, got " ^ s))
-            | AssignE(v,e,_) => 
+            | IndexE(e,opts,r) =>
+              (*  
+                    I ::= S | V | S;I | V;I | ;I
+
+                    none(S)   = ;
+                    none(V)   = ;
+                    none(S;I) = ;none(I)
+                    none(V;I) = ;none(I)
+                    none(;I)  = ;none(I)
+
+                       A[S]   = ...
+                       A[V]   = ...
+                       A[S;I] = A[S;none(I)][I]
+                       A[V;I] = A[S;none(I)][;I]
+              *)
+              let fun toI (SOME(Bs b)) = SOME(Is(b2i b))
+                    | toI (SOME(Abs bs)) = SOME(Ais(each (ret o b2i) bs)) 
+                    | toI x = x
+                  fun findOpt n (NONE::xs) = findOpt (n+1) xs
+                    | findOpt n (SOME(Is e)::xs) = SOME(n,e,xs)
+                    | findOpt n (SOME _::xs) = compErr r ("Index not supported")
+                    | findOpt n nil = NONE
+              in comp G e (fn (Ais a,_) =>
+                  compOpts G opts (fn (opts,_) =>
+                                      case findOpt 1 (List.map toI opts) of
+                                          SOME (x,i,xs) => 
+                                          (case findOpt 1 xs of
+                                               NONE => k(idxS x i a Is Ais, emp)
+                                             | SOME _ => compErr r "only simple Indexing supported")
+                                        | NONE => k(Ais a,emp)
+                                  )
+                           | _ => compErr r ("Index supporting ints only"))
+              end
+            | AssignE(v,e,_) =>
               let fun cont f x = 
                       let val t = f x
                       in k(t,[(Var v,t)])
@@ -686,6 +719,9 @@ fun compileAst flags G0 e =
             | e => raise Fail ("compile.expression " ^ pr_exp e ^ " not implemented")
         and comps G nil k = k(nil,emp)
           | comps G (e::es) k = comp G e (fn (s,G1) => comps (G++G1) es (fn (ss,G2) => k(s::ss,G1++G2)))
+        and compOpts G nil k = k(nil,emp)
+          | compOpts G (NONE::es) k = compOpts G es (fn (ss,_) => k(NONE::ss,emp))
+          | compOpts G (SOME e::es) k = comp G e (fn (s,_) => compOpts G es (fn (ss,_) => k(SOME s::ss,emp)))
         and compPrimFunMD k r (mon,dya) ii =
             k(Fs (fn [x1,x2] => failWrap r dya (x1,x2)
                    | [x] => failWrap r mon x

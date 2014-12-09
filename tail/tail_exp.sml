@@ -70,6 +70,19 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                              ^ prType t ^ " in " ^ s)
           end
 
+  fun unS' s t =
+      case unS t of
+          SOME (bt,_) => (bt,rnk 0)
+        | NONE =>
+          let val tv = TyVarB()
+              val r = RnkVar()
+          in case unify t (S tv r) of
+                 NONE => (tv,r)
+               | SOME _ => 
+                 raise Fail ("expecting singleton type, but got "
+                             ^ prType t ^ " in " ^ s)
+          end
+
   fun unFun' s t =
       case unFun t of
           SOME (t1,t2) => (unScl s t1, unScl s t2)
@@ -387,6 +400,16 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
               val rv' = RnkVarCon (fn i => unifyR rv (rnk(i-1)))
           in assertR "reduce" rv' r
            ; Arr bt rv
+          end
+        | ("idxS", [tsi,ti,ta]) =>
+          let val (bta,r) = unArr' "idxS array argument" ta
+              val (btsi,si) = unS' "idxS offset argument" tsi
+              val rv = RnkVarCon (fn i => unifyR r (rnk(i+1)))
+              val rv' = RnkVarCon (fn i => unifyR rv (rnk(i-1)))
+          in assert_sub "idxS expression" ti Int
+           ; assertB "idxS expects offset argument to be an integer" btsi IntB
+           ; assertR "idxS" rv' r
+           ; Arr bta rv
           end
         | ("compress", [tb,ta]) =>
           let val (btb,rb) = unArr' "compress first argument" tb
@@ -791,6 +814,12 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                      val n = eval DE n
                      val a = eval DE a
                  in Apl.reduce (applyBin F) n a
+                 end
+               | ("idxS", [x,i,a]) =>
+                 let val x = Apl.map 0 unIb (eval DE x)
+                     val i = Apl.map 0 unIb (eval DE i)
+                     val a = eval DE a
+                 in Apl.idxS(x,i,a)
                  end
                | ("compress", [e1,e2]) => 
                  let val v1 = Apl.map false (fn Bb b => b | _ => raise Fail "eval:compress") (eval DE e1)

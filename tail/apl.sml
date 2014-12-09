@@ -345,6 +345,49 @@ fun take (n : int t, (sh,src,default): 'a t) : 'a t =
 fun iff (b : bool t, f1,f2) =
     if unScl "iff" b then f1() else f2()
 
+fun foreach n f = 
+    let fun for i = if i >= n then nil
+                    else f i :: for (i+1)
+    in for 0
+    end
+
+fun idx (I : int t option list) (a: 'a t) : 'a t =
+    let val sh = list (#1 a)
+        val vs = list (#2 a)
+        fun tk n l = List.take(l,n)
+        fun dr n l = List.drop(l,n)
+        fun indx I sh vs acc =
+            case (I,sh) of
+                (nil,nil) => vs @ acc
+              | (NONE::I, s::sh) =>
+                let val vss =
+                        foreach s (fn i => indx I sh
+                                                (tk (prod sh) (dr (i*prod sh) vs)) [])
+                in List.concat vss @ acc
+                end
+              | (SOME n::I, s::sh) =>
+                let val n = unScl "idx:n" n
+                in indx I sh (tk (prod sh) (dr ((n-1)*prod sh) vs)) acc
+                end
+              | _ => raise Fail "idx.indx: indexes do not match array rank"
+        val vs' = indx I sh vs []
+        fun compShape nil nil = nil
+          | compShape (NONE::I) (s::sh) = s::compShape I sh
+          | compShape (SOME _::I) (s::sh) = compShape I sh
+          | compShape _ _ = raise Fail "idx.compShape: indexes do not match array rank"
+        val sh' = compShape I sh
+    in (V.fromList sh',V.fromList vs', #3 a)
+    end
+
+fun idxS  (x: int t, n: int t, a: 'a t) : 'a t =
+    let val x = unScl "idxS:x" x
+        val r = length(list (#1 a))
+        fun comp j = if j > r then nil
+                     else (if j = x then SOME n
+                           else NONE) :: comp (j+1)
+    in idx (comp 1) a
+    end
+
 fun pr (p,sep) (a: 'a t) : string =
     let fun prv sep p s e v =
             s ^ String.concatWith sep (List.map p v) ^ e

@@ -210,6 +210,16 @@ fun reduce f e1 e2 s a =
              in if r=1 then s e else a e
              end
 
+fun idxS x ei ea s a =
+    let val e = Op_e("idxS",[I x,ei,ea])
+    in case getRank "idxS" ea of
+           0 => raise Fail ("rank error: idxS applied to array argument of rank 0")
+         | 1 => s e
+         | _ => a e
+    end
+
+fun idx x eis ea = Op_e("idx",[I x,eis,ea])
+
 fun compress b a = Op_e("compress",[b,a])
 fun replicate v b a = Op_e("replicate",[v,b,a])
 fun power f e1 e2 = Op_e("power",[mkFn1m f,e1,e2])
@@ -415,6 +425,8 @@ fun prInstanceLists opr es t =
            ("each", [tf,ta]) => wrap [bt ta,bt t] [rnk t]
          | ("eachV", [tf,ta]) => wrap [bt ta,bt t] [rnk t] 
          | ("reduce", [tf,te,ta]) => wrap [bt te] [rnk t]
+         | ("idxS", [_,_,ta]) => wrap [bt ta] [rnk t]
+         | ("idx", [_,_,ta]) => wrap [bt ta] [rnk t]
          | ("compress", [_,ta]) => wrap [bt ta] [rnk t]
          | ("shape", [ta]) => wrap [bt ta] [rnk ta] 
          | ("take", [_,ta]) => wrap [bt ta] [rnk ta]
