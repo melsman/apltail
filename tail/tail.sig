@@ -103,6 +103,7 @@ signature TAIL = sig
   val mini      : INT -> INT -> INT
   val negi      : INT -> INT
   val absi      : INT -> INT
+  val signi     : INT -> INT
   val addd      : DOUBLE * DOUBLE -> DOUBLE
   val subd      : DOUBLE * DOUBLE -> DOUBLE
   val muld      : DOUBLE * DOUBLE -> DOUBLE
@@ -119,6 +120,7 @@ signature TAIL = sig
   val mind      : DOUBLE -> DOUBLE -> DOUBLE
   val negd      : DOUBLE -> DOUBLE
   val absd      : DOUBLE -> DOUBLE
+  val signd     : DOUBLE -> INT
 
   val andb      : BOOL * BOOL -> BOOL
   val orb       : BOOL * BOOL -> BOOL

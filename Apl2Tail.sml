@@ -283,10 +283,6 @@ fun compOpr1b opb =
   | Abs a => S(Abs(each (ret o opb) a))
   | _ => raise Fail "compOpr1b.function"
 
-fun signi x = If(lti(x,I 0),I ~1, I 1)
-fun signd x = If(ltd(x,D 0.0),I ~1, I 1)
-
-
 fun compErr r msg =
     raise Fail ("Compile Error: " ^ Region.pp r ^ ".\n  " ^ msg ^ ".")
 

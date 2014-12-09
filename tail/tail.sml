@@ -34,6 +34,7 @@ val maxi = binOp' "maxi"
 val mini = binOp' "mini"
 fun negi x = Op_e("negi",[x])
 fun absi x = Op_e("absi",[x])
+fun signi x = Op_e("signi",[x])
 fun floor x= Op_e("floor",[x])
 fun ceil x = Op_e("ceil",[x])
 fun ln x = Op_e("ln", [x])
@@ -62,6 +63,7 @@ val maxd = binOp' "maxd"
 val mind = binOp' "mind"
 fun negd x = Op_e("negd",[x])
 fun absd x = Op_e("absd",[x])
+fun signd x = Op_e("signd",[x])
 
 val andb  = binOp "andb"
 val orb   = binOp "orb"

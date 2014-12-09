@@ -445,12 +445,9 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                  NONE => default()
                | SOME i => S IntB (rnk(~i))
           end
-        | ("absi",[t]) => 
-          let fun default() = (assert_sub opr t Int; Int)
-          in case unSii t of
-                 NONE => default()
-               | SOME i => S IntB (rnk(~i))
-          end
+        | ("absi",[t]) => (assert_sub opr t Int; Int)
+        | ("signi",[t]) => (assert_sub opr t Int; Int)
+        | ("signd",[t]) => (assert opr Double t; Int)
         | ("negd",[t]) => (assert opr Double t; Double)
         | ("floor",[t]) => (assert opr Double t; Int)
         | ("ceil",[t]) => (assert opr Double t; Int)
@@ -761,6 +758,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                | ("b2i", [e]) => Apl.liftU (Ib 0) (fn Bb b => Ib(if b then 1 else 0) | _ => raise Fail "eval:b2i") (eval DE e)
                | ("negi", [e]) => Apl.liftU (Ib 0) (fn Ib i => Ib(~i) | _ => raise Fail "eval:negi") (eval DE e)
                | ("absi", [e]) => Apl.liftU (Ib 0) (fn Ib i => Ib(Int.abs i) | _ => raise Fail "eval:absi") (eval DE e)
+               | ("signi", [e]) => Apl.liftU (Ib 0) (fn Ib i => Ib(if i >= 0 then 1 else ~1) | _ => raise Fail "eval:signi") (eval DE e)
+               | ("signd", [e]) => Apl.liftU (Ib 0) (fn Db i => Ib(if i >= 0.0 then 1 else ~1) | _ => raise Fail "eval:signd") (eval DE e)
                | ("negd", [e]) => Apl.liftU (Db 0.0) (fn Db i => Db(Real.~i) | _ => raise Fail "eval:negd") (eval DE e)
                | ("absd", [e]) => Apl.liftU (Db 0.0) (fn Db i => Db(Real.abs i) | _ => raise Fail "eval:absd") (eval DE e)
                | ("floor", [e]) => Apl.liftU (Ib 0) (fn Db i => Ib(Real.floor i) | _ => raise Fail "eval:floor") (eval DE e)
