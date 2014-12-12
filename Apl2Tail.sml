@@ -235,7 +235,7 @@ fun compBoolOp opb r =
   | (Abs bs1, Abs bs2) => S(Abs(zipWith (ret o opb) bs1 bs2))
   | (Abs bs1, Bs b2) => S(Abs(each (fn x => ret(opb(x,b2)))bs1))
   | (Bs b1, Abs bs2) => S(Abs(each (fn x => ret(opb(b1,x)))bs2))
-  | _ => compErr r "expects boolean argument array"
+  | _ => compErr r "expects boolean argument arrays"
 
 fun compCmp opi opd opc r =
  fn (Is i1, Is i2) => S(Bs(opi(i1,i2)))
