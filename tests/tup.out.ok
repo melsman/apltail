@@ -1,0 +1,7 @@
+[Reading file: ../prelude.apl]
+[Reading file: tup.apl]
+Evaluating
+hello
+[4](1,2,4,3)
+[](19)
+Result is [](0.0)

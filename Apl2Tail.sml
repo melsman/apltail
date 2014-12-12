@@ -68,6 +68,7 @@ local
     | Ais of mi                        (*   integer array *)
     | Ads of md                        (*   double array *)
     | Acs of mc                        (*   char array *)
+    | Ts of s list                     (*   tuple *)
     | Fs of (s list -> s N) * id_item  (*   function in-lining *)
 
   fun pp_s s =
@@ -80,6 +81,7 @@ local
         | Ais _ => "Ais"
         | Ads _ => "Ads"
         | Acs _ => "Acs"
+        | Ts ss => "Ts(" ^ String.concatWith "," (List.map pp_s ss) ^ ")"
         | Fs _ => "Fs"
 
   fun lets s = case s of
@@ -91,6 +93,7 @@ local
                  | Ais mi => letm mi >>= (fn x => ret(Ais x))
                  | Ads md => letm md >>= (fn x => ret(Ads x))
                  | Acs md => letm md >>= (fn x => ret(Acs x))
+                 | Ts _ => ret s
                  | Fs _ => ret s
 
   open AplAst
@@ -428,20 +431,37 @@ fun compileAst flags G0 e =
               let fun toI (SOME(Bs b)) = SOME(Is(b2i b))
                     | toI (SOME(Abs bs)) = SOME(Ais(each (ret o b2i) bs)) 
                     | toI x = x
+                  fun toi (Bs b) = b2i b
+                    | toi (Is i) = i
+                    | toi _ = compErr r "expecting simple static index"
                   fun findOpt n (NONE::xs) = findOpt (n+1) xs
                     | findOpt n (SOME(Is e)::xs) = SOME(n,e,xs)
                     | findOpt n (SOME _::xs) = compErr r ("Index not supported")
                     | findOpt n nil = NONE
               in comp G e (fn (Ais a,_) =>
-                  compOpts G opts (fn (opts,_) =>
-                                      case findOpt 1 (List.map toI opts) of
-                                          SOME (x,i,xs) => 
-                                          (case findOpt 1 xs of
-                                               NONE => k(idxS x i a Is Ais, emp)
-                                             | SOME _ => compErr r "only simple Indexing supported")
-                                        | NONE => k(Ais a,emp)
-                                  )
-                           | _ => compErr r ("Index supporting ints only"))
+                              compOpts G opts (fn (opts,_) =>
+                                                  case findOpt 1 (List.map toI opts) of
+                                                      SOME (x,i,xs) => 
+                                                      (case findOpt 1 xs of
+                                                           NONE => k(idxS x i a Is Ais, emp)
+                                                         | SOME _ => compErr r "only simple indexing supported")
+                                                    | NONE => k(Ais a,emp)
+                                              )
+                          | (Ts ss, _) =>
+                            compOpts G opts (fn ([SOME x],_) =>
+                                                (case Exp.T.unS (Exp.typeOf (toi x)) of
+                                                     NONE => compErr r "static indexing required"
+                                                   | SOME (_,rnk) =>
+                                                     case Exp.T.unRnk rnk of
+                                                         NONE => compErr r "static indexing is required"
+                                                       | SOME i => 
+                                                         let val s = List.nth (ss,i-1)
+                                                         in k(s,emp)
+                                                         end handle _ => 
+                                                                    compErr r ("index " ^ Int.toString i ^ " out of bounds; tuple has " 
+                                                                               ^ Int.toString (length ss) ^ " elements"))
+                                            | _ => compErr r "malformed indexing")
+                          | _ => compErr r ("Index supporting ints only"))
               end
             | AssignE(v,e,_) =>
               let fun cont f x = 
@@ -512,19 +532,22 @@ fun compileAst flags G0 e =
                                  | (ss,G1) => 
                                    let val ss = rev ss
                                        fun vec' t ss = vec (fromList t ss)
-                                   in if List.exists (fn Ds _ => true | _ => false) ss then
-                                        k(Ads(vec' Double (List.map (fn Is e => i2d e
-                                                                      | Ds d => d
-                                                                      | Bs b => i2d(b2i b)
-                                                                      | _ => compErr r ("nested vectors not supported")) ss)),G1)
-                                      else if List.exists (fn Is _ => true | _ => false) ss then
-                                        k(Ais(vec' Int (List.map (fn Is e => e
-                                                                 | Ds d => compErr r ("vec compilation: impossible")
-                                                                 | Bs b => b2i b
-                                                                 | _ => compErr r ("nested vectors not supported")) ss)),G1)
-                                      else if List.all (fn Bs _ => true | _ => false) ss then
-                                        k(Abs(vec' Bool (List.map (fn Bs b => b | _ => compErr r ("vec compilation: impossible (bool)")) ss)),G1)
-                                      else compErr r ("nested vectors not supported")
+                                       exception TRYTUPLE
+                                       fun tryTuple () = k(Ts ss, G1)
+                                   in (if List.exists (fn Ds _ => true | _ => false) ss then
+                                         k(Ads(vec' Double (List.map (fn Is e => i2d e
+                                                                     | Ds d => d
+                                                                     | Bs b => i2d(b2i b)
+                                                                     | _ => raise TRYTUPLE) ss)),G1)
+                                       else if List.exists (fn Is _ => true | _ => false) ss then
+                                         k(Ais(vec' Int (List.map (fn Is e => e
+                                                                  | Ds d => compErr r ("vec compilation: impossible")
+                                                                  | Bs b => b2i b
+                                                                  | _ => raise TRYTUPLE) ss)),G1)
+                                       else if List.all (fn Bs _ => true | _ => false) ss then
+                                         k(Abs(vec' Bool (List.map (fn Bs b => b | _ => compErr r ("vec compilation: impossible (bool)")) ss)),G1)
+                                       else tryTuple())
+                                      handle TRYTUPLE => tryTuple()
                                    end)
             | App1E(e0,e1,r) =>
               comp G e1 (fn (s,G') =>
