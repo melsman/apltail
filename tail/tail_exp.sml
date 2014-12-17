@@ -93,7 +93,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
 
   datatype exp =
            Var of var * typ
-         | I of int
+         | I of Int32.int
          | D of real
          | B of bool
          | C of word
@@ -129,7 +129,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   val assert_sub = assert0 subtype
 
   fun isBinOpIII opr =
-      isIn opr ["addi","subi","muli","divi","maxi","mini","mod","resi"]
+      isIn opr ["addi","subi","muli","divi","maxi","mini","mod","resi","andi","ori","shli","shri","shari","xori"]
 
   fun isBinOpDDD opr =
       isIn opr ["addd","subd","muld","divd","resd","maxd","mind","powd"]
@@ -446,6 +446,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                | SOME i => S IntB (rnk(~i))
           end
         | ("absi",[t]) => (assert_sub opr t Int; Int)
+        | ("noti",[t]) => (assert_sub opr t Int; Int)
         | ("signi",[t]) => (assert_sub opr t Int; Int)
         | ("signd",[t]) => (assert opr Double t; Int)
         | ("negd",[t]) => (assert opr Double t; Double)
@@ -890,15 +891,26 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
       in eval DE0 e
       end
   and evalBinOpIII opr v1 v2 =
-      let val fct = case opr of
+      let fun wordOp f (x,y) =
+              let val x = Word32.fromLargeInt(Int32.toLarge x)
+                  val y = Word32.fromLargeInt(Int32.toLarge y)
+              in Int32.fromLarge(Word32.toLargeIntX(f(x,y)))
+              end
+          val fct = case opr of
                         "addi" => (op +)
                       | "subi" => (op -)
                       | "muli" => (op * )
                       | "divi" => (op div)
-                      | "resi" => (fn(x,y) => if x = 0 then y else Int.mod(y,x))
+                      | "resi" => (fn(x,y) => if x = 0 then y else Int32.mod(y,x))
                       | "maxi" => (fn (x,y) => if x > y then x else y)
                       | "mini" => (fn (x,y) => if x < y then x else y)
                       | "mod" => (op mod)
+                      | "andi" => wordOp Word32.andb
+                      | "ori" => wordOp Word32.orb
+                      | "shli" => wordOp Word32.<<
+                      | "shri" => wordOp Word32.>>
+                      | "shari" => wordOp Word32.~>>
+                      | "xori" => wordOp Word32.xorb
                       | _ => raise Fail ("evalBinOpIII: unsupported int*int->int operator " ^ opr)
       in Apl.liftB (Ib 0) (fn (b1,b2) => Ib(fct(unIb b1, unIb b2))) (v1,v2)
       end
@@ -930,7 +942,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                       | "divd" => (op /)
                       | "powd" => Math.pow
                       | "resd" => (fn(x,y) => if Real.==(x,0.0) then y 
-                                              else y - real(Real.floor(y/x)))
+                                              else y - real(Int32.fromInt(Real.floor(y/x))))
                       | "maxd" => (fn (x,y) => if x > y then x else y)
                       | "mind" => (fn (x,y) => if x < y then x else y)
                       | _ => raise Fail ("evalBinOpDDD: unsupported double*double->double operator " ^ opr)

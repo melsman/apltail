@@ -13,7 +13,7 @@ signature TAIL_EXP = sig
   type opr = string
   datatype exp =
            Var of var * typ
-         | I of int
+         | I of Int32.int
          | D of real
          | B of bool
          | C of word

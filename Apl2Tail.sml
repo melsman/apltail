@@ -211,24 +211,35 @@ fun compCat opr1 opr2 opr3 opr4 r =
 
   | _ => compErr r "expects arrays of compatible shape"
 
-fun compOpr2 opi opd r =
- fn (Is i1, Is i2) => S(Is(opi(i1,i2)))
-  | (Ds d1, Ds d2) => S(Ds(opd(d1,d2)))
-  | (Ais a1, Ais a2) => S(Ais(zipWith (ret o opi) a1 a2))
-  | (Ads a1, Ads a2) => S(Ads(zipWith (ret o opd) a1 a2))
-  | (Ais a1, Is i2) => S(Ais(each (fn x => ret(opi(x,i2)))a1))
-  | (Ads a1, Ds d2) => S(Ads(each (fn x => ret(opd(x,d2)))a1))
-  | (Is i1, Ais a2) => S(Ais(each (fn x => ret(opi(i1,x)))a2))
-  | (Ds d1, Ads a2) => S(Ads(each (fn x => ret(opd(d1,x)))a2))
-  | (Bs b1, e2) => compOpr2 opi opd r (Is(b2i b1),e2)
-  | (e1, Bs b2) => compOpr2 opi opd r (e1,Is(b2i b2))
-  | (Is i1, e2) => compOpr2 opi opd r (Ds(i2d i1),e2)
-  | (e1, Is i2) => compOpr2 opi opd r (e1,Ds(i2d i2))
-  | (Abs a1, e2) => compOpr2 opi opd r (Ais(each (ret o b2i) a1),e2)
-  | (e1, Abs a2) => compOpr2 opi opd r (e1,Ais(each (ret o b2i) a2))
-  | (Ais a1, e2) => compOpr2 opi opd r (Ads(each (ret o i2d) a1),e2)
-  | (e1, Ais a2) => compOpr2 opi opd r (e1,Ads(each (ret o i2d) a2))
-  | _ => compErr r "expects numerical argument arrays"
+fun compOpr2' opi opd err =
+    let val rec F =
+         fn (Is i1, Is i2) => S(Is(opi(i1,i2)))
+          | (Ds d1, Ds d2) => S(Ds(opd(d1,d2)))
+          | (Ais a1, Ais a2) => S(Ais(zipWith (ret o opi) a1 a2))
+          | (Ads a1, Ads a2) => S(Ads(zipWith (ret o opd) a1 a2))
+          | (Ais a1, Is i2) => S(Ais(each (fn x => ret(opi(x,i2)))a1))
+          | (Ads a1, Ds d2) => S(Ads(each (fn x => ret(opd(x,d2)))a1))
+          | (Is i1, Ais a2) => S(Ais(each (fn x => ret(opi(i1,x)))a2))
+          | (Ds d1, Ads a2) => S(Ads(each (fn x => ret(opd(d1,x)))a2))
+          | (Bs b1, e2) => F(Is(b2i b1),e2)
+          | (e1, Bs b2) => F(e1,Is(b2i b2))
+          | (Is i1, e2) => F(Ds(i2d i1),e2)
+          | (e1, Is i2) => F(e1,Ds(i2d i2))
+          | (Abs a1, e2) => F(Ais(each (ret o b2i) a1),e2)
+          | (e1, Abs a2) => F(e1,Ais(each (ret o b2i) a2))
+          | (Ais a1, e2) => F(Ads(each (ret o i2d) a1),e2)
+          | (e1, Ais a2) => F(e1,Ads(each (ret o i2d) a2))
+          | _ => err()
+    in F
+    end
+
+fun compOpr2 opi opd r = 
+    compOpr2' opi opd (fn() => compErr r "expects numerical argument arrays")
+
+fun compOpr2III opi err =
+    let fun er _ = (err(); raise Fail "compOpr2III.impossible")
+    in compOpr2' opi er er
+    end
 
 fun compBoolOp opb r =
  fn (Bs b1, Bs b2) => S(Bs(opb(b1,b2)))
@@ -265,14 +276,25 @@ fun compCmp' opi opd opb opc r =
   | (Bs b1, Abs bs2) => S(Abs(each (fn x => ret(opb(b1,x)))bs2))
   | p => compCmp opi opd opc r p
 
+fun compOpr1' opi opd err =
+    let val rec F =
+         fn Is i => S(Is(opi i))
+          | Ds d => S(Ds(opd d))
+          | Bs b => F(Is(b2i b))
+          | Ais a => S(Ais(each (ret o opi) a))
+          | Ads a => S(Ads(each (ret o opd) a))
+          | Abs a => F(Ais(each (ret o b2i) a))
+          | s => err()
+    in F
+    end
+
 fun compOpr1 opi opd r =
- fn Is i => S(Is(opi i))
-  | Ds d => S(Ds(opd d))
-  | Bs b => compOpr1 opi opd r (Is(b2i b))
-  | Ais a => S(Ais(each (ret o opi) a))
-  | Ads a => S(Ads(each (ret o opd) a))
-  | Abs a => compOpr1 opi opd r (Ais(each (ret o b2i) a))
-  | s => compErrS r s "expects numeric array argument"
+    compOpr1' opi opd (fn () => compErr r "expects numeric array argument")
+
+fun compOpr1II opi err =
+    let fun er _ = (err(); raise Fail "compOpr1II.impossible")
+    in compOpr1' opi er er
+    end
 
 fun compOpr1d opd r =
  fn Is i => S(Ds(opd(i2d i)))
@@ -879,18 +901,34 @@ fun compileAst flags G0 e =
     in runM flags Double c'
     end
 
-fun Fun1Acs2 g s f =
-    (s, Fs (fn [Acs x] => rett(g (f x))
-           | l => raise Fail ("Compile Error: monadic function " ^ s ^ " expects character vector as argument"),
-            noii))
-
 val initialB =
-    let val initial =
+    let open AplParse
+        fun liftBinOpIII s f =
+            let fun err () = compError ("dyadic function " ^ s ^ " expects two integer arrays as arguments")
+            in (s, fun2, Fs(fn [a1,a2] => compOpr2III f err (a1,a2)
+                             | _ => err(),noii))
+            end
+        fun liftUnOpII s f =
+            let fun err () = compError ("monadic function " ^ s ^ " expects an integer array as argument")
+            in (s, fun1, Fs(fn [a] => compOpr1II f err a
+                             | _ => err(),noii))
+            end
+        fun Fun1Acs2 g s f =
+            (s, fun1, Fs (fn [Acs x] => rett(g (f x))
+                         | l => compError ("monadic function " ^ s ^ " expects character vector as argument"),
+                          noii))
+        val initial =
             [Fun1Acs2 Acs "Quad$ReadFile" readFile,
-             Fun1Acs2 Ais "Quad$ReadIntVecFile" readIntVecFile]
-        open AplParse
-        val initialPE = List.foldl (fn ((id,_),e) => add (id, [fun1]) e) env0 initial
-        val initialCE = List.map (fn (id,x) => (Var id,x)) initial
+             Fun1Acs2 Ais "Quad$ReadIntVecFile" readIntVecFile,
+             liftUnOpII "Quad$INT32NOT" noti,
+             liftBinOpIII "Quad$INT32AND" andi,
+             liftBinOpIII "Quad$INT32OR" ori,
+             liftBinOpIII "Quad$INT32SHL" shli,
+             liftBinOpIII "Quad$INT32SHR" shri,
+             liftBinOpIII "Quad$INT32SHAR" shari,
+             liftBinOpIII "Quad$INT32XOR" xori]
+        val initialPE = List.foldl (fn ((id,c,_),e) => add (id, [c]) e) env0 initial
+        val initialCE = List.map (fn (id,_,x) => (Var id,x)) initial
     in (initialPE, initialCE)
     end
 

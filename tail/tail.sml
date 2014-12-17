@@ -35,6 +35,15 @@ val mini = binOp' "mini"
 fun negi x = Op_e("negi",[x])
 fun absi x = Op_e("absi",[x])
 fun signi x = Op_e("signi",[x])
+
+val andi = binOp "andi"
+val ori = binOp "ori"
+val shri = binOp "shri"
+val shari = binOp "shari"
+val shli = binOp "shli"
+val xori = binOp "xori"
+fun noti x = Op_e("noti",[x])
+
 fun floor x= Op_e("floor",[x])
 fun ceil x = Op_e("ceil",[x])
 fun ln x = Op_e("ln", [x])
@@ -286,12 +295,12 @@ and peepOp E (opr,es,t) =
     case (opr, es) of
         ("addi", [I 0,e]) => e
       | ("addi", [e,I 0]) => e
-      | ("addi", [I i1,I i2]) => I(Int.+(i1,i2))
-      | ("subi", [I i1,I i2]) => I(Int.-(i1,i2))
+      | ("addi", [I i1,I i2]) => I(Int32.+(i1,i2))
+      | ("subi", [I i1,I i2]) => I(Int32.-(i1,i2))
       | ("subi", [e,I 0]) => e
-      | ("negi", [I i]) => I(Int.~ i)
-      | ("absi", [I i]) => I(Int.abs i)
-      | ("i2d", [I i]) => D(real i)
+      | ("negi", [I i]) => I(Int32.~ i)
+      | ("absi", [I i]) => I(Int32.abs i)
+      | ("i2d", [I i]) => D(Real.fromLargeInt (Int32.toLarge i))
       | ("b2i", [B true]) => I 1
       | ("b2i", [B false]) => I 0
       | ("b2iV", [B true]) => I 1
@@ -306,29 +315,36 @@ and peepOp E (opr,es,t) =
                                  SOME e => e
                                | NONE => Op (opr,[e],t))
       | ("dropV", [I n,Vc(es',_)]) =>
-        if n >= 0 andalso n <= length es' then Vc(List.drop(es',n),t)
-        else if n < 0 andalso ~n <= length es' then Vc(List.take(es',length es' + n),t)
-        else Op(opr,es,t)
+        let val n = Int32.toInt n
+        in if n >= 0 andalso n <= length es' then Vc(List.drop(es',n),t)
+           else if n < 0 andalso ~n <= length es' then Vc(List.take(es',length es' + n),t)
+           else Op(opr,es,t)
+        end
       | ("takeV", [I n,Vc(es',_)]) =>
-        if n >= 0 andalso n <= length es' then Vc(List.take(es',n),t)
-        else if n < 0 andalso ~n <= length es' then Vc(List.drop(es',length es' + n),t)
-        else Op(opr,es,t)
+        let val n = Int32.toInt n
+        in if n >= 0 andalso n <= length es' then Vc(List.take(es',n),t)
+           else if n < 0 andalso ~n <= length es' then Vc(List.drop(es',length es' + n),t)
+           else Op(opr,es,t)
+        end
       | ("firstV", [Vc(e::es,t)]) => e
       | ("first", [Vc(e::es,t)]) => e
       | ("transp2", [Vc([I 2,I 1],_),e]) => Op("transp", [e],t)
       | ("transp2", [Vc([_],_),e]) => e
       | ("catV", [Vc(es1,_),Vc(es2,_)]) => Vc(es1@es2,t)
       | ("snocV", [Vc(es,_),e]) => Vc(es@[e],t)
-      | ("iotaV",[I n]) => if n <= 3 then Vc(List.map I (List.tabulate (n,fn x => x+1)),t)
-                           else Op(opr,es,t)
+      | ("iotaV",[I n]) => 
+        let val n = Int32.toInt n
+        in if n <= 3 then Vc(List.map I (List.tabulate (n,fn x => x+1)),t)
+           else Op(opr,es,t)
+        end
       | ("eachV", [Fn(v,_,Op("b2i",[Var (v',_)],t'),_),Vc(es',_)]) =>
         if v=v' then Vc(List.map (fn e => peepOp E ("b2i",[e],t')) es',t)
         else Op(opr,es,t)
       | ("catV", [Vc([],_),e]) => e
-      | ("vrotateV", [I n,Vc(es,_)]) => Vc(rot n es,t)
+      | ("vrotateV", [I n,Vc(es,_)]) => Vc(rot(Int32.toInt n) es,t)
       | ("transp", [Vc e]) => Vc e
       | ("reshape", [Vc([I n],_), Vc(es',t')]) =>
-        if n = length es' then Vc(es',t')
+        if Int32.toInt n = length es' then Vc(es',t')
         else Op(opr,es,t)
       | _ => Op(opr,es,t)
                
@@ -338,7 +354,7 @@ and getShape (E:env) (e : Exp.exp) : Exp.exp option =
                 NONE => NONE
               | SOME (bt,r) => case unRnk r of
                                    NONE => NONE
-                                 | SOME i => SOME (Vc([I i],SV IntB r))
+                                 | SOME i => SOME (Vc([I(Int32.fromInt i)],SV IntB r))
     in case tryType() of
            SOME e => SOME e
          | NONE =>
@@ -347,7 +363,7 @@ and getShape (E:env) (e : Exp.exp) : Exp.exp option =
          | Var(v,_) => (case M.lookup E v of
                             SOME{shape=SOME sh,...} => SOME sh
                           | _ => NONE)
-         | Vc(es,_) => SOME(Vc([I(length es)],SV IntB (rnk(length es))))
+         | Vc(es,_) => SOME(Vc([I(Int32.fromInt(length es))],SV IntB (rnk(length es))))
          | Op("transp", [e], _) =>
            (case getShape E e of
                 SOME sh => SOME(peepOp E ("vreverse",[sh],typeOf sh))
@@ -493,7 +509,7 @@ fun pp_exp (prtype:bool) e =
         fun pp i e : t =
             case e of
                 Var (v,_) => $v
-              | I i => $(Int.toString i)
+              | I i => $(Int32.toString i)
               | D r => $(Real.fmt (StringCvt.FIX (SOME 2)) r)
               | B true => $"tt"
               | B false => $"ff"

@@ -39,7 +39,7 @@ signature TAIL = sig
   type BOOL     = Bool t
   type CHAR     = Char t
 
-  val I         : int -> INT
+  val I         : Int32.int -> INT
   val D         : real -> DOUBLE
   val B         : bool -> BOOL
   val C         : word -> CHAR
@@ -60,8 +60,8 @@ signature TAIL = sig
 
   (* Values and Evaluation *)
   type 'a V
-  val Iv        : int -> Int Num V
-  val unIv      : Int Num V -> int
+  val Iv        : Int32.int -> Int Num V
+  val unIv      : Int Num V -> Int32.int
   val Dv        : real -> Double Num V
   val unDv      : Double Num V -> real
   val Bv        : bool -> Bool V
@@ -209,5 +209,14 @@ signature TAIL = sig
   (* File access *)
   val readFile  : Char m -> Char m
   val readIntVecFile : Char m -> Int Num m
-                                 
+           
+  (* Int32 binary operations *)
+  val andi      : INT * INT -> INT
+  val ori       : INT * INT -> INT
+  val shri      : INT * INT -> INT
+  val shari     : INT * INT -> INT
+  val shli      : INT * INT -> INT
+  val xori      : INT * INT -> INT
+  val noti      : INT -> INT      
+                      
 end
