@@ -1,14 +1,14 @@
 [Reading file: ../prelude.apl]
 [Reading file: else.apl]
 Evaluating
-[](~2)
 [](58)
-
- ~29 ~28
- ~27 ~26
-
+[](~2)
 
  31 32
  33 34
+
+
+ ~29 ~28
+ ~27 ~26
 
 Result is [](0.0)
