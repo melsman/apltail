@@ -8,7 +8,7 @@ signature LAILA = sig
 
   (* Terms *)
   type t                      (* terms *)
-  type v       = t            (* vector terms *)
+  type v                      (* vector terms *)
 
   val I        : int -> t
   val D        : real -> t
@@ -61,6 +61,7 @@ signature LAILA = sig
   val neqi    : INT * INT -> BOOL
   val negi    : INT -> INT
   val signi   : INT -> INT
+
   val addd    : DOUBLE * DOUBLE -> DOUBLE
   val subd    : DOUBLE * DOUBLE -> DOUBLE
   val muld    : DOUBLE * DOUBLE -> DOUBLE
@@ -103,7 +104,6 @@ signature LAILA = sig
   val scan    : T -> T -> (t * t -> t) -> t -> m -> m M
 
   val catenate : m -> m -> m M
-  val catenate_first : m -> m -> m M
 
   val take    : INT -> m -> m
   val drop    : INT -> m -> m
