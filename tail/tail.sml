@@ -127,6 +127,7 @@ fun (f : 'a M) >>= (g : 'a -> 'b M) : 'b M =
 
 (* Compiled Programs *)
 type ('a,'b) prog = exp
+fun toExp x = x
 fun runF _ f = f (Var("arg",TyVar())) (fn x => x)
  
 (* Values and Evaluation *)
@@ -422,16 +423,10 @@ end
 (* Pretty printing *)
 
 fun prInstanceLists opr es t =
-    let fun unArr' at =       (* return the base type and the rank of an array *)
-            case unArr at of
-                SOME p => p
-              | NONE => case unVcc at of
-                            SOME (bt,_) => (bt, T.rnk 1)
-                          | NONE => case unSV at of
-                                        SOME (bt,_) => (bt, T.rnk 1)
-                                      | NONE => case unS at of
-                                                    SOME (bt,_) => (bt, T.rnk 0)
-                                                  | NONE => raise Fail ("Tail.unArr': " ^ opr)
+    let 
+        fun unArr'' at = case unArr' at of
+                             SOME p => p
+                           | NONE => raise Fail ("Tail.unArr'': " ^ opr)
         fun len at =
             case unVcc at of
                 SOME(_,r) => r
@@ -442,8 +437,8 @@ fun prInstanceLists opr es t =
             case unS at of
                 SOME (_,r) => r
               | NONE => raise Fail ("Tail.prInstanceLists.value: " ^ opr)
-        val rnk = #2 o unArr'  (* return the rank of an array *)
-        val bt  = #1 o unArr'  (* return the base type of an array type *)
+        val rnk = #2 o unArr''  (* return the rank of an array *)
+        val bt  = #1 o unArr''  (* return the base type of an array type *)
         val ts = List.map typeOf es
         fun wrap il1 il2 = "{[" ^ String.concatWith "," (List.map prBty il1) ^ "],[" ^
                            String.concatWith "," (List.map prRnk il2) ^"]}"

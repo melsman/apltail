@@ -1,8 +1,11 @@
-functor Apl2Tail(X : TAIL) :
+functor Apl2Tail(T : TAIL) :
 sig
-  type flag = string * string option  (* supported flags: [-o f, -tl, -c, -v, -noopt, -p_types] *)
-  val compileAndRun      : flag list -> string -> unit
-  val compileAndRunFiles : flag list -> string list -> unit
+  (* supported flags: [-o f, -tl, -c, -v, -noopt, -p_types, -s_tail, -s_parse] *)
+  type flag = string * string option  
+
+  type res = (unit, T.Double T.Num) T.prog option
+
+  val compile : flag list -> string list -> res
 end = 
 struct
 
@@ -17,8 +20,10 @@ fun maxInt() = case Int.maxInt of
                  SOME i => i
                | NONE => raise Fail "no maxInt"
 
+type res = (unit, T.Double T.Num) T.prog option
+
 local
-  open X
+  open T
 
   datatype 'a identity_item = Lii of 'a
                             | Rii of 'a
@@ -979,7 +984,7 @@ fun parseFiles flags (pe0 : AplParse.env) (fs: string list) : AplAst.exp =
     end
 
 fun compileExp flags G e =
-    let val compile_only_p = flag_p flags "-c"
+    let (* val compile_only_p = flag_p flags "-c" *)
         val verbose_p = flag_p flags "-v"
         val p_tail = flag_p flags "-p_tail"
         val p_types = flag_p flags "-p_types"
@@ -988,45 +993,29 @@ fun compileExp flags G e =
         val p = compileAst {verbose=verbose_p, optlevel=optlevel, prtype=p_types} G e
         val () =
             case outfile of
-                SOME ofile => X.outprog p_types ofile p
+                SOME ofile => T.outprog p_types ofile p
               | NONE =>
                 if p_tail andalso not verbose_p then
-                  (print "Resulting program:\n";
-                   print (X.pp_prog p_types p);
+                  (print "TAIL program:\n";
+                   print (T.pp_prog p_types p);
                    print "\n")
                 else ()  (* program already printed! *)
-        val () = if compile_only_p then ()
-                 else let val () = prln("Evaluating")
-                          val v = X.eval p X.Uv
-                      in prln("Result is " ^ X.ppV v)
-                      end
-    in ()
+    in SOME p
     end
 
 fun errHandler e =
     case e of
-        AplParse.ParseErr (l,msg) => prln ("Parse Error at " ^ 
-                                           Region.ppLoc l ^ ": \n  " ^ 
-                                           msg)
-      | Fail s => prln s
+        AplParse.ParseErr (l,msg) => (prln ("Parse Error at " ^ 
+                                            Region.ppLoc l ^ ": \n  " ^ 
+                                            msg); NONE)
+      | Fail s => (prln s; NONE)
       | _ => raise e
 
-fun compileAndRun flags s =
-    let val verbose_p = flag_p flags "-v"
-        val ts = AplLex.lex "stream" s
-        fun pr f = if verbose_p then prln(f()) else ()
-        val () = pr (fn () => "Program lexed:")
-        val () = pr (fn () => " " ^ AplLex.pr_tokens (map #1 ts))
-        val () = pr (fn () => "Parsing tokens...")
-        val (e,_) = AplParse.parse (#1 initialB) ts
-    in pr(fn () => "Parse success:\n " ^ AplAst.pr_exp e);
-       compileExp flags (#2 initialB) e
-    end handle ? => errHandler ?
-
-
-fun compileAndRunFiles flags fs =
-    let val (PE,CE) = initialB
+fun compile flags fs =
+    let val s_parse = flag_p flags "-s_parse"   (* stop after parsing *)
+        val (PE,CE) = initialB
         val e = parseFiles flags PE fs
-    in compileExp flags CE e
+    in if s_parse then (prln "Stopping after parsing."; NONE)
+       else compileExp flags CE e
     end handle ? => errHandler ?
 end

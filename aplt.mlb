@@ -1,6 +1,13 @@
 local
    $(SML_LIB)/basis/basis.mlb
+   flags.mlb
    apl2tail.mlb
+   laila/laila.mlb
+   local
+     $(SMACKAGE)/kitlib/v1/finmap/finmap.mlb
+   in
+     Tail2Laila.sml
+   end
 in
    aplt.sml
 end

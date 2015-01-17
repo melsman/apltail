@@ -1,0 +1,9 @@
+local
+   $(SML_LIB)/basis/basis.mlb
+   $(SMACKAGE)/kitlib/v1/set/set.mlb
+in
+   type.sig
+   il.sml
+   ilutil.sig
+   ilutil.sml
+end

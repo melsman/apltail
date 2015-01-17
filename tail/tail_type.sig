@@ -69,6 +69,7 @@ signature TAIL_TYPE = sig
   val unS      : typ -> (bty * rnk) option
   val unSV     : typ -> (bty * rnk) option
   val unFun    : typ -> (typ * typ) option
+  val unArr'   : typ -> (bty * rnk) option    (* also returns values for Vcc,S,SV *)
 
   val TyVar    : unit -> typ
   val subtype  : typ -> typ -> string option

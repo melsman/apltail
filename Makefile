@@ -1,5 +1,9 @@
 MLCOMP ?= mlton -mlb-path-map $(HOME)/.mlton/mlb-path-map
-FILES=apl2tail.mlb Apl2Tail.sml $(shell ls -1 tail/*.sig tail/*.sml tail/*.mlb)
+FILES=flags.sml flags.mlb aplt.sml aplt.mlb apl2tail.mlb Apl2Tail.sml Tail2Laila.sml \
+  $(shell ls -1 tail/*.sig tail/*.sml tail/*.mlb) \
+  $(shell ls -1 il/*.sig il/*.sml il/*.mlb) \
+  $(shell ls -1 laila/*.sig laila/*.sml laila/*.mlb)
+
 SMACKAGE ?= $(HOME)/.smackage/lib
 APLPARSE_LIB ?= $(SMACKAGE)/aplparse/v2.3
 
@@ -21,5 +25,6 @@ test: aplt Makefile
 clean: Makefile
 	find . -name '*~' | xargs rm -f
 	find . -name 'MLB' | xargs rm -rf
-	rm -rf aplt
-	$(MAKE) -C tests clean 
+	find . -name 'run' | xargs rm -f
+	rm -f aplt
+	$(MAKE) -C tests clean

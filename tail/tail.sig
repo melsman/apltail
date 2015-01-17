@@ -57,6 +57,7 @@ signature TAIL = sig
   val runF      : 'a T * 'b T -> ('a t -> 'b t M) -> ('a,'b) prog
   val outprog   : bool -> string -> ('a,'b)prog -> unit
   val runHack   : 'a M -> 'a option 
+  val toExp     : (unit,'b) prog -> 'b t 
 
   (* Values and Evaluation *)
   type 'a V

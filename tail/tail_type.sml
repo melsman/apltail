@@ -206,4 +206,14 @@ val subtype = wrap subtype
 val unifyR = wrap unifR
 val unifyB = wrap unifB
 
+fun unArr' at =       (* return the base type and the rank of an array *)
+    case unArr at of
+        SOME p => SOME p
+      | NONE => case unVcc at of
+                    SOME (bt,_) => SOME (bt, rnk 1)
+                  | NONE => case unSV at of
+                                SOME (bt,_) => SOME (bt, rnk 1)
+                              | NONE => case unS at of
+                                            SOME (bt,_) => SOME (bt, rnk 0)
+                                          | NONE => NONE
 end            

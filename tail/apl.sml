@@ -143,8 +143,8 @@ fun toSh sh (i:int) : int list =
 fun fromSh sh (idx:int list) : int =
     case (sh, idx) of
         (nil, nil) => 0
-      | (x::sh, i::idx) => i * prod sh + fromSh sh idx
-      | _ => raise Fail "fromIdx: dimension mismatch"
+      | (_::sh, i::idx) => i * prod sh + fromSh sh idx
+      | _ => raise Fail "fromSh: dimension mismatch"
 
 fun transpose (a: 'a t) : 'a t =
     let val sh = list(#1 a)
