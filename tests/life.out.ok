@@ -1,6 +1,3 @@
-[Reading file: ../prelude.apl]
-[Reading file: life.apl]
-Evaluating
 
  0 0 0 0 0 0 0 0 0 0
  0 0 0 0 0 0 0 0 0 0
@@ -241,4 +238,4 @@ Evaluating
  0 0 0 0 0 0 0 0 0 0
  0 0 0 0 0 0 0 0 0 0
 
-Result is [](0.0)
+[](0.0)

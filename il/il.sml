@@ -25,8 +25,6 @@ end
 structure NameSet = OrderSet(struct type t = Name.t
                                     fun compare (x, y) = String.compare (Name.pr x, Name.pr y)
                              end)
-type kname = string
-
 datatype Value =
          IntV of int
        | DoubleV of real
@@ -57,10 +55,12 @@ datatype Stmt = For of Exp * (Exp -> Block)
               | Nop
               | Free of Name.t
               | Ret of Exp
+              | Halt of string
 withtype Block = Stmt list
 
+(* kernel names, kernel definitions, and programs *)
+type kname = string
 type kd = kname * Name.t list * Block
-
 type p = kd list * Block
 
 fun eq(e1,e2) =
@@ -91,11 +91,12 @@ fun eq_s(s1,s2) =
     | (Nop,Nop) => true
     | (Free n1, Free n2) => n1 = n2
     | (Ret e1, Ret e2) => eq(e1,e2)
+    | (Halt s1, Halt s2) => s1 = s2
     | _ => false
-
 and eq_ss (nil,nil) = true
   | eq_ss (s1::ss1,s2::ss2) = eq_s(s1,s2) andalso eq_ss(ss1,ss2)
   | eq_ss _ = false
+
 end
 
 structure Type : TYPE = struct
@@ -118,9 +119,7 @@ signature NAME = sig
   val pr  : t -> string
 end
 
-structure Name : NAME = struct
-  open IL.Name
-end
+structure Name : NAME = IL.Name
 
 signature PROGRAM = sig
   type e
@@ -162,6 +161,7 @@ signature PROGRAM = sig
   val Decl: Name.t * e option -> s
   val Ret : e -> s
   val Free : Name.t -> s
+  val Halt : string -> s
   val emp : s
   val unDecl : s -> (Name.t * e option) option
 
@@ -244,6 +244,7 @@ in
       | IL.Nop => N.empty
       | IL.Free n => N.singleton n
       | IL.Ret e => uses e N.empty
+      | IL.Halt _ => N.empty
       | IL.Ifs(e,s1,s2) => uses e (N.union (uses_ss s1,uses_ss s2))
       | IL.For (e,f) =>
         let val n = Name.new Type.Int
@@ -257,6 +258,7 @@ in
       case s of
         IL.Nop => N.empty
       | IL.Ret e => N.empty
+      | IL.Halt _ => N.empty
       | IL.Free n => N.empty
       | IL.Decl(n,SOME e) => N.singleton n
       | IL.Decl(n,NONE) => N.empty
@@ -275,6 +277,7 @@ in
       case s of
         IL.Nop => N.empty
       | IL.Ret e => N.empty
+      | IL.Halt _ => N.empty
       | IL.Free n => N.empty
       | IL.Decl(n,_) => N.singleton n
       | IL.Assign(n,e) => N.empty
@@ -519,6 +522,7 @@ type p = kd list * ss
 val emp = IL.Nop
 val Decl = IL.Decl
 val Ret = IL.Ret
+val Halt = IL.Halt
 val Free = IL.Free
 fun isEmp ss = List.all (fn IL.Nop => true | _ => false) ss
 fun size ss =
@@ -584,6 +588,7 @@ fun defs ss : N.set =
       case s of
         IL.Nop => defs ss
       | IL.Ret e => N.empty
+      | IL.Halt _ => N.empty
       | IL.Free n => defs ss
       | IL.Decl(n,e) => N.remove (defs ss,n)
       | IL.Assign(n,e) => N.insert (defs ss,n)
@@ -708,6 +713,7 @@ fun se_ss (E:env) (ss:ss) : ss =
       case s of
         IL.Nop => se_ss E ss2
       | IL.Ret e => Ret(se_e E e)::nil  (* ss2 is dead *)
+      | IL.Halt str => Halt str::nil    (* ss2 is dead *)
       | IL.Free n => 
         let val ss2 = se_ss E ss2
         in Free n :: ss2

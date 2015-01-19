@@ -19,10 +19,10 @@ all: $(TLFILES) test
 	../aplt -s_tail -c -o $@ ../prelude.apl $<
 
 %.out: %.apl Makefile ../aplt
-	../aplt -s_tail ../prelude.apl $< > $@
+	../aplt -s_tail -silent ../prelude.apl $< > $@
 
 %.outn: %.apl Makefile ../aplt
-	../aplt -s_tail -noopt ../prelude.apl $< > $@
+	../aplt -s_tail -noopt -silent ../prelude.apl $< > $@
 
 %.outv: %.apl Makefile ../aplt
 	../aplt -s_tail -p_tail -p_types -noopt ../prelude.apl $< > $@
@@ -69,7 +69,7 @@ clean:
 
 ################### C Testing with Laila Backend ###################
 
-CTESTS=test test2 test3 test4 test5 test6 test7 test9 test10 test11 test12 test13 test14 test15 test16 test19 signal test21
+CTESTS=test test2 test3 test4 test5 test6 test7 test9 test10 test11 test12 test13 test14 test15 test16 test19 signal test21 test31
 CTESTFILES=$(CTESTS:%=c/%.out)
 
 .PHONY: call

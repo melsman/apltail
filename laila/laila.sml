@@ -20,6 +20,16 @@ fun runM0 (e,ssT) k = ssT [k e]
 
 fun runMss (e,ssT) k = ssT (k e)
 
+(*
+fun halt s ((e,ssT) : 'a M) : 'a M =
+    (e, fn ss => ssT [P.Halt s])    
+*)
+
+fun assert s b (m : 'a M) : 'a M  =
+       let val (v, ssT) = m
+       in (v, fn ss => ssT(P.Ifs(b,[],[P.Halt s]) ss))
+       end
+
 open Type
 type INT     = t
 type DOUBLE  = t
@@ -289,9 +299,10 @@ fun For'(n,e,body) =
          let val ty = ILUtil.typeExp e
              val a = Name.new ty
              fun f e = a := e
-         in ($a, fn ss => 
+         in lett Int n >>= (fn n =>
+               ($a, fn ss => 
                         Decl(a, SOME e) ::
-                        For(n, body ($ a) f) ss)
+                        For(n, body ($ a) f) ss))
          end
     end
 
@@ -370,8 +381,8 @@ fun concat v1 v2 =
 
   fun getShape f 0 = ret nil
     | getShape f n = 
-      f (P.I (Int.-(n,1))) >>= (fn N =>
-      getShape f (Int.-(n,1)) >>= (fn NS =>
+      f (P.I (n-1)) >>= (fn N =>
+      getShape f (n-1) >>= (fn NS =>
       ret (NS @ [N])))
 
   fun trans v d =
@@ -392,15 +403,15 @@ fun concat v1 v2 =
       end
 
   fun exchange nil xs = nil
-    | exchange (i::rest) xs = List.nth (xs,Int.-(i,1)) :: exchange rest xs
+    | exchange (i::rest) xs = List.nth (xs,i-1) :: exchange rest xs
 
   fun appi0 _ f nil = ()
-    | appi0 n f (x::xs) = (f (x,n); appi0 (Int.+(n,1)) f xs)
+    | appi0 n f (x::xs) = (f (x,n); appi0 (n+1) f xs)
   
   fun exchange' (ctrl:int list) (xs: 'a list) : 'a list =
       let val sz = List.length ctrl
           val a = Array.tabulate (sz,fn _ => List.nth(xs,0))
-      in appi0 0 (fn (c,i) => Array.update(a,Int.-(c,1),List.nth(xs,i))) ctrl
+      in appi0 0 (fn (c,i) => Array.update(a,c-1,List.nth(xs,i))) ctrl
        ; Array.foldr(op::) nil a
       end
           
@@ -408,7 +419,7 @@ fun concat v1 v2 =
       let fun check n =
               if n = 0 then ()
               else if List.exists (fn x => x = n) idxs then
-                check (Int.-(n,1))
+                check (n-1)
               else die "trans2: index vector not a permutation"
           val V(_,n,f) = sh
           val V(ty,m,g) = vs
@@ -417,7 +428,7 @@ fun concat v1 v2 =
              SOME n =>  (* known number of dimensions *)
              (if n <> List.length idxs then
                 die "trans2: wrong index vector length"
-              else if Int.<(n,2) then ret (sh,vs)
+              else if n<2 then ret (sh,vs)
               else getShape f n >>= (fn sh =>
                  let val sh' = exchange' idxs sh
                      fun h i =
@@ -542,9 +553,10 @@ fun zipWith ty g a b =
     let val sha = shape a
 	val shb = shape b
         val mv = A(sha,map2 ty g (snd a) (snd b))
-    in ret mv 
-       (*Shape.eq sha shb >>= (fn shapeeq =>
-       ret(mif(shapeeq, mv, zilde ty)))*)
+    in (*ret mv *)
+       Shape.eq sha shb >>= (fn shapeeq =>      
+       assert "arguments to zipWith have different shape" shapeeq
+       (ret mv))
     end
 
 fun scan _ = die "scan: not implemented"
@@ -561,8 +573,9 @@ fun catenate_first (A(s1,d1) : m) (A(s2,d2): m) : m M =
           val x = map2 Int (ret o addi) v1 v2
           val mv = A(Shape.concat x s1',
                      concat d1 d2)
-      in ret mv (*Shape.eq s1' s2' >>= (fn shapeeq =>
-          ret(mif(shapeeq,mv,zildeOf t1)))*)
+      in Shape.eq s1' s2' >>= (fn shapeeq =>
+         assert "arguments to catenate_first have incompatible shapes" shapeeq
+         (ret mv))
       end
 
 fun take0 n (t : m) : m = vec(tk n (snd t))
@@ -588,17 +601,18 @@ fun transpose (A(s,d)) = trans s d >>= (fn v => ret(A(rev s, v)))
 
 fun transpose2 v (A(s,d)) = trans2 v s d >>= (fn p => ret(A p))
 
-fun reverse _ = raise Fail "ilapl.reverse: not implemented"
+fun reverse _ = die "reverse: not implemented"
 
 fun catenate t1 t2 = 
     transpose t1 >>= (fn a1 =>
     transpose t2 >>= (fn a2 =>
     catenate_first a1 a2 >>= transpose))
 
-fun reduce _ f e (A(s,d)) scalar vector =
+fun reduce f e (A(s,d)) scalar vector =
       let val r = length s
       in case P.unI r of
               SOME 1 => foldl f e d >>= (ret o scalar)
+(*
             | SOME 2 =>  (* matrix: M x N *)
               let 
               in sub_unsafe s (I 0) >>= (fn M =>
@@ -607,9 +621,10 @@ fun reduce _ f e (A(s,d)) scalar vector =
                     V(tyOfV d, M,
                       fn i => foldl f e (tk N (dr (muli(i,N)) d))))))) >>= (ret o vector)
               end
+*)
             | SOME n =>
-              sub_unsafe s (I(Int.-(n,1))) >>= (fn N =>
-              let val sh' = Shape.tk (I(Int.-(n,1))) s
+              sub_unsafe s (I(n-1)) >>= (fn N =>
+              let val sh' = Shape.tk (I(n-1)) s
               in Shape.product sh' >>= (fn M =>
                  ret (vector (
                    A(sh',

@@ -1,6 +1,3 @@
-[Reading file: ../prelude.apl]
-[Reading file: binaryops.apl]
-Evaluating
 Test of or_1: OK
 Test of or_2: OK
 Test of and_1: OK
@@ -13,4 +10,4 @@ Test of shr_1: OK
 Test of shr_2: OK
 Test of shar_1: OK
 Test of shar_2: OK
-Result is [](0.0)
+[](0.0)

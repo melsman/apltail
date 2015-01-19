@@ -1,6 +1,3 @@
-[Reading file: ../prelude.apl]
-[Reading file: abcd.apl]
-Evaluating
 
  CCCAAC
  BAADAB
@@ -13,4 +10,4 @@ Evaluating
 
 Result:
 [8](0,0,0,1,0,1,0,0)
-Result is [](0.0)
+[](0.0)

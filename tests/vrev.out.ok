@@ -1,6 +1,3 @@
-[Reading file: ../prelude.apl]
-[Reading file: vrev.apl]
-Evaluating
 [](13)
 [3](3,2,1)
 
@@ -9,4 +6,4 @@ Evaluating
   1  2  3  4
 
 [0]()
-Result is [](0.0)
+[](0.0)

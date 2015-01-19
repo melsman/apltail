@@ -1,6 +1,3 @@
-[Reading file: ../prelude.apl]
-[Reading file: pow.apl]
-Evaluating
 
  1 2 3
  8 0 4
@@ -13,4 +10,4 @@ Evaluating
 
 [](1)
 [12](0,1,1,2,3,5,8,13,21,34,55,89)
-Result is [](0.0)
+[](0.0)

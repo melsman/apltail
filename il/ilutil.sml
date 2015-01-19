@@ -117,6 +117,7 @@ structure ILUtil : ILUTIL = struct
            BoolV b => eval E (if b then e1 else e2)
          | _  => die "eval.If.expecting boolean")
 
+  exception Halted of string
   fun evalS E (s: Stmt) rn : Env =
       case s of
         For (e, f) =>
@@ -135,6 +136,7 @@ structure ILUtil : ILUTIL = struct
            BoolV b => evalSS E (if b then ss1 else ss2) rn
          | _ => die "eval.Ifs expects boolean")
       | Ret e => add E (rn, eval E e)
+      | Halt s => raise Halted s
       | Assign (n,e) => add E (n, eval E e)
       | Decl (n,SOME e) => add E (n, eval E e)
       | Decl (n,NONE) => E
@@ -248,6 +250,7 @@ structure ILUtil : ILUTIL = struct
       | Nop => %"/*nop*/"
       | Free n => die "Free.unimplemented"
       | Ret e => %"return " %% pp e %% %";"
+      | Halt s => %"halt(\"" %% %s %% %"\");"
 
   fun ppSS n ss = ropeToString n (%$ %% ppSS0 ss)
   fun ppExp e = ropeToString 0 (pp e)

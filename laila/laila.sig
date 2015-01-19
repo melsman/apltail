@@ -46,6 +46,8 @@ signature LAILA = sig
   type DOUBLE = t
   type BOOL = t
 
+  val assert   : string -> BOOL -> 'a M -> 'a M
+
   val addi    : INT * INT -> INT
   val subi    : INT * INT -> INT
   val muli    : INT * INT -> INT
@@ -117,10 +119,11 @@ signature LAILA = sig
   val reshape : v -> m -> m M
   val shape   : m -> v
 
-  val reduce  : T -> (t * t -> t M) -> t -> m -> (t -> 'b) -> (m -> 'b) -> 'b M
+  val reduce  : (t * t -> t M) -> t -> m -> (t -> 'b) -> (m -> 'b) -> 'b M
 
   val transpose : m -> m M
   val transpose2 : int list -> m -> m M
 
   val compress  : m * m -> m M
+
 end

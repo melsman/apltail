@@ -957,7 +957,9 @@ fun readFile f =
 
 fun parseFile flags pe f =
     let val verbose_p = flag_p flags "-v"
-        val () = prln ("[Reading file: " ^ f ^ "]")
+        val silent_p = flag_p flags "-silent"
+        val () = if not silent_p then prln ("[Reading file: " ^ f ^ "]")
+                 else ()
         val s = readFile f
         val ts = AplLex.lex f s
         fun pr f = if verbose_p then prln(f()) else ()
@@ -986,6 +988,7 @@ fun parseFiles flags (pe0 : AplParse.env) (fs: string list) : AplAst.exp =
 fun compileExp flags G e =
     let (* val compile_only_p = flag_p flags "-c" *)
         val verbose_p = flag_p flags "-v"
+        val silent_p = flag_p flags "-silent"
         val p_tail = flag_p flags "-p_tail"
         val p_types = flag_p flags "-p_types"
         val optlevel = if flag_p flags "-noopt" then 0 else 1

@@ -1,9 +1,6 @@
-[Reading file: ../prelude.apl]
-[Reading file: rot.apl]
-Evaluating
 
   2  3  4  1
   6  7  8  5
  10 11 12  9
 
-Result is [](0.0)
+[](0.0)

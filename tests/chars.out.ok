@@ -1,6 +1,3 @@
-[Reading file: ../prelude.apl]
-[Reading file: chars.apl]
-Evaluating
 dlrow olleH
 [](X)
 Xdlrow olleH
@@ -13,4 +10,4 @@ Xdlrow olleH
   Hweo
 
 oaaa
-Result is [](12.0)
+[](12.0)

@@ -1,3 +1,8 @@
+void halt(char *s) {
+  printf("Execution halted: %s\n",s);
+  exit(1);
+}
+
 #define max(x,y) (((x) > (y)) ? (x) : (y))
 #define min(x,y) (((x) < (y)) ? (x) : (y))
 #define i2d(x) (x)

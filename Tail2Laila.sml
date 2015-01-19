@@ -71,6 +71,7 @@ val classifyOp : string -> opOpt =
   | "i2d" => S_S L.i2d
   | "b2i" => S_S L.b2i
   | "iotaV" => S_A L.iota
+  | "iota" => S_A L.iota
   | "transp" => A_AM L.transpose
   | "transp2" => VA_AM (fn (v,a) => L.transpose2 v a)
   | "reverse" => A_A L.reverse
@@ -151,7 +152,7 @@ fun comp (E:env) (e : E.exp) (k: lexp -> lexp L.M) : lexp L.M =
             compS E n (fn n' =>
             compA E a (fn a =>
             let val f = fn (x,y) => f [S x,S y] >>= (L.ret o unS "reduce")
-            in L.reduce (ltypeOf(E.typeOf n)) f n' a S A >>= k
+            in L.reduce f n' a S A >>= k
             end))))
          | E.Op("zipWith", [f,a1,a2], t) =>
            (compFN E f (fn f =>
