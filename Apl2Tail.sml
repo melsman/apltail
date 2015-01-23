@@ -519,6 +519,11 @@ fun compileAst flags G0 e =
                   fun pp p a = if v = "$Quad" then p a else a
                   fun contA p f a = M(letm (pp p a)) >>>= cont f
                   fun contS p f a = M(lett (pp p a)) >>>= cont f
+
+              (* we should really modify the pretty-printing functions
+              so that they return 0 instead of returning the argument; also, here letm and lett should be applied to the argument before pretty-printing...
+               *)
+
               in comp G e (fn (Ais a,_) => contA prArrI Ais a
                           | (Ads a,_) => contA prArrD Ads a
                           | (Abs a,_) => contA prArrB Abs a

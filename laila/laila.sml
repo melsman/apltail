@@ -20,11 +20,6 @@ fun runM0 (e,ssT) k = ssT [k e]
 
 fun runMss (e,ssT) k = ssT (k e)
 
-(*
-fun halt s ((e,ssT) : 'a M) : 'a M =
-    (e, fn ss => ssT [P.Halt s])    
-*)
-
 fun assert s b (m : 'a M) : 'a M  =
        let val (v, ssT) = m
        in (v, fn ss => ssT(P.Ifs(b,[],[P.Halt s]) ss))
@@ -35,7 +30,7 @@ type INT     = t
 type DOUBLE  = t
 type BOOL    = t
 
-val I : int -> INT = P.I
+val I : Int32.int -> INT = P.I
 val D : real -> DOUBLE = P.D
 val B : bool -> BOOL = P.B
 
@@ -127,6 +122,7 @@ val subi : INT * INT -> INT = P.-
 val muli : INT * INT -> INT = P.*
 val divi : INT * INT -> INT = P./
 val modi : INT * INT -> INT = P.%
+val resi : INT * INT -> INT = P.resi
 val maxi : INT * INT -> INT = uncurry P.max
 val mini : INT * INT -> INT = uncurry P.min
 val negi : INT -> INT = P.~
@@ -151,9 +147,20 @@ val maxd : DOUBLE * DOUBLE -> DOUBLE = uncurry P.max
 val mind : DOUBLE * DOUBLE -> DOUBLE = uncurry P.min
 val negd : DOUBLE -> DOUBLE = P.~
 
+val eqb     : BOOL * BOOL -> BOOL = P.==
+val andb    : BOOL * BOOL -> BOOL = P.andb
+val orb     : BOOL * BOOL -> BOOL = P.orb
+val xorb    : BOOL * BOOL -> BOOL = P.xorb
+val notb    : BOOL -> BOOL = P.notb
+
+val eqi  : INT * INT -> BOOL = P.==
+val neqi : INT * INT -> BOOL = P.<>
+
 val i2d  : INT -> DOUBLE = P.i2d
 val d2i  : DOUBLE -> INT = P.d2i
 val b2i  : BOOL -> INT = P.b2i
+
+fun printf (s, es) = (P.I 0, fn ss => P.Printf(s,es)::ss)
 
 (* Values and Evaluation *)
 type V    = IL.Value
@@ -335,7 +342,7 @@ fun concat v1 v2 =
                          in If0(P.<(i,n1),m1,m2)
                          end)
     end
-             
+   
   fun fromList ty nil = empty Int
     | fromList ty [t] = single ty t
     | fromList ty (t::ts) = concat (single ty t) (fromList ty ts)
@@ -468,7 +475,8 @@ fun concat v1 v2 =
 
   fun outmain outln =
     ( outln "int main() {"
-    ; outln "  printf(\"%f\\n\", kernel(0));"
+    ; outln "  prScalarDouble(kernel(0));"
+    ; outln "  printf(\"\\n\");"
     ; outln "  return 0;"
     ; outln "}")
 
@@ -479,6 +487,7 @@ fun concat v1 v2 =
     in outln "#include <stdio.h>"
      ; outln "#include <stdlib.h>"
      ; outln "#include <math.h>"
+     ; outln "#include <string.h>"
      ; outln "#include \"apl.h\""
      ; outln body
      ; outmain outln
@@ -522,7 +531,12 @@ datatype m = A of Shape.t * v
 
 fun vec c = A(Shape.single (length c), c)
 fun scl ty v = A(Shape.empty, single ty v)
-fun first _ = die "first unimplemented"
+fun first (A(_,v)) =
+    let fun first_unsafe (V(_,_,f)) = f (I 0)
+        fun maybe_pad (v as V(ty,n,f)) =
+            Ifv(gti(n,I 0), v, V(ty,I 1, fn _ => ret(proto ty)))
+    in first_unsafe(maybe_pad v)
+    end
 fun zilde ty = A(Shape.singlez, empty ty)
 fun iota n = vec (tabulate Int n (fn x => ret(addi(x,I 1))))
 fun iota' _ = die "iota' not implemented"
@@ -530,6 +544,8 @@ fun shape (A(f,_)) = f
 fun snd (A(_,c)) = c
 fun siz (A(_,c)) = length c
 fun dim (A(f,_)) = Shape.length f
+
+fun dimincr (A(f,v)) = A(Shape.concat f (Shape.single (I 1)),v)
 
 fun mem (A(f,d)) = memoize d >>= (fn d => ret (A(f,d)))
               
@@ -652,5 +668,73 @@ fun compress (A(sh_is,vs_is), A(sh_vs,vs_vs)) =
      assert_length "rank of source array argument to compress must be 1" 1 sh_vs;
      compr vs_is vs_vs >>= (fn vs =>
      ret (A (Shape.single(length vs),vs))))
+
+fun ifM t (b,m1,m2) =
+    let val n = Name.new t
+    in ($ n, 
+        fn ss => P.Decl(n, NONE) ::
+                 P.Ifs(b,
+                       runMss m1 (fn v => [n := v]),
+                       runMss m2 (fn v => [n := v])) ss)
+    end
+           
+fun fmtOfTy ty =
+    if ty = Int orelse ty = Bool then "%d"
+    else if ty = Double then "%DOUBLE"     (* IL pretty printer will substitute the printf with a call to prDouble, defined in apl.h *)
+    else die "fmtOfTy.type not supported"
+
+fun fmtOfTyScl ty =
+    "[](" ^ fmtOfTy ty ^ ")\n"
+
+
+fun prScl (V(ty,_,f)) =
+    f (I 0) >>= (fn e =>
+    printf(fmtOfTyScl ty, [e]))
+
+fun prSeq sep (ty,n,f) =
+    let fun pr i =
+            f i >>= (fn v =>
+            printf(fmtOfTy ty, [v]) >>= (fn _ =>
+            ifM Int (lti(i,subi(n,I 1)), 
+                     printf(sep,nil),
+                     ret (I 0))))
+        fun ssT ss = P.For (n,fn i => runMss (pr i) (fn _ => [])) ss
+    in (I 0, ssT)
+    end
+
+fun prVec thestart theend (V dat) =
+   printf(thestart,[]) >>= (fn _ =>
+   prSeq "," dat >>= (fn _ =>
+   printf(theend,[])))
+
+fun prAr sh vs =
+    prVec "[" "]" sh >>= (fn _ =>
+    prVec "(" ")" vs)
+
+fun prMat N M sep (V(ty,n,f)) =
+    let fun prRow j =
+            let val vec = (ty,M,fn x => f(addi(x,muli(j,M))))
+            in printf(" ",[]) >>= (fn _ =>
+               prSeq " " vec >>= (fn _ =>
+               printf("\n",[])))
+            end
+        fun ssT ss = 
+            P.For (N,fn i => runMss (prRow i) (fn _ => [])) ss
+    in printf("\n",[]) >>= (fn _ => (I 0, ssT))
+    end
+
+fun fst (V(ty,n,f)) = f (I 0)
+fun snd (V(ty,n,f)) = f (I 1)
+
+fun prArr (a as A(sh,vs)) =
+    let val len = Shape.length sh
+    in ifM Int (eqi(len,I 2),
+                fst sh >>= (fn N =>
+                snd sh >>= (fn M =>
+                prMat N M " " vs)),
+                prAr sh vs) >>= (fn _ =>
+       printf("\n",[]))
+    end
+    
 
 end

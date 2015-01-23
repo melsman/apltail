@@ -10,7 +10,7 @@ signature LAILA = sig
   type t                      (* terms *)
   type v                      (* vector terms *)
 
-  val I        : int -> t
+  val I        : Int32.int -> t
   val D        : real -> t
   val B        : bool -> t
   val i2d      : t -> t
@@ -80,6 +80,12 @@ signature LAILA = sig
   val negd    : DOUBLE -> DOUBLE
   val signd   : DOUBLE -> INT
 
+  val eqb     : BOOL * BOOL -> BOOL
+  val andb    : BOOL * BOOL -> BOOL
+  val orb     : BOOL * BOOL -> BOOL
+  val xorb    : BOOL * BOOL -> BOOL
+  val notb    : BOOL -> BOOL
+
   val zilde   : T -> m
   val scl     : T -> t -> m
   val vec     : v -> m
@@ -91,6 +97,8 @@ signature LAILA = sig
 
   val rav     : m -> m
   val rav0    : m -> v
+
+  val dimincr : m -> m (* shape(dimincr(m)) = shape(m)@[1] *)
 
 (*  val index   : Int Num v -> 'a m -> 'a m M *)
   val each    : T -> (t -> t M) -> m -> m
@@ -110,7 +118,7 @@ signature LAILA = sig
   val take    : INT -> m -> m
   val drop    : INT -> m -> m
 
-  val first   : m -> t
+  val first   : m -> t M
 
   val mem     : m -> m M
 
@@ -125,5 +133,9 @@ signature LAILA = sig
   val transpose2 : int list -> m -> m M
 
   val compress  : m * m -> m M
+
+  (* Printing routines *)
+  val prArr    : m -> INT M   (* dummy int *)
+  val printf   : string * t list -> t M
 
 end

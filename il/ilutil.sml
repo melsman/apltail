@@ -33,9 +33,15 @@ structure ILUtil : ILUTIL = struct
     | ppB Lt = "<"
     | ppB Lteq = "<="
     | ppB Eq = "=="
+    | ppB Resi = "resi"
+    | ppB Andb = "&&"
+    | ppB Orb = "||"
+    | ppB Xorb = "^"
 
-  fun pp_int i = if i < 0 then "-" ^ pp_int (~i)
-                 else Int.toString i
+  fun pp_int i =
+      if i = ~2147483648 then "-2147483648"
+      else if i < 0 then "-" ^ pp_int (~i)
+      else Int32.toString i
 
   fun pp_double d =
       if d < 0.0 then "-" ^ pp_double (~d)
@@ -63,6 +69,7 @@ structure ILUtil : ILUTIL = struct
     | evalBinOp Divv (IntV i1,IntV i2) = IntV(i1 div i2)
     | evalBinOp Divv (DoubleV i1,DoubleV i2) = DoubleV(i1 / i2)
     | evalBinOp Modv (IntV i1,IntV i2) = IntV(i1 mod i2)
+    | evalBinOp Resi (IntV i1,IntV i2) = IntV(if i2 = 0 then i1 else (i1 mod i2))
     | evalBinOp Modv (DoubleV i1,DoubleV i2) = die "evalBinOp.mod double not implemented"
     | evalBinOp Min (IntV i1,IntV i2) = IntV(if i1 < i2 then i1 else i2)
     | evalBinOp Min (DoubleV i1,DoubleV i2) = DoubleV(if i1 < i2 then i1 else i2)
@@ -75,6 +82,9 @@ structure ILUtil : ILUTIL = struct
     | evalBinOp Eq  (IntV i1,IntV i2) = BoolV(i1 = i2)
     | evalBinOp Eq  (DoubleV i1,DoubleV i2) = BoolV(Real.==(i1,i2))
     | evalBinOp Eq  (BoolV b1,BoolV b2) = BoolV(b1 = b2)
+    | evalBinOp Andb (BoolV b1,BoolV b2) = BoolV(b1 andalso b2)
+    | evalBinOp Orb (BoolV b1,BoolV b2) = BoolV(b1 orelse b2)
+    | evalBinOp Xorb (BoolV b1,BoolV b2) = BoolV((b1 orelse b2) andalso b1 <> b2)
     | evalBinOp p (v1,v2) = die ("evalBinOp." ^ ppB p ^" - v1=" ^ ppValue v1 ^ ", v2=" ^ ppValue v2) 
         
   fun evalUnOp Neg (IntV i) = IntV(~i)
@@ -153,6 +163,8 @@ structure ILUtil : ILUTIL = struct
            end
          | _ => die "eval.AssignArr.expecting int as index")
       | Free n => die "Free.unimplemented"
+      | Printf(s,nil) => (print s; E)
+      | Printf(s,es) => die "eval.Printf not implemented"
       | Nop => E
 
   and evalSS E ss rn =
@@ -180,7 +192,7 @@ structure ILUtil : ILUTIL = struct
   fun spar e = %"[" %% e %% %"]"
   fun cpar e = %"{" %% e %% %"}"
 
-  fun infi x = List.exists (fn y => x = y) [Add,Sub,Mul,Divv,Modv,Lt,Lteq,Eq]
+  fun infi x = List.exists (fn y => x = y) [Add,Sub,Mul,Divv,Modv,Lt,Lteq,Eq,Orb,Andb,Xorb]
 
   fun ppU Neg = "-"
     | ppU I2D = "i2d"
@@ -251,6 +263,9 @@ structure ILUtil : ILUTIL = struct
       | Free n => die "Free.unimplemented"
       | Ret e => %"return " %% pp e %% %";"
       | Halt s => %"halt(\"" %% %s %% %"\");"
+      | Printf(s,nil) => %("printf(\"" ^ String.toCString s ^ "\");")
+      | Printf("%DOUBLE",[e]) => %"prDouble(" %% pp e %% %");" 
+      | Printf(s,es) => %("printf(\"" ^ String.toCString s ^ "\",") %% pp_es "," es %% %");" 
 
   fun ppSS n ss = ropeToString n (%$ %% ppSS0 ss)
   fun ppExp e = ropeToString 0 (pp e)
@@ -270,11 +285,15 @@ structure ILUtil : ILUTIL = struct
       | Mul => Type.Int
       | Divv => Type.Int
       | Modv => Type.Int
+      | Resi => Type.Int
       | Min => Type.Int
       | Max => Type.Int
       | Lt => Type.Bool
       | Lteq => Type.Bool
       | Eq => Type.Bool
+      | Andb => Type.Bool
+      | Orb => Type.Bool
+      | Xorb => Type.Bool
 
   fun resTypeUnop Neg = Type.Int
     | resTypeUnop I2D = Type.Double

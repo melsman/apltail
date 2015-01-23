@@ -63,17 +63,30 @@ outv: $(OUTVFILES)
 
 
 clean:
-	rm -f *.tl *.out *.res *.resn *.outn *~ *.outv
+	rm -f *.tl *.out *.res *.resn *.outn *~ *.outv *.outc *.resc
 	rm -f c/*.out c/*.c c/*~ *~ c/*.exe
 
 
-################### C Testing with Laila Backend ###################
+################### Testing Laila (C) Backend ###################
 
-CTESTS=test test2 test3 test4 test5 test6 test7 test9 test10 test11 test12 test13 test14 test15 test16 test19 signal test21 test31
-CTESTFILES=$(CTESTS:%=c/%.out)
+CTESTS=test test1 test2 test3 test4 test5 test6 test7 test9 test10 \
+       test11 test12 test13 test14 test15 test16 test19 signal \
+       test21 test28 residue mult0 mult slashbar primes0 \
+       compress primes cons boolean innerLegrand5.3 quadassign \
+       opr1 opr2 opr3 fun2 take drop \
+       rot rotfirst first \
+       vec zfunc repl ceilfloormaxmin easter eacheaster
+#      life pow vrev vrot \
 
-.PHONY: call
-call: $(CTESTFILES)
+CRESFILES=$(CTESTS:%=%.resc)
+
+.PHONY: testc
+testc: $(CRESFILES)
+	@cat $(CRESFILES)
+	@echo "------- C Backend --- T E S T --- R E P O R T-------"
+	@echo "Tests succeeded:   `grep "OK" $(CRESFILES) | wc -l` /`grep "Test" $(CRESFILES) | wc -l`"
+	@echo "Test errors:       `grep "ERR" $(CRESFILES) | wc -l` /`grep "Test" $(CRESFILES) | wc -l`"
+	@echo "----------------------------------------------------"
 
 c/%.c: %.apl Makefile
 	../aplt -c -oc $@ ../prelude.apl $<
@@ -81,6 +94,17 @@ c/%.c: %.apl Makefile
 c/%.exe: c/%.c
 	gcc --std=c99 -o $@ $<
 
-c/%.out: c/%.exe
+%.outc: c/%.exe
 	$< > $@
-	cat $@
+
+%.resc: %.outc
+	@(diff -aq $< $*.out.ok > /dev/null 2>&1; \
+         if [ $$? -eq 0 ]; then \
+             echo "Test $*.apl (c backend): OK" > $@ \
+         ; else \
+             if [ -e $*.out.ok ]; then \
+                echo "Test $*.apl: *** ERR: file $< differs from $*.out.ok ***" > $@ \
+             ; else \
+                echo "Test $*.apl: *** ERR: file $*.out.ok does not exist ***" > $@ \
+             ; fi \
+         ; fi)

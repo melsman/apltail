@@ -31,10 +31,10 @@ datatype Value =
        | BoolV of bool                  
        | ArrV of Value option ref vector
 datatype Unop = Neg | I2D | D2I | B2I | Not
-datatype Binop = Add | Sub | Mul | Divv | Modv | Min | Max | Lt | Lteq | Eq
+datatype Binop = Add | Sub | Mul | Divv | Modv | Resi | Min | Max | Lt | Lteq | Eq | Andb | Orb | Xorb
 datatype Exp =
          Var of Name.t
-       | I of int
+       | I of Int32.int
        | D of real
        | T | F
        | If of Exp * Exp * Exp
@@ -56,6 +56,7 @@ datatype Stmt = For of Exp * (Exp -> Block)
               | Free of Name.t
               | Ret of Exp
               | Halt of string
+              | Printf of string * Exp list
 withtype Block = Stmt list
 
 (* kernel names, kernel definitions, and programs *)
@@ -92,6 +93,7 @@ fun eq_s(s1,s2) =
     | (Free n1, Free n2) => n1 = n2
     | (Ret e1, Ret e2) => eq(e1,e2)
     | (Halt s1, Halt s2) => s1 = s2
+    | (Printf(s1,es1), Printf(s2,es2)) => s1 = s2 andalso eqs(es1,es2)
     | _ => false
 and eq_ss (nil,nil) = true
   | eq_ss (s1::ss1,s2::ss2) = eq_s(s1,s2) andalso eq_ss(ss1,ss2)
@@ -143,12 +145,16 @@ signature PROGRAM = sig
   val ==    : e * e -> e
   val <>    : e * e -> e
   val ~     : e -> e
+  val resi  : e * e -> e
+  val orb   : e * e -> e
+  val andb  : e * e -> e
+  val xorb  : e * e -> e
   val i2d   : e -> e
   val d2i   : e -> e
   val b2i   : e -> e
   val max   : e -> e -> e
   val min   : e -> e -> e
-  val not   : e -> e
+  val notb  : e -> e
   val unI   : e -> int option
   val unD   : e -> real option
 
@@ -162,6 +168,7 @@ signature PROGRAM = sig
   val Ret : e -> s
   val Free : Name.t -> s
   val Halt : string -> s
+  val Printf : string * e list -> s
   val emp : s
   val unDecl : s -> (Name.t * e option) option
 
@@ -251,6 +258,9 @@ in
             val body = f (IL.Var n)
         in uses e (N.difference(uses_ss body,N.singleton n))
         end
+      | IL.Printf(_, nil) => N.empty
+      | IL.Printf(s, e::es) => uses e (uses_s (IL.Printf(s,es)))
+
   and uses_ss nil = N.empty
     | uses_ss (s::ss) = N.union (uses_s s, uses_ss ss)
 
@@ -270,6 +280,8 @@ in
             val body = f (IL.Var n)
         in N.difference(defs_ss body,N.singleton n)
         end
+      | IL.Printf _ => N.empty
+
   and defs_ss nil = N.empty
     | defs_ss (s::ss) = N.union (defs_s s, defs_ss ss)
 
@@ -284,6 +296,7 @@ in
       | IL.AssignArr(n,e0,e) => N.empty
       | IL.Ifs(_,s1,s2) => N.empty
       | IL.For(e,f) => N.empty
+      | IL.Printf _ => N.empty
   and decls_ss nil = N.empty
     | decls_ss (s::ss) = N.union (decls_s s, decls_ss ss)
 
@@ -356,7 +369,7 @@ in
                           SOME(IL.I a) => a
                         | SOME _ => die "comp0: expecting I"
                         | NONE => 0
-          in (SOME(IL.I(if neg then Int.-(a,i) else Int.+(a,i))), fn x => x)
+          in (SOME(IL.I(if neg then Int32.-(a,i) else Int32.+(a,i))), fn x => x)
           end
        | IL.D d =>
           let val a = case acc of
@@ -388,35 +401,35 @@ in
       end
 
   and a        - (IL.I 0) = a
-    | (IL.I a) - (IL.I b) = I(Int.-(a,b))
+    | (IL.I a) - (IL.I b) = I(Int32.-(a,b))
     | (IL.D a) - (IL.D b) = D(Real.-(a,b))
-    | (Binop(Sub,IL.I a,b)) - (IL.I c) = I(Int.-(a,c)) - b 
-    | (Binop(Sub,a,IL.I b)) - (IL.I c) = a - I(Int.+(b,c)) 
+    | (Binop(Sub,IL.I a,b)) - (IL.I c) = I(Int32.-(a,c)) - b 
+    | (Binop(Sub,a,IL.I b)) - (IL.I c) = a - I(Int32.+(b,c)) 
     | (IL.If(x,y,z)) - (IL.I a) = If(x,y-(I a),z-(I a))
-    | (Binop(Add,a,IL.I b)) - (IL.I c) = a + (I (Int.-(b,c)))
-    | (Binop(Add,IL.I a,b)) - (IL.I c) = I (Int.-(a,c)) + b
+    | (Binop(Add,a,IL.I b)) - (IL.I c) = a + (I (Int32.-(b,c)))
+    | (Binop(Add,IL.I a,b)) - (IL.I c) = I (Int32.-(a,c)) + b
     | a        - b        = comp Sub a b
 
   and (IL.I 0)              + b       = b
     | a                     + (IL.I 0) = a
-    | (IL.I a)              + (IL.I b) = I(Int.+(a,b))
+    | (IL.I a)              + (IL.I b) = I(Int32.+(a,b))
     | (IL.D a)              + (IL.D b) = D(Real.+(a,b))
-    | (Binop(Sub,a,IL.I b)) + (IL.I c) = let val d = Int.-(c,b)
+    | (Binop(Sub,a,IL.I b)) + (IL.I c) = let val d = Int32.-(c,b)
                                          in if d > 0 then a + (I d)
                                             else a - I (~d)
                                          end
-    | (Binop(Sub,IL.I a,b)) + (IL.I c) = I(Int.+(a,c)) - b
-    | (Binop(Add,x,IL.I a)) + (IL.I b) = x + I (Int.+(a,b))
-    | (Binop(Add,IL.I a,x)) + (IL.I b) = x + I (Int.+(a,b))
-    | (IL.I b) + (Binop(Add,IL.I a,x)) = x + I (Int.+(a,b))
-    | (IL.I b) + (Binop(Add,x,IL.I a)) = x + I (Int.+(a,b))
+    | (Binop(Sub,IL.I a,b)) + (IL.I c) = I(Int32.+(a,c)) - b
+    | (Binop(Add,x,IL.I a)) + (IL.I b) = x + I (Int32.+(a,b))
+    | (Binop(Add,IL.I a,x)) + (IL.I b) = x + I (Int32.+(a,b))
+    | (IL.I b) + (Binop(Add,IL.I a,x)) = x + I (Int32.+(a,b))
+    | (IL.I b) + (Binop(Add,x,IL.I a)) = x + I (Int32.+(a,b))
     | (IL.If(x,y,z))        + (IL.I a) = If(x,y+(I a),z+(I a))
     | (IL.I a)              + (IL.If(x,y,z)) = If(x,y+(I a),z+(I a))
     | (a as IL.If(e,x,y))   + (b as IL.If(e',x',y')) = if eq(e,e') then If(e,x+x',y+y')
                                                        else comp Add a b
     | a                    + b         = comp Add a b
 
-  fun (IL.I a) * (IL.I b) = I(Int.*(a,b))
+  fun (IL.I a) * (IL.I b) = I(Int32.*(a,b))
     | (IL.D a) * (IL.D b) = D(Real.*(a,b))
     | (IL.I 1) * b        = b
     | a        * (IL.I 1) = a
@@ -424,47 +437,52 @@ in
     | a        * (IL.I 0) = I 0
     | a        * b        = Binop(Mul,a,b)
 
-  fun (IL.I a) / (IL.I b) = I(Int.div(a,b))
+  fun (IL.I a) / (IL.I b) = I(Int32.div(a,b))
     | (IL.D a) / (IL.D b) = D(Real./(a,b))
     | a / (IL.I 1) = a
     | a / b = Binop(Divv,a,b)
 
   infix %
-  fun (IL.I a) % (IL.I b) = I(Int.mod(a,b))
+  fun (IL.I a) % (IL.I b) = I(Int32.mod(a,b))
     | (x as Binop(Modv,a,IL.I b)) % (IL.I c) = 
-      if Int.<= (b,c) then x else Binop(Modv,x,IL.I c)
+      if Int32.<= (b,c) then x else Binop(Modv,x,IL.I c)
     | a % (IL.I 1) = I 0
     | a % b = Binop(Modv,a,b)
 
   fun min (IL.I a) (IL.I b) = I(if a < b then a else b)
     | min (IL.D a) (IL.D b) = D(if a < b then a else b)
     | min (y as IL.I d) (x as IL.If(a,IL.I b,IL.I c)) = 
-      if Int.<=(b,d) andalso Int.<=(c,d) then x else
-      if Int.<=(d,b) andalso Int.<=(d,c) then y else Binop(Min,y,x)
+      if Int32.<=(b,d) andalso Int32.<=(c,d) then x else
+      if Int32.<=(d,b) andalso Int32.<=(d,c) then y else Binop(Min,y,x)
     | min a b = if eq(a,b) then a else Binop(Min,a,b)
 
   fun max (IL.I a) (IL.I b) = I(if a > b then a else b)
     | max (IL.D a) (IL.D b) = D(if a > b then a else b)
     | max (x as IL.If(a,IL.I b,IL.I c)) (y as IL.I d) = 
-      if Int.>=(b,d) andalso Int.>=(c,d) then x else
-      if Int.>=(d,b) andalso Int.>=(d,c) then y else Binop(Max,x,y)
+      if Int32.>=(b,d) andalso Int32.>=(c,d) then x else
+      if Int32.>=(d,b) andalso Int32.>=(d,c) then y else Binop(Max,x,y)
     | max a b = if eq(a,b) then a else Binop(Max,a,b)
 
-  fun (IL.I a) < (IL.I b) = B(Int.<(a,b))
+  fun andb (a,b) = Binop(Andb,a,b)
+  fun orb (a,b) = Binop(Orb,a,b)
+  fun xorb (a,b) = Binop(Xorb,a,b)
+  fun resi (a,b) = Binop(Resi,a,b)
+
+  fun (IL.I a) < (IL.I b) = B(Int32.<(a,b))
     | (IL.D a) < (IL.D b) = B(Real.<(a,b))
-    | (IL.Binop(Sub,IL.I a,b)) < (IL.I c) = I(Int.-(a,c)) < b
-    | (IL.Binop(Sub,a,IL.I b)) < (IL.I c) = a < I(Int.+(b,c))
-    | (IL.Binop(Add,IL.I a,b)) < (IL.I c) = b < I(Int.-(c,a))
-    | (IL.Binop(Add,a,IL.I b)) < (IL.I c) = a < I(Int.-(c,b))
+    | (IL.Binop(Sub,IL.I a,b)) < (IL.I c) = I(Int32.-(a,c)) < b
+    | (IL.Binop(Sub,a,IL.I b)) < (IL.I c) = a < I(Int32.+(b,c))
+    | (IL.Binop(Add,IL.I a,b)) < (IL.I c) = b < I(Int32.-(c,a))
+    | (IL.Binop(Add,a,IL.I b)) < (IL.I c) = a < I(Int32.-(c,b))
     | a < b = Binop(Lt,a,b)
 
-  fun (IL.I a) <= (IL.I b) = B(Int.<=(a,b))
+  fun (IL.I a) <= (IL.I b) = B(Int32.<=(a,b))
     | (IL.D a) <= (IL.D b) = B(Real.<=(a,b))
     | a <= b = Binop(Lteq,a,b)
 
-  fun not IL.T = B false
-    | not IL.F = B true
-    | not a = Unop(Not,a)
+  fun notb IL.T = B false
+    | notb IL.F = B true
+    | notb a = Unop(Not,a)
 
   infix ==
   fun (IL.I a) == (IL.I b) = B(a=b)
@@ -474,8 +492,8 @@ in
     | IL.F == IL.T = IL.F
     | IL.T == IL.F = IL.F
     | (Binop(Mul,IL.I 2,_)) == (IL.I 1) = IL.F
-    | (IL.Binop(Add,IL.I a,b)) == (IL.I c) = b == I(Int.-(c,a))
-    | (IL.Binop(Add,a,IL.I b)) == (IL.I c) = a == I(Int.-(c,b))
+    | (IL.Binop(Add,IL.I a,b)) == (IL.I c) = b == I(Int32.-(c,a))
+    | (IL.Binop(Add,a,IL.I b)) == (IL.I c) = a == I(Int32.-(c,b))
     | a == b = 
       if eq(a,b) then IL.T 
       else
@@ -491,13 +509,13 @@ in
                  IL.If _ => b == a
                | _ => Binop(Eq,a,b)
 
-  fun a <> b = not (a == b)
-  fun a > b = not (a <= b)
-  fun a >= b = not (a < b)
+  fun a <> b = notb (a == b)
+  fun a > b = notb (a <= b)
+  fun a >= b = notb (a < b)
 
   fun ~ e =
       case e of
-        IL.I c => I (Int.~c)
+        IL.I c => I (Int32.~c)
       | IL.D c => D (Real.~c)
       | _ => Unop(Neg,e)
   fun i2d e =
@@ -524,12 +542,13 @@ val Decl = IL.Decl
 val Ret = IL.Ret
 val Halt = IL.Halt
 val Free = IL.Free
+val Printf = IL.Printf
 fun isEmp ss = List.all (fn IL.Nop => true | _ => false) ss
 fun size ss =
     case ss of
       nil => 0
     | IL.Nop :: ss => size ss
-    | s :: ss => Int.+(1, size ss)
+    | s :: ss => Int32.+(1, size ss)
 
 fun unDecl (IL.Decl x) = SOME x
   | unDecl _ = NONE
@@ -558,11 +577,11 @@ fun ForOptimize optimize (e,f) ss =
          else
            case e of
              IL.I n =>
-             if Int.<(Int.*(size body, n), inlinethreshold) then
+             if Int32.<(Int32.*(size body, n), inlinethreshold) then
                let fun iter x f a =
-                       if Int.<(x,0) then a
-                       else iter (Int.-(x,1)) f (f(x,a))
-                   val ss = iter (Int.-(n,1)) (fn (i,a) => f(I i) @ a) ss
+                       if Int32.<(x,0) then a
+                       else iter (Int32.-(x,1)) f (f(x,a))
+                   val ss = iter (Int32.-(n,1)) (fn (i,a) => f(I i) @ a) ss
                in optimize ss
                end
              else default()
@@ -599,6 +618,7 @@ fun defs ss : N.set =
         in N.union (ns,defs ss)
         end
       | IL.Ifs(e,ss1,ss2) => N.union(N.union(defs ss1,defs ss2),defs ss)
+      | IL.Printf _ => N.empty
 
 fun rm_declsU U ss =
     let fun rm nil = (nil,U)
@@ -652,9 +672,9 @@ fun env_lookeq E n =
 fun lt E e1 e2 =
     let fun look E n i =
             case E of
-              (n', LtI(IL.I i'))::E => if n=n' andalso Int.>=(i,i') then IL.T
+              (n', LtI(IL.I i'))::E => if n=n' andalso Int32.>=(i,i') then IL.T
                                        else look E n i
-            | (n', GtEqI(IL.I i'))::E => if n=n' andalso Int.<=(i,i') then IL.F
+            | (n', GtEqI(IL.I i'))::E => if n=n' andalso Int32.<=(i,i') then IL.F
                                          else look E n i
             | x::E => look E n i
             | nil => e1 < e2
@@ -668,7 +688,7 @@ fun modu E e1 e2 =
     let fun default() = e1 % e2
         fun look E n i =
             case E of
-              (n', LtI(IL.I i'))::E => if n=n' andalso Int.>=(i,i') then IL.Var n
+              (n', LtI(IL.I i'))::E => if n=n' andalso Int32.>=(i,i') then IL.Var n
                                        else look E n i
             | x::E => look E n i
             | nil => default()
@@ -700,11 +720,15 @@ fun se_e (E:env) (e:e) : e =
     | IL.Binop(IL.Lt,e1,e2) => lt E (se_e E e1) (se_e E e2)
     | IL.Binop(IL.Lteq,e1,e2) => (se_e E e1) <= (se_e E e2)
     | IL.Binop(IL.Eq,e1,e2) => (se_e E e1) == (se_e E e2)
+    | IL.Binop(IL.Resi,e1,e2) => resi(se_e E e1, se_e E e2)
+    | IL.Binop(IL.Andb,e1,e2) => andb(se_e E e1, se_e E e2)
+    | IL.Binop(IL.Orb,e1,e2) => orb(se_e E e1, se_e E e2)
+    | IL.Binop(IL.Xorb,e1,e2) => xorb(se_e E e1, se_e E e2)
     | IL.Unop(IL.Neg,e1) => ~(se_e E e1)
     | IL.Unop(IL.I2D,e1) => i2d (se_e E e1)
     | IL.Unop(IL.D2I,e1) => d2i (se_e E e1)
     | IL.Unop(IL.B2I,e1) => b2i (se_e E e1)
-    | IL.Unop(IL.Not,e1) => not(se_e E e1)
+    | IL.Unop(IL.Not,e1) => notb(se_e E e1)
 
 fun se_ss (E:env) (ss:ss) : ss =
     case peep ss of
@@ -767,6 +791,7 @@ fun se_ss (E:env) (ss:ss) : ss =
             val ss2 = se_ss E' ss2
         in Ifs(e,ss0,ss1) ss2
         end
+      | IL.Printf(s,es) => Printf(s, List.map(se_e E)es) :: se_ss E ss2
 
 (* Peep hole optimization *)
 and peep ss =

@@ -35,7 +35,13 @@ datatype opOpt = SS_S of L.t * L.t -> L.t
                | AA_AM of L.m * L.m -> L.m L.M
                | VA_AM of int list * L.m -> L.m L.M
                | A_AM of L.m -> L.m L.M
+               | S_SM of L.t -> L.t L.M
+               | A_SM of L.m -> L.t L.M
                | NOTOP
+
+infix >>=
+val op >>= = L.>>=
+val ret = L.ret
 
 val classifyOp : string -> opOpt = 
  fn "addi" => SS_S L.addi
@@ -68,6 +74,14 @@ val classifyOp : string -> opOpt =
   | "neqd" => SS_S L.neqd
   | "negd" => S_S L.negd 
   | "signd" => S_S L.signd
+  | "eqb" => SS_S L.eqb
+  | "neqb" => SS_S (L.notb o L.eqb)
+  | "andb" => SS_S L.andb
+  | "orb" => SS_S L.orb
+  | "xorb" => SS_S L.xorb
+  | "nandb" => SS_S (L.notb o L.andb)
+  | "norb" => SS_S (L.notb o L.orb)
+  | "notb" => S_S L.notb
   | "i2d" => S_S L.i2d
   | "b2i" => S_S L.b2i
   | "iotaV" => S_A L.iota
@@ -79,13 +93,22 @@ val classifyOp : string -> opOpt =
   | "drop" => SA_A (fn (i,a) => L.drop i a)
   | "dropV" => SA_A (fn (i,a) => L.drop i a)
   | "take" => SA_A (fn (i,a) => L.take i a)
+  | "takeV" => SA_A (fn (i,a) => L.take i a)
   | "cat" => AA_AM (fn (a1,a2) => L.catenate a1 a2)
   | "catV" => AA_AM (fn (a1,a2) => L.catenate a1 a2)
   | "compress" => AA_AM L.compress
+  | "snoc" => AA_AM (fn (a1,a2) => L.catenate a1 (L.dimincr a2))
+  | "cons" => AA_AM (fn (a1,a2) => L.catenate (L.dimincr a1) a2)
+  | "shape" => A_A (L.vec o L.shape)
+  | "first" => A_SM L.first
+  | "prSclI" => S_SM (fn t => L.printf("[](%d)\n",[t]) >>= (fn _ => ret t))
+  | "prSclB" => S_SM (fn t => L.printf("[](%d)\n",[t]) >>= (fn _ => ret t))
+  | "prSclD" => S_SM (fn t => L.printf("[](%12.g)\n",[t]) >>= (fn _ => ret t))
+  | "prArrI" => A_AM (fn a => L.prArr a >>= (fn _ => ret a))
+  | "prArrB" => A_AM (fn a => L.prArr a >>= (fn _ => ret a))
+  | "prArrD" => A_AM (fn a => L.prArr a >>= (fn _ => ret a))
+  | "rav" => A_A L.rav
   | _ => NOTOP
-
-infix >>=
-val op >>= = L.>>=
 
 structure FM = StringFinMap
 type env = lexp FM.map
@@ -169,10 +192,15 @@ fun comp (E:env) (e : E.exp) (k: lexp -> lexp L.M) : lexp L.M =
            compA E a (fn a =>
            compS E x (fn x =>
            L.catenate a (L.vec(L.fromList(ltypeOf t)[x])) >>= kA))
+         | E.Op("snoc",[a,x], t) =>
+           compA E a (fn a =>
+           compA E x (fn x =>
+           L.catenate a (L.dimincr x) >>= kA))
          | E.Op("consV",[x,a], t) =>
            compS E x (fn x =>
            compA E a (fn a =>
            L.catenate (L.vec(L.fromList(ltypeOf t)[x])) a >>= kA))
+         | E.Op("zilde",[], t) => kA(L.zilde(ltypeOf t))
          | E.Op(opr,es,_) =>
            (case classifyOp opr of
                 SS_S opr => compP compS compS E es (kS o opr)
@@ -182,6 +210,8 @@ fun comp (E:env) (e : E.exp) (k: lexp -> lexp L.M) : lexp L.M =
               | SA_A opr => compP compS compA E es (kA o opr)
               | AA_A opr => compP compA compA E es (kA o opr)
               | A_AM opr => compU compA E es (fn p => opr p >>= kA)
+              | S_SM opr => compU compS E es (fn p => opr p >>= kS)
+              | A_SM opr => compU compA E es (fn p => opr p >>= kS)
               | AA_AM opr => compP compA compA E es (fn p => opr p >>= kA)
               | VA_AM opr => compP compV compA E es (fn p => opr p >>= kA)
               | NOTOP => die ("comp: operator " ^ qq opr ^ " not supported"))
