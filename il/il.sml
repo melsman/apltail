@@ -30,8 +30,8 @@ datatype Value =
        | DoubleV of real
        | BoolV of bool                  
        | ArrV of Value option ref vector
-datatype Unop = Neg | I2D | D2I | B2I | Not
-datatype Binop = Add | Sub | Mul | Divv | Modv | Resi | Min | Max | Lt | Lteq | Eq | Andb | Orb | Xorb
+datatype Unop = Neg | I2D | D2I | B2I | Not | Floor | Ceil
+datatype Binop = Add | Sub | Mul | Divv | Modv | Resi | Min | Max | Lt | Lteq | Eq | Andb | Orb | Xorb | Powd
 datatype Exp =
          Var of Name.t
        | I of Int32.int
@@ -152,8 +152,11 @@ signature PROGRAM = sig
   val i2d   : e -> e
   val d2i   : e -> e
   val b2i   : e -> e
+  val ceil  : e -> e
+  val floor : e -> e
   val max   : e -> e -> e
   val min   : e -> e -> e
+  val powd  : e * e -> e
   val notb  : e -> e
   val unI   : e -> int option
   val unD   : e -> real option
@@ -437,17 +440,25 @@ in
     | a        * (IL.I 0) = I 0
     | a        * b        = Binop(Mul,a,b)
 
-  fun (IL.I a) / (IL.I b) = I(Int32.div(a,b))
-    | (IL.D a) / (IL.D b) = D(Real./(a,b))
-    | a / (IL.I 1) = a
-    | a / b = Binop(Divv,a,b)
+  fun x / y =
+      let val def = Binop(Divv,x,y)
+      in case (x, y) of
+             (IL.I a, IL.I b) => (I(Int32.div(a,b)) handle _ => def)
+           | (IL.D a, IL.D b) => (D(Real./(a,b)) handle _ => def)
+           | (a, IL.I 1) => a
+           | _ => def
+      end
 
   infix %
-  fun (IL.I a) % (IL.I b) = I(Int32.mod(a,b))
-    | (x as Binop(Modv,a,IL.I b)) % (IL.I c) = 
-      if Int32.<= (b,c) then x else Binop(Modv,x,IL.I c)
-    | a % (IL.I 1) = I 0
-    | a % b = Binop(Modv,a,b)
+  fun x % y =
+      let val def = Binop(Modv,x,y)
+      in case (x,y) of
+             (IL.I a, IL.I b) => (I(Int32.mod(a,b)) handle _ => def)
+           | (Binop(Modv,a,IL.I b), IL.I c) =>
+             if Int32.<= (b,c) then x else Binop(Modv,x,IL.I c)
+           | (a, IL.I 1) => I 0
+           | _ => def
+      end
 
   fun min (IL.I a) (IL.I b) = I(if a < b then a else b)
     | min (IL.D a) (IL.D b) = D(if a < b then a else b)
@@ -463,8 +474,26 @@ in
       if Int32.>=(d,b) andalso Int32.>=(d,c) then y else Binop(Max,x,y)
     | max a b = if eq(a,b) then a else Binop(Max,a,b)
 
-  fun andb (a,b) = Binop(Andb,a,b)
-  fun orb (a,b) = Binop(Orb,a,b)
+  fun powd (a,b) = Binop(Powd,a,b)
+  fun ceil a = Unop(Ceil,a)
+  fun floor a = Unop(Floor,a)
+
+
+  fun andb (a,b) =
+      case (a,b) of
+          (IL.T,b) => b
+        | (a,IL.T) => a
+        | (IL.F,_) => IL.F
+        | (_,IL.F) => IL.F
+        | _ => Binop(Andb,a,b)
+  fun orb (a,b) =
+      case (a,b) of
+          (IL.T,_) => IL.T
+        | (_,IL.T) => IL.T
+        | (a,IL.F) => a
+        | (IL.F,b) => b
+        | _ => Binop(Orb,a,b)
+
   fun xorb (a,b) = Binop(Xorb,a,b)
   fun resi (a,b) = Binop(Resi,a,b)
 
@@ -717,6 +746,7 @@ fun se_e (E:env) (e:e) : e =
     | IL.Binop(IL.Modv,e1,e2) => modu E (se_e E e1) (se_e E e2)
     | IL.Binop(IL.Min,e1,e2) => min (se_e E e1) (se_e E e2)
     | IL.Binop(IL.Max,e1,e2) => max (se_e E e1) (se_e E e2)
+    | IL.Binop(IL.Powd,e1,e2) => powd (se_e E e1, se_e E e2)
     | IL.Binop(IL.Lt,e1,e2) => lt E (se_e E e1) (se_e E e2)
     | IL.Binop(IL.Lteq,e1,e2) => (se_e E e1) <= (se_e E e2)
     | IL.Binop(IL.Eq,e1,e2) => (se_e E e1) == (se_e E e2)
@@ -727,6 +757,8 @@ fun se_e (E:env) (e:e) : e =
     | IL.Unop(IL.Neg,e1) => ~(se_e E e1)
     | IL.Unop(IL.I2D,e1) => i2d (se_e E e1)
     | IL.Unop(IL.D2I,e1) => d2i (se_e E e1)
+    | IL.Unop(IL.Ceil,e1) => ceil (se_e E e1)
+    | IL.Unop(IL.Floor,e1) => floor (se_e E e1)
     | IL.Unop(IL.B2I,e1) => b2i (se_e E e1)
     | IL.Unop(IL.Not,e1) => notb(se_e E e1)
 
@@ -745,7 +777,9 @@ fun se_ss (E:env) (ss:ss) : ss =
       | IL.Decl(n,SOME e) =>
         let val e = se_e E e
 	    (* val () = assert_name(E,n) *)
-            val E2 = (n,EqI e)::E
+            val E2 = 
+                case IL.Name.typeOf n of IL.Vec _ => E
+                                    | _ => (n,EqI e)::E
             val ss2 = se_ss E2 ss2
         in Decl(n,SOME e) :: ss2
         end

@@ -33,6 +33,7 @@ datatype opOpt = SS_S of L.t * L.t -> L.t
                | A_A of L.m -> L.m
                | AA_A of L.m * L.m -> L.m
                | AA_AM of L.m * L.m -> L.m L.M
+               | SA_AM of L.t * L.m -> L.m L.M
                | VA_AM of int list * L.m -> L.m L.M
                | A_AM of L.m -> L.m L.M
                | S_SM of L.t -> L.t L.M
@@ -66,6 +67,7 @@ val classifyOp : string -> opOpt =
   | "resd" => SS_S L.resd
   | "maxd" => SS_S L.maxd
   | "mind" => SS_S L.mind
+  | "powd" => SS_S L.powd
   | "ltd" => SS_S L.ltd
   | "lted" => SS_S L.lted
   | "gtd" => SS_S L.gtd
@@ -74,6 +76,8 @@ val classifyOp : string -> opOpt =
   | "neqd" => SS_S L.neqd
   | "negd" => S_S L.negd 
   | "signd" => S_S L.signd
+  | "floor" => S_S L.floor
+  | "ceil" => S_S L.ceil
   | "eqb" => SS_S L.eqb
   | "neqb" => SS_S (L.notb o L.eqb)
   | "andb" => SS_S L.andb
@@ -88,12 +92,12 @@ val classifyOp : string -> opOpt =
   | "iota" => S_A L.iota
   | "transp" => A_AM L.transpose
   | "transp2" => VA_AM (fn (v,a) => L.transpose2 v a)
-  | "reverse" => A_A L.reverse
   | "vrotateV" => SA_A (fn (i,a) => L.rotate i a)
-  | "drop" => SA_A (fn (i,a) => L.drop i a)
-  | "dropV" => SA_A (fn (i,a) => L.drop i a)
-  | "take" => SA_A (fn (i,a) => L.take i a)
-  | "takeV" => SA_A (fn (i,a) => L.take i a)
+  | "vrotate" => SA_AM (fn (i,a) => L.vrotate i a)
+  | "drop" => SA_AM (fn (i,a) => L.drop i a)
+  | "dropV" => SA_AM (fn (i,a) => L.drop i a)
+  | "take" => SA_AM (fn (i,a) => L.take i a)
+  | "takeV" => SA_AM (fn (i,a) => L.take i a)
   | "cat" => AA_AM (fn (a1,a2) => L.catenate a1 a2)
   | "catV" => AA_AM (fn (a1,a2) => L.catenate a1 a2)
   | "compress" => AA_AM L.compress
@@ -101,9 +105,13 @@ val classifyOp : string -> opOpt =
   | "cons" => AA_AM (fn (a1,a2) => L.catenate (L.dimincr a1) a2)
   | "shape" => A_A (L.vec o L.shape)
   | "first" => A_SM L.first
+  | "vreverseV" => A_AM L.vreverse
+  | "vreverse" => A_AM L.vreverse
   | "prSclI" => S_SM (fn t => L.printf("[](%d)\n",[t]) >>= (fn _ => ret t))
   | "prSclB" => S_SM (fn t => L.printf("[](%d)\n",[t]) >>= (fn _ => ret t))
-  | "prSclD" => S_SM (fn t => L.printf("[](%12.g)\n",[t]) >>= (fn _ => ret t))
+  | "prSclD" => S_SM (fn t => L.printf("[](",[]) >>= (fn _ =>
+                              L.printf("%DOUBLE",[t]) >>= (fn _ =>
+                              L.printf(")\n",[]) >>= (fn _ => ret t))))
   | "prArrI" => A_AM (fn a => L.prArr a >>= (fn _ => ret a))
   | "prArrB" => A_AM (fn a => L.prArr a >>= (fn _ => ret a))
   | "prArrD" => A_AM (fn a => L.prArr a >>= (fn _ => ret a))
@@ -170,12 +178,26 @@ fun comp (E:env) (e : E.exp) (k: lexp -> lexp L.M) : lexp L.M =
          | E.Iff(e1,e2,e3,t) => die "comp: Iff not supported" 
          | E.Op("eachV", [f,a], t) => comp_each E f a t k
          | E.Op("each", [f,a], t) => comp_each E f a t k
+         | E.Op("powerScl", [f,n,a], _) => 
+           (compFN E f (fn f =>
+            compS E n (fn n =>
+            compS E a (fn a =>
+            let val f = fn x => f [S x] >>= (L.ret o unS "powerScl")
+            in L.powerScl f n a >>= kS
+            end))))                                 
+         | E.Op("power", [f,n,a], _) => 
+           (compFN E f (fn f =>
+            compS E n (fn n =>
+            compA E a (fn a =>
+            let val f = fn x => f [A x] >>= (L.ret o unA "power")
+            in L.power f n a >>= kA
+            end))))                                 
          | E.Op("reduce", [f,n,a], t) =>
            (compFN E f (fn f =>
-            compS E n (fn n' =>
+            compS E n (fn n =>
             compA E a (fn a =>
             let val f = fn (x,y) => f [S x,S y] >>= (L.ret o unS "reduce")
-            in L.reduce f n' a S A >>= k
+            in L.reduce f n a S A >>= k
             end))))
          | E.Op("zipWith", [f,a1,a2], t) =>
            (compFN E f (fn f =>
@@ -212,6 +234,7 @@ fun comp (E:env) (e : E.exp) (k: lexp -> lexp L.M) : lexp L.M =
               | A_AM opr => compU compA E es (fn p => opr p >>= kA)
               | S_SM opr => compU compS E es (fn p => opr p >>= kS)
               | A_SM opr => compU compA E es (fn p => opr p >>= kS)
+              | SA_AM opr => compP compS compA E es (fn p => opr p >>= kA)
               | AA_AM opr => compP compA compA E es (fn p => opr p >>= kA)
               | VA_AM opr => compP compV compA E es (fn p => opr p >>= kA)
               | NOTOP => die ("comp: operator " ^ qq opr ^ " not supported"))
@@ -224,6 +247,7 @@ and comp_each E f a t k =
     in k $ A $ L.each (ltypeOf t) f a
     end))
 and unS s = fn S s => s | _ => die ("unS: " ^ s)
+and unA s = fn A a => a | _ => die ("unA: " ^ s)
 and compS E e k = comp E e (k o unS "compS")
 and compA E (e : E.exp) (k: L.m -> lexp L.M) : lexp L.M =
     comp E e (fn A a => k a | _ => die "compA")

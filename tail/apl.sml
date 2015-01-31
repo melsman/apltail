@@ -302,6 +302,7 @@ fun rotate (i : int t, a: 'a t) : 'a t =
        else (sh,V.fromList (rot i (list(#2 a))),#3 a)
     end
 
+(*
 fun drop (i : int t, (sh,src,default): 'a t) : 'a t =
     let val i = unScl "drop" i
         val x = Int.abs i
@@ -317,29 +318,37 @@ fun drop (i : int t, (sh,src,default): 'a t) : 'a t =
                default)
            end
     end
+*)
+
+fun drop (i : int t, (sh,src,default): 'a t) : 'a t =
+    let val i = unScl "drop" i
+        val x = Int.abs i
+        val sh' =
+            case list sh of
+                nil => nil
+              | n :: subsh => Int.max(0,n-x) :: subsh
+        val sz' = prod sh'
+        val offset =
+            case list sh of
+                nil => 0
+              | _ :: subsh => Int.max(0,i * prod subsh)
+    in (V.fromList sh',
+        V.tabulate(sz', fn i => V.sub(src,i+offset)),
+        default)
+    end
 
 fun take (n : int t, (sh,src,default): 'a t) : 'a t =
     let val n = unScl "take" n
-    in if n < 0 then
-         let val (sh',subsz,b) = 
-                 case list sh of nil => ([~n], 1, 1)
-                               | b :: sh => (~n :: sh, prod sh, b)
-             val offset = (~n - b)*subsz
-         in (V.fromList sh',
-             V.tabulate (prod sh', fn i => if i < offset then default
-                                           else V.sub(src,i-offset)),
-             default)
-         end
-       else
-         let val sh' = case list sh of nil => [n]
-                                     | _ :: sh => n :: sh
-             val sz = prod sh'
-             val srcsz = V.length src
-         in (V.fromList sh', 
-             V.tabulate (sz, fn i => if i >= srcsz then default
-                                     else V.sub(src,i)),
-             default)
-         end
+        val sz = V.length src
+        val sh' = case list sh of nil => [Int.abs n]
+                                | _ :: subsh => Int.abs n :: subsh
+        val sz' = prod sh'
+        val offset = sz' - sz
+    in (V.fromList sh',
+        V.tabulate (sz', fn i => if (n < 0 andalso i < offset) then default
+                                 else if (n >= 0 andalso i >= sz) then default
+                                 else V.sub(src,if n<0 then i-offset else i)),
+        default)
     end
 
 fun iff (b : bool t, f1,f2) =

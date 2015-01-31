@@ -49,17 +49,25 @@ fun simple f =
          | _ => false
     end
 
+fun materialize (V(ty,n,f)) =
+    let open P
+        val tyv = Type.Vec ty
+        val name = Name.new tyv
+        fun ssT ss = Decl(name, SOME(Alloc(tyv,n))) ::
+                     (For(n, fn i => runM0(f i)(fn v => (name,i) ::= v)) ss)
+    in (name, ssT)
+    end
+
+fun materializeWithV (v as V(ty,n,_)) =
+    let val (name,ssT) = materialize v
+    in ((V(ty,n, fn i => ret(P.Subs(name,i))), name), ssT)
+    end
+
 fun memoize t =
     case t of
       V (ty,n,f) =>
       if simple f then ret t
-      else let open P
-               val tyv = Type.Vec ty
-               val name = Name.new tyv
-               fun ssT ss = Decl(name, SOME(Alloc(tyv,n))) ::
-                            (For(n, fn i => runM0(f i)(fn v => (name,i) ::= v)) ss)
-           in (V(ty,n, fn i => ret(Subs(name,i))), ssT)
-           end
+      else materializeWithV t >>= (fn (v, _) => ret v)
 
 fun lett ty t =
     let open P
@@ -95,7 +103,7 @@ in
   fun proto t =
         if t = Int then I 0
         else if t = Double then D 0.0
-        else if t = Bool then B true
+        else if t = Bool then B false
         else die ("proto: unsupported type " ^ prType t)
 
   fun dummy_exp t =
@@ -117,35 +125,38 @@ in
   fun length (V(_,n,_)) = n
 end
 
-val addi : INT * INT -> INT = P.+
-val subi : INT * INT -> INT = P.-
-val muli : INT * INT -> INT = P.*
-val divi : INT * INT -> INT = P./
-val modi : INT * INT -> INT = P.%
-val resi : INT * INT -> INT = P.resi
-val maxi : INT * INT -> INT = uncurry P.max
-val mini : INT * INT -> INT = uncurry P.min
-val negi : INT -> INT = P.~
-val lti  : INT * INT -> BOOL = P.<
-val ltei : INT * INT -> BOOL = P.<=
-val gti  : INT * INT -> BOOL = P.>
-val gtei : INT * INT -> BOOL = P.>=
-val eqi  : INT * INT -> BOOL = P.==
-val neqi : INT * INT -> BOOL = P.<>
+val addi  : INT * INT -> INT = P.+
+val subi  : INT * INT -> INT = P.-
+val muli  : INT * INT -> INT = P.*
+val divi  : INT * INT -> INT = P./
+val modi  : INT * INT -> INT = P.%
+val resi  : INT * INT -> INT = P.resi
+val maxi  : INT * INT -> INT = uncurry P.max
+val mini  : INT * INT -> INT = uncurry P.min
+val negi  : INT -> INT = P.~
+val lti   : INT * INT -> BOOL = P.<
+val ltei  : INT * INT -> BOOL = P.<=
+val gti   : INT * INT -> BOOL = P.>
+val gtei  : INT * INT -> BOOL = P.>=
+val eqi   : INT * INT -> BOOL = P.==
+val neqi  : INT * INT -> BOOL = P.<>
 
-val addd : DOUBLE * DOUBLE -> DOUBLE = P.+
-val subd : DOUBLE * DOUBLE -> DOUBLE = P.-
-val muld : DOUBLE * DOUBLE -> DOUBLE = P.*
-val divd : DOUBLE * DOUBLE -> DOUBLE = P./
-val ltd  : DOUBLE * DOUBLE -> BOOL = P.<
-val lted : DOUBLE * DOUBLE -> BOOL = P.<=
-val gtd  : DOUBLE * DOUBLE -> BOOL = P.>
-val gted : DOUBLE * DOUBLE -> BOOL = P.>=
-val eqd  : DOUBLE * DOUBLE -> BOOL = P.==
-val neqd : DOUBLE * DOUBLE -> BOOL = P.<>
-val maxd : DOUBLE * DOUBLE -> DOUBLE = uncurry P.max
-val mind : DOUBLE * DOUBLE -> DOUBLE = uncurry P.min
-val negd : DOUBLE -> DOUBLE = P.~
+val addd  : DOUBLE * DOUBLE -> DOUBLE = P.+
+val subd  : DOUBLE * DOUBLE -> DOUBLE = P.-
+val muld  : DOUBLE * DOUBLE -> DOUBLE = P.*
+val divd  : DOUBLE * DOUBLE -> DOUBLE = P./
+val ltd   : DOUBLE * DOUBLE -> BOOL = P.<
+val lted  : DOUBLE * DOUBLE -> BOOL = P.<=
+val gtd   : DOUBLE * DOUBLE -> BOOL = P.>
+val gted  : DOUBLE * DOUBLE -> BOOL = P.>=
+val eqd   : DOUBLE * DOUBLE -> BOOL = P.==
+val neqd  : DOUBLE * DOUBLE -> BOOL = P.<>
+val maxd  : DOUBLE * DOUBLE -> DOUBLE = uncurry P.max
+val mind  : DOUBLE * DOUBLE -> DOUBLE = uncurry P.min
+val powd  : DOUBLE * DOUBLE -> DOUBLE = P.powd
+val negd  : DOUBLE -> DOUBLE = P.~
+val floor : DOUBLE -> INT = P.floor
+val ceil  : DOUBLE -> INT = P.ceil
 
 val eqb     : BOOL * BOOL -> BOOL = P.==
 val andb    : BOOL * BOOL -> BOOL = P.andb
@@ -386,17 +397,22 @@ fun concat v1 v2 =
     | fromSh (_::sh) (i::idx) = fromSh sh idx >>= (fn x => ret (addi(muli(i,lprod sh),x)))
     | fromSh _ _ = die "fromSh: dimension mismatch"
 
-  fun getShape f 0 = ret nil
-    | getShape f n = 
+  fun getShape 0 f = ret nil
+    | getShape n f = 
       f (P.I (n-1)) >>= (fn N =>
-      getShape f (n-1) >>= (fn NS =>
+      getShape (n-1) f >>= (fn NS =>
       ret (NS @ [N])))
+
+  fun getShapeV s (V(_,n,f)) =
+      case P.unI n of
+          SOME n => getShape n f
+        | NONE => die ("getShapeV: " ^ s ^ ". Expecting static shape")
 
   fun trans v d =
       let val V(_,n,f) = v
           val V(ty,m,g) = d
           fun h n i =
-              getShape f n >>= (fn sh => 
+              getShape n f >>= (fn sh => 
               let val sh' = List.rev sh
               in toSh sh' i >>= (fn sh'' =>
                  fromSh sh (List.rev sh'') >>= (fn x => g x))
@@ -436,7 +452,7 @@ fun concat v1 v2 =
              (if n <> List.length idxs then
                 die "trans2: wrong index vector length"
               else if n<2 then ret (sh,vs)
-              else getShape f n >>= (fn sh =>
+              else getShape n f >>= (fn sh =>
                  let val sh' = exchange' idxs sh
                      fun h i =
                          toSh sh' i >>= (fn sh'' =>
@@ -462,7 +478,7 @@ fun concat v1 v2 =
                                 runMss(g i)(fn v =>
                                    [(name, $count) ::= v,
                                     count := $count + I 1]),
-                                []) 
+                                [])
                             []))
                           ss
          in (V(ty,sz,fn i => ret(Subs(name,i))),
@@ -495,11 +511,12 @@ fun concat v1 v2 =
      ; print ("Wrote file " ^ ofile ^ "\n")
     end
 
-fun resi(x,y) = If(eqi(x,I 0), y, modi(y,x))
+(* fun resi(x,y) = If(eqi(x,I 0), y, modi(y,x)) *)
 fun resd(x,y) = die "resd not yet supported"
 
 fun signi x = If(lti(x,I 0),I ~1,I 1)
 fun signd x = If(ltd(x,D 0.0),I ~1,I 1)
+fun absi x = If(lti(x, I 0), negi x, x)
 
 structure Shape : sig
   type t = v
@@ -594,14 +611,49 @@ fun catenate_first (A(s1,d1) : m) (A(s2,d2): m) : m M =
          (ret mv))
       end
 
-fun take0 n (t : m) : m = vec(tk n (snd t))
-fun drop0 n (t : m) : m = vec(dr n (snd t))
+fun ifM t (b,m1,m2) =
+    let val n = Name.new t
+    in ($ n, 
+        fn ss => P.Decl(n, NONE) ::
+                 P.Ifs(b,
+                       runMss m1 (fn v => [n := v]),
+                       runMss m2 (fn v => [n := v])) ss)
+    end
 
-val take : INT -> m -> m = fn n => fn t =>
-   mif(lti(n,I 0), drop0 (addi(siz t,n)) t, take0 n t)
-and drop : INT -> m -> m = fn n => fn t =>
-   mif(lti(n,I 0), take0 (addi(siz t,n)) t, drop0 n t)
+fun take n (a as A(shv,V(ty,sz,f))) =
+    getShapeV "take" shv >>= (fn sh =>
+    let val default = proto ty
+        val (sh', shv') = case sh of
+                              nil => ([absi n],Shape.single(absi n))
+                            | _ :: sh => (absi n :: sh,
+                                          Shape.concat (Shape.single(absi n)) (Shape.dr (I 1) shv))
+        val sz' = lprod sh'
+        val offset = subi(sz',sz)
+    in ret (A(shv',
+              V(ty,sz',
+                fn i => ifM ty (andb(lti(n,I 0),lti(i,offset)), ret default,
+                                ifM ty (andb(gtei(n,I 0),gtei(i,sz)), ret default,
+                                        f (If(lti(n,I 0),subi(i,offset),i)))))))
+    end)
 
+fun drop i (a as A(shv,V(ty,sz,f))) =
+    getShapeV "drop" shv >>= (fn sh =>
+    let val x = absi i
+        val (sh',shv') = case sh of
+                             nil => (nil,Shape.empty)
+                           | n :: subsh => let val y = maxi(I 0, subi(n,x))
+                                           in (y::subsh,
+                                               Shape.concat (Shape.single y) (Shape.dr (I 1) shv))
+                                           end
+        val sz' = lprod sh'
+        val offset = case sh of
+                         nil => I 0
+                       | _ :: subsh => maxi(I 0, muli(i,lprod subsh))
+    in ret (A(shv',
+              V(ty,sz',
+                fn i => f (addi(i,offset)))))
+    end)
+  
 fun rotate n (A(f,d)) =
     let val sz = length d
     in mif(lti(n,I 0),
@@ -616,8 +668,6 @@ fun reshape (f: v) (a: m) : m M =
 fun transpose (A(s,d)) = trans s d >>= (fn v => ret(A(rev s, v)))
 
 fun transpose2 v (A(s,d)) = trans2 v s d >>= (fn p => ret(A p))
-
-fun reverse _ = die "reverse: not implemented"
 
 fun catenate t1 t2 = 
     transpose t1 >>= (fn a1 =>
@@ -669,13 +719,61 @@ fun compress (A(sh_is,vs_is), A(sh_vs,vs_vs)) =
      compr vs_is vs_vs >>= (fn vs =>
      ret (A (Shape.single(length vs),vs))))
 
-fun ifM t (b,m1,m2) =
-    let val n = Name.new t
-    in ($ n, 
-        fn ss => P.Decl(n, NONE) ::
-                 P.Ifs(b,
-                       runMss m1 (fn v => [n := v]),
-                       runMss m2 (fn v => [n := v])) ss)
+fun vreverse (a as A(sh,V(ty,sz,f))) =
+    getShapeV "vreverse" sh >>= 
+      (fn [] => ret a
+        | n :: subsh =>
+         let val subsz = lprod subsh
+         in ret (A(sh,
+                   V(ty,sz,
+                     fn i => 
+                        let val y = subi(subi(n,divi(i,subsz)),I 1)
+                            val x = modi(i,subsz)
+                        in f (addi(muli(y,subsz),x))
+                        end)))
+         end)
+
+fun vrotate n (a as A(sh, v0 as V(ty,sz,f))) =
+    getShapeV "vrotate" sh >>=
+      (fn [] => ret a
+        | s :: sh' =>
+         let val sz' = lprod sh'
+             val sz = muli(s,sz')
+             val n = modi(n,s)
+             val n = If(gti(n,I 0),n,subi(s,n))
+             val offset = muli(n,sz')
+             val v = V(ty,sz, fn i => f(modi(addi(i,offset),sz)))
+             val v = Ifv(eqi(s,I 0),v0,v)
+         in ret(A(sh,v))
+         end)
+
+fun materializeA (A(sh,vs)) =
+    materializeWithV sh >>= (fn (sh,name_sh) =>
+    materializeWithV vs >>= (fn (vs,name_vs) =>
+    ret (A(sh,vs), name_sh, name_vs)))
+
+fun power (f: m -> m M) (n: INT) (a: m) : m M =
+    let open P
+    in materializeA a >>= (fn (a, name_sh, name_vs) =>
+       let val body = f a >>= (fn r =>
+                      materializeA r >>= (fn (r', name_sh', name_vs') =>
+                      (I 0, fn ss => [Free name_sh, 
+                                      Free name_vs,
+                                      name_sh := $name_sh',
+                                      name_vs := $name_vs'] @ ss)))
+       in (a,
+           fn ss => P.For(n, fn _ => runMss body (fn (v : t) => []))
+                         ss)
+       end)
+    end
+
+fun powerScl (f: t -> t M) (n: INT) (a: t) : t M =
+    let val ty = ILUtil.typeExp a
+        val name = Name.new ty
+    in ($ name,
+        fn ss => P.Decl(name, SOME a) ::
+                 P.For(n, fn _ => runMss (f($name)) (fn (v : t) => [name := v]))
+                 ss)
     end
            
 fun fmtOfTy ty =
@@ -685,7 +783,6 @@ fun fmtOfTy ty =
 
 fun fmtOfTyScl ty =
     "[](" ^ fmtOfTy ty ^ ")\n"
-
 
 fun prScl (V(ty,_,f)) =
     f (I 0) >>= (fn e =>
@@ -726,9 +823,11 @@ fun prMat N M sep (V(ty,n,f)) =
 fun fst (V(ty,n,f)) = f (I 0)
 fun snd (V(ty,n,f)) = f (I 1)
 
+fun szOf (V(_,n,_)) = n
+
 fun prArr (a as A(sh,vs)) =
     let val len = Shape.length sh
-    in ifM Int (eqi(len,I 2),
+    in ifM Int (andb(eqi(len,I 2),gti(szOf vs,I 0)),
                 fst sh >>= (fn N =>
                 snd sh >>= (fn M =>
                 prMat N M " " vs)),

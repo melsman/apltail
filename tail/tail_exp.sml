@@ -642,13 +642,20 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   fun unDvalue _ = raise Fail "exp.unDvalue: not implemented"
   val Uvalue = Dvalue 0.0
 
+  fun pr_int i =
+      if i = ~2147483648 then "-2147483648"
+      else if i < 0 then "-" ^ pr_int (~i)
+      else Int32.toString i
+
   fun pr_double d =
       if d < 0.0 then "-" ^ pr_double (~d)
-      else if Real.==(d,Real.posInf) then "HUGE_VAL"
-      else let val s = Real.toString d
-           in if CharVector.exists (fn c => c = #".") s then s
-              else s ^ ".0"
-           end
+      else
+        if Real.==(d,Real.posInf) then "HUGE_VAL"
+        else 
+          let val s = Real.toString d
+          in if CharVector.exists (fn c => c = #".") s then s
+             else s ^ ".0"
+          end
 
   fun wordToChar w =
       if w < 0w128 then
@@ -668,7 +675,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
 
   fun pr_bv b =
       case b of
-          Ib b => Int.toString b
+          Ib b => pr_int b
         | Db b => pr_double b
         | Bb true => "1"
         | Bb false => "0"

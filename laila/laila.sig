@@ -71,6 +71,7 @@ signature LAILA = sig
   val resd    : DOUBLE * DOUBLE -> DOUBLE
   val maxd    : DOUBLE * DOUBLE -> DOUBLE
   val mind    : DOUBLE * DOUBLE -> DOUBLE
+  val powd    : DOUBLE * DOUBLE -> DOUBLE
   val ltd     : DOUBLE * DOUBLE -> BOOL
   val lted    : DOUBLE * DOUBLE -> BOOL
   val gtd     : DOUBLE * DOUBLE -> BOOL
@@ -79,6 +80,8 @@ signature LAILA = sig
   val neqd    : DOUBLE * DOUBLE -> BOOL
   val negd    : DOUBLE -> DOUBLE
   val signd   : DOUBLE -> INT
+  val floor   : DOUBLE -> INT
+  val ceil    : DOUBLE -> INT
 
   val eqb     : BOOL * BOOL -> BOOL
   val andb    : BOOL * BOOL -> BOOL
@@ -115,24 +118,30 @@ signature LAILA = sig
 
   val catenate : m -> m -> m M
 
-  val take    : INT -> m -> m
-  val drop    : INT -> m -> m
+  val take    : INT -> m -> m M
+  val drop    : INT -> m -> m M
 
   val first   : m -> t M
 
   val mem     : m -> m M
 
-  val rotate  : INT -> m -> m
-  val reverse : m -> m
-  val reshape : v -> m -> m M
-  val shape   : m -> v
+  val rotate  : INT -> m -> m  (* ok for vectors *)
 
-  val reduce  : (t * t -> t M) -> t -> m -> (t -> 'b) -> (m -> 'b) -> 'b M
+  val vreverse : m -> m M
+  val vrotate  : INT -> m -> m M
+
+  val reshape  : v -> m -> m M
+  val shape    : m -> v
+
+  val reduce   : (t * t -> t M) -> t -> m -> (t -> 'b) -> (m -> 'b) -> 'b M
 
   val transpose : m -> m M
   val transpose2 : int list -> m -> m M
 
   val compress  : m * m -> m M
+
+  val power     : (m -> m M) -> INT -> m -> m M
+  val powerScl  : (t -> t M) -> INT -> t -> t M
 
   (* Printing routines *)
   val prArr    : m -> INT M   (* dummy int *)

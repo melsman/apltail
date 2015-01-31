@@ -71,6 +71,14 @@ static int resi(int y, int x)    // notice the swapped arguments
   }
 }
 
+static int floori(double x) {
+  return (int)floor(x);
+}
+
+static int ceili(double x) {
+  return (int)ceil(x);
+}
+
 // -----------------
 // Halting execution
 // -----------------

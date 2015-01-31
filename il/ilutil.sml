@@ -29,6 +29,7 @@ structure ILUtil : ILUTIL = struct
     | ppB Divv = "/"
     | ppB Modv = "%"
     | ppB Min = "min"
+    | ppB Powd = "pow"
     | ppB Max = "max"
     | ppB Lt = "<"
     | ppB Lteq = "<="
@@ -75,6 +76,7 @@ structure ILUtil : ILUTIL = struct
     | evalBinOp Min (DoubleV i1,DoubleV i2) = DoubleV(if i1 < i2 then i1 else i2)
     | evalBinOp Max (IntV i1,IntV i2) = IntV(if i1 > i2 then i1 else i2)
     | evalBinOp Max (DoubleV i1,DoubleV i2) = DoubleV(if i1 > i2 then i1 else i2)
+    | evalBinOp Powd (DoubleV i1,DoubleV i2) = DoubleV(Math.pow(i1,i2))
     | evalBinOp Lt  (IntV i1,IntV i2) = BoolV(i1 < i2)
     | evalBinOp Lt  (DoubleV i1,DoubleV i2) = BoolV(i1 < i2)
     | evalBinOp Lteq  (IntV i1,IntV i2) = BoolV(i1 <= i2)
@@ -91,6 +93,8 @@ structure ILUtil : ILUTIL = struct
     | evalUnOp Neg (DoubleV d) = DoubleV(~d)
     | evalUnOp I2D (IntV i) = DoubleV(real i)
     | evalUnOp D2I (DoubleV d) = (IntV(Real.trunc d))
+    | evalUnOp Ceil (DoubleV d) = (IntV(Real.ceil d))
+    | evalUnOp Floor (DoubleV d) = (IntV(Real.floor d))
     | evalUnOp B2I (BoolV b) = (IntV(if b then 1 else 0))
     | evalUnOp _ _ = die "evalUnOp"
 
@@ -197,6 +201,8 @@ structure ILUtil : ILUTIL = struct
   fun ppU Neg = "-"
     | ppU I2D = "i2d"
     | ppU D2I = "d2i"
+    | ppU Ceil = "ceili"
+    | ppU Floor = "floori"
     | ppU B2I = "b2i"
     | ppU Not = "!"
 
@@ -205,8 +211,8 @@ structure ILUtil : ILUTIL = struct
   fun pp e =
       case e of
         Var n => %(Name.pr n)
-      | I i => %(pp_int i)
-      | D d => %(pp_double d)
+      | I i => if i < 0 then par(%(pp_int i)) else %(pp_int i)
+      | D d => if d < 0.0 then par(%(pp_double d)) else %(pp_double d)
       | Binop(binop,e1,e2) => 
         if infi binop then par (pp e1 %% % (ppB binop) %% pp e2)
         else % (ppB binop) %% par(pp e1 %% %"," %% pp e2)
@@ -260,9 +266,9 @@ structure ILUtil : ILUTIL = struct
       | Decl (n,NONE) => pp_t (Name.typeOf n) %% %" " %% %(Name.pr n) %% %";"
       | AssignArr (n,i,e) => %(Name.pr n) %% spar(pp i) %% %" = " %% pp e %% %";"
       | Nop => %"/*nop*/"
-      | Free n => die "Free.unimplemented"
+      | Free n => %("free(" ^ Name.pr n ^ ");")
       | Ret e => %"return " %% pp e %% %";"
-      | Halt s => %"halt(\"" %% %s %% %"\");"
+      | Halt s => %"halt(\"" %% %s %% %"\");" %% %$ %% %"return 0;"
       | Printf(s,nil) => %("printf(\"" ^ String.toCString s ^ "\");")
       | Printf("%DOUBLE",[e]) => %"prDouble(" %% pp e %% %");" 
       | Printf(s,es) => %("printf(\"" ^ String.toCString s ^ "\",") %% pp_es "," es %% %");" 
@@ -288,6 +294,7 @@ structure ILUtil : ILUTIL = struct
       | Resi => Type.Int
       | Min => Type.Int
       | Max => Type.Int
+      | Powd => Type.Double
       | Lt => Type.Bool
       | Lteq => Type.Bool
       | Eq => Type.Bool
@@ -298,6 +305,8 @@ structure ILUtil : ILUTIL = struct
   fun resTypeUnop Neg = Type.Int
     | resTypeUnop I2D = Type.Double
     | resTypeUnop D2I = Type.Int
+    | resTypeUnop Floor = Type.Int
+    | resTypeUnop Ceil = Type.Int
     | resTypeUnop B2I = Type.Int
     | resTypeUnop Not = Type.Bool
 
