@@ -106,10 +106,10 @@ signature LAILA = sig
 (*  val index   : Int Num v -> 'a m -> 'a m M *)
   val each    : T -> (t -> t M) -> m -> m
 
-  val meq     : T -> (t * t -> BOOL) -> m -> m -> BOOL M  
+  val meq     : (t * t -> BOOL) -> m -> m -> BOOL M  
 
   val mif     : BOOL * m * m -> m
-  val lett    : T -> t -> t M
+  val lett    : t -> t M
   val letm    : m -> m M
 
   val zipWith : T -> (t * t -> t M) -> m -> m -> m M

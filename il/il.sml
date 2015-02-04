@@ -7,19 +7,24 @@ datatype Type = Int | Double | Bool | Vec of Type
 structure Name : sig
   eqtype t
   val new : Type -> t
+  val newImperative : Type -> t
   val pr : t -> string
   val typeOf : t -> Type
+  val isImperative : t -> bool
 end =
 struct
-  type t = string * Type
+  type t = string * Type * bool
   val count = ref 0
   fun prefix Int = "n"
     | prefix Double = "d"
     | prefix Bool = "b"
     | prefix (Vec _) = "a"
-  fun new t = (prefix t ^ Int.toString(!count) before count := !count + 1, t)
-  fun pr (s,_) = s
-  fun typeOf (_,t) = t
+  fun new0 b t = (prefix t ^ (if b then "i" else "") ^ Int.toString(!count) before count := !count + 1, t, b)
+  fun new t = new0 false t
+  fun newImperative t = new0 true t
+  fun isImperative (_,_,b) = b
+  fun pr (s,_,_) = s
+  fun typeOf (_,t,_) = t
 end
 
 structure NameSet = OrderSet(struct type t = Name.t
@@ -118,6 +123,8 @@ end
 signature NAME = sig
   eqtype t
   val new : Type.T -> t
+  val newImperative : Type.T -> t
+  val isImperative : t -> bool
   val pr  : t -> string
 end
 
@@ -133,23 +140,45 @@ signature PROGRAM = sig
   val D     : real -> e
   val B     : bool -> e
   val If    : e * e * e -> e
-  val +     : e * e -> e
-  val -     : e * e -> e
-  val *     : e * e -> e
-  val /     : e * e -> e
-  val %     : e * e -> e
-  val <     : e * e -> e
-  val <=    : e * e -> e
-  val >     : e * e -> e
-  val >=    : e * e -> e
-  val ==    : e * e -> e
-  val <>    : e * e -> e
-  val ~     : e -> e
+
+  val addi  : e * e -> e   (* interger operations *)
+  val subi  : e * e -> e
+  val muli  : e * e -> e
+  val divi  : e * e -> e
+  val modi  : e * e -> e
+  val lti   : e * e -> e
+  val ltei  : e * e -> e
+  val gti   : e * e -> e
+  val gtei  : e * e -> e
+  val eqi   : e * e -> e
+  val neqi  : e * e -> e
+  val maxi  : e * e -> e
+  val mini  : e * e -> e
   val resi  : e * e -> e
-  val orb   : e * e -> e
+  val negi  : e -> e
+
+  val addd  : e * e -> e  (* double operations *)
+  val subd  : e * e -> e
+  val muld  : e * e -> e
+  val divd  : e * e -> e
+  val modd  : e * e -> e
+  val ltd   : e * e -> e
+  val lted  : e * e -> e
+  val gtd   : e * e -> e
+  val gted  : e * e -> e
+  val eqd   : e * e -> e
+  val neqd  : e * e -> e
+  val maxd  : e * e -> e
+  val mind  : e * e -> e
+  val negd  : e -> e
+
+  val orb   : e * e -> e   (* boolean operations *)
   val andb  : e * e -> e
   val xorb  : e * e -> e
-  val i2d   : e -> e
+  val eqb   : e * e -> e
+  val neqb  : e * e -> e
+
+  val i2d   : e -> e   (* miscellaneous operations *) 
   val d2i   : e -> e
   val b2i   : e -> e
   val ceil  : e -> e
@@ -478,7 +507,6 @@ in
   fun ceil a = Unop(Ceil,a)
   fun floor a = Unop(Floor,a)
 
-
   fun andb (a,b) =
       case (a,b) of
           (IL.T,b) => b
@@ -516,10 +544,8 @@ in
   infix ==
   fun (IL.I a) == (IL.I b) = B(a=b)
     | (IL.D a) == (IL.D b) = B(Real.==(a,b))
-    | IL.T == IL.T = IL.T
-    | IL.F == IL.F = IL.T
-    | IL.F == IL.T = IL.F
-    | IL.T == IL.F = IL.F
+    | IL.T == b = b
+    | a == IL.T = a
     | (Binop(Mul,IL.I 2,_)) == (IL.I 1) = IL.F
     | (IL.Binop(Add,IL.I a,b)) == (IL.I c) = b == I(Int32.-(c,a))
     | (IL.Binop(Add,a,IL.I b)) == (IL.I c) = a == I(Int32.-(c,b))
@@ -547,6 +573,39 @@ in
         IL.I c => I (Int32.~c)
       | IL.D c => D (Real.~c)
       | _ => Unop(Neg,e)
+
+  val addi = op +
+  val subi = op -
+  val muli = op *
+  val divi = op /
+  val modi = op %
+  val eqi = op ==
+  val neqi = op <>
+  val lti = op <
+  val ltei = op <=
+  val gti = op >
+  val gtei = op >=
+  val mini = fn (x,y) => min x y
+  val maxi = fn (x,y) => max x y
+  val negi = ~
+
+  val addd = op +
+  val subd = op -
+  val muld = op *
+  val divd = op /
+  val modd = op %
+  val eqd = op ==
+  val neqd = op <>
+  val ltd = op <
+  val lted = op <=
+  val gtd = op >
+  val gted = op >=
+  val mind = fn (x,y) => min x y
+  val maxd = fn (x,y) => max x y
+  val negd = ~
+  val eqb = op ==
+  val neqb = op <>
+
   fun i2d e =
       case e of
         IL.I c => D (real c)
@@ -730,13 +789,20 @@ fun modu E e1 e2 =
 (* Static evaluation *)
 fun se_e (E:env) (e:e) : e =
     case e of
-      IL.Var n => (case env_lookeq E n of SOME e => (*se_e E*) e | NONE => $ n)
+      IL.Var n => (case env_lookeq E n of SOME e => e (*if simpleExp e then e else $n *)
+                                        | NONE => $n)
     | IL.I i => I i
     | IL.D d => D d
     | IL.T => B true
     | IL.F => B false
     | IL.If(e0,e1,e2) => If(se_e E e0, se_e E e1, se_e E e2)
-    | IL.Subs(n,e) => Subs(n,se_e E e)
+    | IL.Subs(n,e) =>
+      let val e = se_e E e
+      in case (env_lookeq E n, e) of 
+             (SOME (IL.Vect(_,es)), IL.I i) => 
+             (List.nth (es,i) handle _ => raise Fail "se_e: Subs")
+           | _ => Subs(n,e)
+      end
     | IL.Alloc(t,e) => Alloc(t,se_e E e)
     | IL.Vect(t,es) => Vect(t,List.map (se_e E) es)
     | IL.Binop(IL.Add,e1,e2) => (se_e E e1) + (se_e E e2)
@@ -778,8 +844,12 @@ fun se_ss (E:env) (ss:ss) : ss =
         let val e = se_e E e
 	    (* val () = assert_name(E,n) *)
             val E2 = 
-                case IL.Name.typeOf n of IL.Vec _ => E
-                                    | _ => (n,EqI e)::E
+                if Name.isImperative n then E
+                else case (IL.Name.typeOf n, e) of
+                         (IL.Vec _, IL.Vect _) => (n,EqI e)::E
+                       | (IL.Vec _, _) => E
+                       | _ => if simpleExp e then (n,EqI e)::E
+                              else E
             val ss2 = se_ss E2 ss2
         in Decl(n,SOME e) :: ss2
         end

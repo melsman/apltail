@@ -2,10 +2,10 @@ TESTS=test test1 test2 test3 test4 test5 test6 test7 test9 test10 \
       test11 test12 test13 test14 test15 test16 test19 signal \
       test21 test28 residue mult0 mult sierpinski0 slashbar primes0 \
       compress primes replicate cons boolean innerLegrand5.3 quadassign \
-      opr1 opr2 opr3 fun2 take drop vrev vrot rot rotfirst first life powscl pow \
+      opr1 opr2 opr3 fun2 take drop vrev vrot rot rotfirst first life powscl pow powmat \
       vec zfunc repl ceilfloormaxmin easter eacheaster else chars shape \
       innerproduct sign ln circ timespi blackscholes pi readfile \
-      readintvecfile tax dtransp abcd mean idx tup binaryops
+      readintvecfile tax dtransp abcd mean idx tup binaryops fib10
 
 APLFILES=$(TESTS:%=%.apl)
 TLFILES=$(APLFILES:%.apl=%.tl)
@@ -75,8 +75,8 @@ CTESTS=test test1 test2 test3 test4 test5 test6 test7 test9 test10 \
        compress primes cons boolean innerLegrand5.3 quadassign \
        opr1 opr2 opr3 fun2 take drop vrev vrot rot rotfirst first powscl \
        vec zfunc ceilfloormaxmin easter eacheaster else \
-       innerproduct sign mean
-#      life replicate pow repl chars sierpinski0 shape ln circ timespi blackscholes pi readfile \
+       innerproduct sign mean powmat life pow fib10
+#      replicate pow repl chars sierpinski0 shape ln circ timespi blackscholes pi readfile \
 #      readintvecfile tax dtransp abcd idx tup binaryops
 
 CRESFILES=$(CTESTS:%=%.resc)

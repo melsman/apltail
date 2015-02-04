@@ -72,6 +72,7 @@ signature TAIL = sig
   val Uv        : unit V 
   val eval      : ('a,'b) prog -> 'a V -> 'b V
   val pp_prog   : bool -> ('a,'b) prog -> string
+  val pp_exp    : bool -> 'a t -> string
   val ppV       : 'a V -> string
 
   type 'a m (* APL multi-dimensional arrays *)

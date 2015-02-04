@@ -50,7 +50,11 @@ structure ILUtil : ILUTIL = struct
         if Real.==(d,Real.posInf) then "HUGE_VAL"
         else 
           let val s = Real.toString d
+              val s = String.translate (fn #"~" => "-" 
+                                         | #"E" => "e" 
+                                         | c => String.str c) s
           in if CharVector.exists (fn c => c = #".") s then s
+             else if CharVector.exists (fn c => c = #"e") s then s
              else s ^ ".0"
           end
 
@@ -179,7 +183,8 @@ structure ILUtil : ILUTIL = struct
   datatype rope = % of string
                 | %% of rope * rope
                 | %> of rope
-                | %$
+                | %$ 
+                | Par of rope  (* avoid nested pars *)
   fun repeat s 0 = ""
     | repeat s n = s ^ repeat s (n-1)
   infix %%
@@ -189,10 +194,12 @@ structure ILUtil : ILUTIL = struct
             | %$ => ("\n" ^ repeat "  " n) :: a
             | %> r => loop (n+1) a r
             | r1 %% r2 => loop n (loop n a r1) r2
+            | Par e => loop n a (%"(" %% e %% %")")
       in (String.concat o rev o (loop n nil)) r
       end
 
-  fun par e = %"(" %% e %% %")"
+  fun par (e as Par _) = e
+    | par e = Par e
   fun spar e = %"[" %% e %% %"]"
   fun cpar e = %"{" %% e %% %"}"
 
@@ -220,7 +227,7 @@ structure ILUtil : ILUTIL = struct
       | Unop(unop,e1) => %(ppU unop) %% par(pp e1)
       | Alloc (t,e1) => 
         let val t' = Type.vecElem t
-        in %"(" %% pp_t t %% %")malloc(sizeof(" %% pp_t t' %% %")*" %% pp e1 %% %")"
+        in par(pp_t t) %% %"malloc(sizeof" %% par (pp_t t') %% %"*" %% pp e1 %% %")"
         end
       | Vect (t,es) => 
         let val t' = Type.vecElem t
@@ -249,10 +256,10 @@ structure ILUtil : ILUTIL = struct
                %>(ppSS0(f (Var n))) %%
              %$ %% %"}"
         end
-      | Ifs(e,ss1,nil) => %"if (" %% pp e %% %") {" %%
+      | Ifs(e,ss1,nil) => %"if " %% par(pp e) %% %" {" %%
                              %> (ppSS0 ss1) %% %$ %% 
                           %"}"
-      | Ifs(e,ss1,ss2) => %"if (" %% pp e %% %") {" %%
+      | Ifs(e,ss1,ss2) => %"if " %% par(pp e) %% %" {" %%
                              %> (ppSS0 ss1) %% %$ %% 
                           %"} else {" %% 
                              %> (ppSS0 ss2) %% %$ %%
@@ -270,7 +277,7 @@ structure ILUtil : ILUTIL = struct
       | Ret e => %"return " %% pp e %% %";"
       | Halt s => %"halt(\"" %% %s %% %"\");" %% %$ %% %"return 0;"
       | Printf(s,nil) => %("printf(\"" ^ String.toCString s ^ "\");")
-      | Printf("%DOUBLE",[e]) => %"prDouble(" %% pp e %% %");" 
+      | Printf("%DOUBLE",[e]) => %"prDouble" %% par(pp e) %% %";" 
       | Printf(s,es) => %("printf(\"" ^ String.toCString s ^ "\",") %% pp_es "," es %% %");" 
 
   fun ppSS n ss = ropeToString n (%$ %% ppSS0 ss)
@@ -284,31 +291,56 @@ structure ILUtil : ILUTIL = struct
       in ropeToString 0 r
       end
 
-  fun resTypeBinop binop =
-      case binop of
-        Add => Type.Int
-      | Sub => Type.Int
-      | Mul => Type.Int
-      | Divv => Type.Int
-      | Modv => Type.Int
-      | Resi => Type.Int
-      | Min => Type.Int
-      | Max => Type.Int
-      | Powd => Type.Double
-      | Lt => Type.Bool
-      | Lteq => Type.Bool
-      | Eq => Type.Bool
-      | Andb => Type.Bool
-      | Orb => Type.Bool
-      | Xorb => Type.Bool
+  fun assertEqT s t1 t2 =
+      if t1 = t2 then ()
+      else die ("assertEqT: " ^ s)
 
-  fun resTypeUnop Neg = Type.Int
-    | resTypeUnop I2D = Type.Double
-    | resTypeUnop D2I = Type.Int
-    | resTypeUnop Floor = Type.Int
-    | resTypeUnop Ceil = Type.Int
-    | resTypeUnop B2I = Type.Int
-    | resTypeUnop Not = Type.Bool
+  fun assertIntOrDouble s t =
+      if t = Type.Int orelse t = Type.Double then ()
+      else die ("assertIntOrDouble: " ^ s)
+
+  fun assertIIorDD s t1 t2 =
+      (assertEqT s t1 t2;
+       assertIntOrDouble s t1)
+
+  fun assertBB s t1 t2 =
+      if t1 = t2 andalso t2 = Type.Bool then ()
+      else die ("assertBB: " ^ s)
+
+  fun assertDD s t1 t2 =
+      if t1 = t2 andalso t2 = Type.Double then ()
+      else die ("assertDD: " ^ s)
+
+  fun typeBinop binop t1 t2 =
+      case binop of
+        Add => (assertIIorDD "Add" t1 t2; t1)
+      | Sub => (assertIIorDD "Sub" t1 t2; t1)
+      | Mul => (assertIIorDD "Mul" t1 t2; t1)
+      | Divv => (assertIIorDD "Divv" t1 t2; t1)
+      | Modv => (assertIIorDD "Modv" t1 t2; t1)
+      | Resi => (assertIIorDD "Resi" t1 t2; t1)
+      | Min => (assertIIorDD "Min" t1 t2; t1)
+      | Max => (assertIIorDD "Max" t1 t2; t1)
+      | Powd => (assertDD "Powd" t1 t2; Type.Double)
+      | Lt => (assertIIorDD "Lt" t1 t2; Type.Bool)
+      | Lteq => (assertIIorDD "Lteq" t1 t2; Type.Bool)
+      | Eq => (assertEqT "Eq" t1 t2; Type.Bool)
+      | Andb => (assertBB "Andb" t1 t2; Type.Bool)
+      | Orb => (assertBB "Andb" t1 t2; Type.Bool)
+      | Xorb => (assertBB "Andb" t1 t2; Type.Bool)
+
+  fun assertIorD s t = if t = Type.Int orelse t = Type.Double then () else die ("assertIorD: " ^ s)
+  fun assertI s t = if t = Type.Int then () else die ("assertI: " ^ s)
+  fun assertD s t = if t = Type.Double then () else die ("assertD: " ^ s)
+  fun assertB s t = if t = Type.Bool then () else die ("assertB: " ^ s)
+
+  fun typeUnop Neg t = (assertIorD "Neg" t; t)
+    | typeUnop I2D t = (assertI "I2D" t; Type.Double)
+    | typeUnop D2I t = (assertD "D2I" t; Type.Int)
+    | typeUnop Floor t = (assertD "Floor" t; Type.Int)
+    | typeUnop Ceil t = (assertD "Ceil" t; Type.Int)
+    | typeUnop B2I t = (assertB "B2I" t; Type.Int)
+    | typeUnop Not t = (assertB "Not" t; Type.Bool)
 
   fun typeExp e =
       case e of
@@ -346,6 +378,6 @@ structure ILUtil : ILUTIL = struct
         in if List.all (fn t => t = Type.Int) ts then        t
            else die "TypeExp.Error.Vect: Expecting expressions of type int"
         end
-      | Binop(binop,e1,e2) => resTypeBinop binop
-      | Unop(unop,e) => resTypeUnop unop
+      | Binop(binop,e1,e2) => typeBinop binop (typeExp e1) (typeExp e2)
+      | Unop(unop,e) => typeUnop unop (typeExp e)
 end

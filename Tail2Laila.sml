@@ -101,7 +101,7 @@ val classifyOp : string -> opOpt =
   | "cat" => AA_AM (fn (a1,a2) => L.catenate a1 a2)
   | "catV" => AA_AM (fn (a1,a2) => L.catenate a1 a2)
   | "compress" => AA_AM L.compress
-  | "snoc" => AA_AM (fn (a1,a2) => L.catenate a1 (L.dimincr a2))
+(*  | "snoc" => AA_AM (fn (a1,a2) => L.catenate a1 (L.dimincr a2)) *)
   | "cons" => AA_AM (fn (a1,a2) => L.catenate (L.dimincr a1) a2)
   | "shape" => A_A (L.vec o L.shape)
   | "first" => A_SM L.first
@@ -143,9 +143,9 @@ fun extendE (nil,nil,E) = E
   | extendE (v::vs,x::xs,E) = extendE (vs,xs,FM.add(v,x,E))
   | extendE _ = die "extendE"
 
-fun mklet lt (A a) = L.letm a >>= (L.ret o A)
-  | mklet lt (S s) = L.lett lt s >>= (L.ret o S)
-  | mklet _ _ = die "mklet expects array or scalar"
+fun mklet (A a) = L.letm a >>= (L.ret o A)
+  | mklet (S s) = L.lett s >>= (L.ret o S)
+  | mklet _ = die "mklet expects array or scalar"
 
 fun ltypeOf t =
     case TY.unArr' t of
@@ -166,10 +166,12 @@ fun comp (E:env) (e : E.exp) (k: lexp -> lexp L.M) : lexp L.M =
            (case FM.lookup E v of
                 SOME e => k e
               | NONE => die ("comp: identifier " ^ qq v ^ " not in environment"))
-         | E.Vc(es,t) => comps compS E es (fn v => kA $ L.vec $ L.fromList (ltypeOf t) v)
+         | E.Vc(es,t) => comps compS E es (fn vs => 
+                         L.fromListM (ltypeOf t) vs >>= (fn v =>
+                         kA $ L.vec $ v))
          | E.Let(v,tv,e1,e2,t) => 
            comp E e1 (fn e1 => 
-           mklet (ltypeOf tv) e1 >>= (fn x => 
+           mklet e1 >>= (fn x => 
            comp (FM.add(v,x,E)) e2 k))
          | E.Fn(v,tv,e,t) =>
            let val (vs,e) = fnExtract e
@@ -216,8 +218,9 @@ fun comp (E:env) (e : E.exp) (k: lexp -> lexp L.M) : lexp L.M =
            L.catenate a (L.vec(L.fromList(ltypeOf t)[x])) >>= kA))
          | E.Op("snoc",[a,x], t) =>
            compA E a (fn a =>
-           compA E x (fn x =>
-           L.catenate a (L.dimincr x) >>= kA))
+           comp E x (fn A x => L.catenate a (L.dimincr x) >>= kA
+                      | S x => L.catenate a (L.vec(L.fromList(ltypeOf t)[x])) >>= kA
+                      | _ => die "snoc"))
          | E.Op("consV",[x,a], t) =>
            compS E x (fn x =>
            compA E a (fn a =>
@@ -250,7 +253,7 @@ and unS s = fn S s => s | _ => die ("unS: " ^ s)
 and unA s = fn A a => a | _ => die ("unA: " ^ s)
 and compS E e k = comp E e (k o unS "compS")
 and compA E (e : E.exp) (k: L.m -> lexp L.M) : lexp L.M =
-    comp E e (fn A a => k a | _ => die "compA")
+    comp E e (fn A a => k a | _ => die ("compA; e = " ^ T.pp_exp true e))
 and compV E (e : E.exp) (k: int list -> lexp L.M) : lexp L.M =
     case e of
         E.Vc(xs,_) => k(List.map (fn E.I x => x
