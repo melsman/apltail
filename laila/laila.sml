@@ -29,10 +29,12 @@ open Type
 type INT     = t
 type DOUBLE  = t
 type BOOL    = t
+type CHAR    = t
 
 val I : Int32.int -> INT = P.I
 val D : real -> DOUBLE = P.D
 val B : bool -> BOOL = P.B
+val C : word -> CHAR = P.C
 
 fun uncurry f (x,y) = f x y
 
@@ -96,13 +98,6 @@ local open P
 in
   fun map ty f (V(_,n,g)) = V(ty, n, fn i => g i >>= f)
 
-(*
-  fun stride t (V(ty,m,g)) = 
-      let val n = max (I 1) t
-      in V(ty, divi(m,n), fn i => g(muli(n,i)))
-      end
-*)
-
   fun map2unsafe ty f (V(_,n1,f1)) (V(_,n2,f2)) =  (* assumes n1=n2 *)
       V(ty, n1, fn i => f1 i >>= (fn v1 => f2 i >>= (fn v2 => f(v1,v2))))
 
@@ -121,6 +116,7 @@ in
         if t = Int then I 0
         else if t = Double then D 0.0
         else if t = Bool then B false
+        else if t = Char then C 0w32
         else die ("proto: unsupported type " ^ prType t)
 
   fun dummy_exp t =
@@ -160,6 +156,13 @@ val gtei  : INT * INT -> BOOL = P.gtei
 val eqi   : INT * INT -> BOOL = P.eqi
 val neqi  : INT * INT -> BOOL = P.neqi
 
+val ori   : INT * INT -> INT = P.ori
+val andi  : INT * INT -> INT = P.andi
+val xori  : INT * INT -> INT = P.xori
+val shli  : INT * INT -> INT = P.shli
+val shri  : INT * INT -> INT = P.shri
+val shari : INT * INT -> INT = P.shari
+
 val addd  : DOUBLE * DOUBLE -> DOUBLE = P.addd
 val subd  : DOUBLE * DOUBLE -> DOUBLE = P.subd
 val muld  : DOUBLE * DOUBLE -> DOUBLE = P.muld
@@ -174,15 +177,23 @@ val maxd  : DOUBLE * DOUBLE -> DOUBLE = P.maxd
 val mind  : DOUBLE * DOUBLE -> DOUBLE = P.mind
 val powd  : DOUBLE * DOUBLE -> DOUBLE = P.powd
 val negd  : DOUBLE -> DOUBLE = P.negd
+val ln    : DOUBLE -> DOUBLE = P.ln
+val sin   : DOUBLE -> DOUBLE = P.sin
+val cos   : DOUBLE -> DOUBLE = P.cos
+val tan   : DOUBLE -> DOUBLE = P.tan
 val floor : DOUBLE -> INT = P.floor
 val ceil  : DOUBLE -> INT = P.ceil
+val pi    : DOUBLE = D Math.pi
+val roll  : INT -> DOUBLE = P.roll
 
-val eqb     : BOOL * BOOL -> BOOL = P.eqb
-val neqb    : BOOL * BOOL -> BOOL = P.neqb
-val andb    : BOOL * BOOL -> BOOL = P.andb
-val orb     : BOOL * BOOL -> BOOL = P.orb
-val xorb    : BOOL * BOOL -> BOOL = P.xorb
-val notb    : BOOL -> BOOL = P.notb
+val eqc   : CHAR * CHAR -> BOOL = P.eqc
+
+val eqb   : BOOL * BOOL -> BOOL = P.eqb
+val neqb  : BOOL * BOOL -> BOOL = P.neqb
+val andb  : BOOL * BOOL -> BOOL = P.andb
+val orb   : BOOL * BOOL -> BOOL = P.orb
+val xorb  : BOOL * BOOL -> BOOL = P.xorb
+val notb  : BOOL -> BOOL = P.notb
 
 val i2d  : INT -> DOUBLE = P.i2d
 val d2i  : DOUBLE -> INT = P.d2i
@@ -396,12 +407,6 @@ fun concat v1 v2 =
 
   fun tyOfV (V(ty,_,_)) = ty
 
-(*
-  fun merge v n t =
-      concat (tk (subi(n,I 1)) v)
-      (concat (single (tyOfV v) t) (dr (addi(n,I 1)) v))
-*)
-
   fun lprod nil = I 1
     | lprod (x::xs) = muli(x,lprod xs)
   
@@ -509,6 +514,31 @@ fun concat v1 v2 =
          end)
       end
 
+  fun absi x = If(lti(x, I 0), negi x, x)
+  fun absd x = If(ltd(x, D 0.0), negd x, x)
+
+  fun repl def iv v =
+      let val V(_,n,f) = iv
+          val V(ty,m,g) = v
+      in foldl (ret o addi) (I 0) (map Int (ret o absi) iv) >>= (fn sz =>
+         let open P
+             val tyv = Type.Vec ty
+             val name = Name.new tyv
+             val count = Name.new Type.Int
+             fun ssT ss = Decl(name, SOME(Alloc(tyv,sz))) ::
+                          Decl(count, SOME(I 0)) ::
+                          For(n, fn i => runMss(f i)(fn r =>
+                            runMss(g i)(fn v =>
+                              For(r, fn _ =>              (* MEMO: if r < 0 we should output ~r def elements *)
+                                [(name, $count) ::= v,
+                                 count := addi($count,I 1)])
+                              [])))
+                          ss
+         in (V(ty,sz,fn i => ret(Subs(name,i))),
+             ssT)
+         end)
+      end
+
   fun extend n (V(ty,m,f)) =
       Ifv(eqi(m,I 0), V(ty,n, fn _ => ret (proto ty)), V(ty,n,f o (fn i => P.modi(i, m))))
 
@@ -534,12 +564,9 @@ fun concat v1 v2 =
      ; print ("Wrote file " ^ ofile ^ "\n")
     end
 
-(* fun resi(x,y) = If(eqi(x,I 0), y, modi(y,x)) *)
-fun resd(x,y) = die "resd not yet supported"
-
+fun resd (x,y) = die "resd not yet supported"
 fun signi x = If(lti(x,I 0),I ~1,I 1)
 fun signd x = If(ltd(x,D 0.0),I ~1,I 1)
-fun absi x = If(lti(x, I 0), negi x, x)
 
 structure Shape : sig
   type t = v
@@ -734,6 +761,12 @@ fun compress (A(sh_is,vs_is), A(sh_vs,vs_vs)) =
      compr vs_is vs_vs >>= (fn vs =>
      ret (A (Shape.single(length vs),vs))))
 
+fun replicate (def,A(sh_is,vs_is), A(sh_vs,vs_vs)) =
+    (assert_length "rank of integer array argument to replicate must be 1" 1 sh_is;
+     assert_length "rank of source array argument to replicate must be 1" 1 sh_vs;
+     repl def vs_is vs_vs >>= (fn vs =>
+     ret (A (Shape.single(length vs),vs))))
+
 fun vreverse (a as A(sh,V(ty,sz,f))) =
     getShapeV "vreverse" sh >>= 
       (fn [] => ret a
@@ -761,29 +794,6 @@ fun vrotate n (a as A(sh, v0 as V(ty,sz,f))) =
              in ret(A(sh,v))
              end)
           end)))
-
-(*
-fun materializeA (A(sh,vs)) =
-    materializeWithName sh >>= (fn (sh,name_sh) =>
-    materializeWithName vs >>= (fn (vs,name_vs) =>
-    ret (A(sh,vs), name_sh, name_vs)))
-
-fun power (f: m -> m M) (n: INT) (a: m) : m M =
-    let open P
-    in materializeA a >>= (fn (a, name_sh, name_vs) =>
-       let val body = f a >>= (fn r =>
-                      materializeA r >>= (fn (r', name_sh', name_vs') =>
-                      (I 0, fn ss => [Free name_sh, 
-                                      Free name_vs,
-                                      name_sh := $name_sh',
-                                      name_vs := $name_vs'] @ ss)))
-       in lett n >>= (fn n =>
-          (a,
-           fn ss => P.For(n, fn _ => runMss body (fn (v : t) => []))
-                         ss))
-       end)
-    end
-*)
 
 fun letts nil = ret (nil,nil)
   | letts (x::xs) = lettWithName x >>= (fn (e,n) => letts xs >>= (fn (es,ns) => ret (e::es,n::ns)))
@@ -822,6 +832,7 @@ fun powerScl (f: t -> t M) (n: INT) (a: t) : t M =
            
 fun fmtOfTy ty =
     if ty = Int orelse ty = Bool then "%d"
+    else if ty = Char then "%c"
     else if ty = Double then "%DOUBLE"     (* IL pretty printer will substitute the printf with a call to prDouble, defined in apl.h *)
     else die "fmtOfTy.type not supported"
 
@@ -848,16 +859,23 @@ fun prVec thestart theend (V dat) =
    prSeq "," dat >>= (fn _ =>
    printf(theend,[])))
 
-fun prAr sh vs =
-    prVec "[" "]" sh >>= (fn _ =>
-    prVec "(" ")" vs)
+fun prAr (sh as V(_,rank,_)) (vs as V dat) =
+    let fun def() = prVec "[" "]" sh >>= (fn _ => prVec "(" ")" vs)
+    in case P.unI rank of
+           SOME 1 => if #1 dat = Char then prSeq "" dat
+                     else def()
+         | _ => def()
+    end
 
-fun prMat N M sep (V(ty,_,f)) =
+fun sepOfTy ty =
+    if ty = Char then "" else " "
+
+fun prMat N M (V(ty,_,f)) =
     let fun prRow M j =
             lett (muli(j,M)) >>= (fn k =>
             let val vec = (ty,M,fn x => f(addi(x,k)))
             in printf(" ",[]) >>= (fn _ =>
-               prSeq " " vec >>= (fn _ =>
+               prSeq (sepOfTy ty) vec >>= (fn _ =>
                printf("\n",[])))
             end)
         fun ssT N M ss = 
@@ -875,10 +893,9 @@ fun prArr (a as A(sh,vs)) =
     in ifM Int (andb(eqi(len,I 2),gti(szOf vs,I 0)),
                 fst sh >>= (fn N =>
                 snd sh >>= (fn M =>
-                prMat N M " " vs)),
+                prMat N M vs)),
                 prAr sh vs) >>= (fn _ =>
        printf("\n",[]))
     end
-    
 
 end

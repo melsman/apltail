@@ -60,6 +60,13 @@ val classifyOp : string -> opOpt =
   | "neqi" => SS_S L.neqi
   | "negi" => S_S L.negi 
   | "signi" => S_S L.signi 
+  | "absi" => S_S L.absi 
+  | "ori" => SS_S L.ori
+  | "andi" => SS_S L.andi
+  | "xori" => SS_S L.xori
+  | "shli" => SS_S L.shli
+  | "shri" => SS_S L.shri
+  | "shari" => SS_S L.shari
   | "addd" => SS_S L.addd
   | "subd" => SS_S L.subd
   | "muld" => SS_S L.muld
@@ -76,8 +83,15 @@ val classifyOp : string -> opOpt =
   | "neqd" => SS_S L.neqd
   | "negd" => S_S L.negd 
   | "signd" => S_S L.signd
-  | "floor" => S_S L.floor
+  | "absd" => S_S L.absd
   | "ceil" => S_S L.ceil
+  | "floor" => S_S L.floor
+  | "ln" => S_S L.ln
+  | "sin" => S_S L.sin
+  | "cos" => S_S L.cos
+  | "tan" => S_S L.tan
+  | "roll" => S_S L.roll
+  | "eqc" => SS_S L.eqc
   | "eqb" => SS_S L.eqb
   | "neqb" => SS_S (L.notb o L.eqb)
   | "andb" => SS_S L.andb
@@ -88,6 +102,7 @@ val classifyOp : string -> opOpt =
   | "notb" => S_S L.notb
   | "i2d" => S_S L.i2d
   | "b2i" => S_S L.b2i
+  | "b2iV" => S_S L.b2i
   | "iotaV" => S_A L.iota
   | "iota" => S_A L.iota
   | "transp" => A_AM L.transpose
@@ -101,10 +116,10 @@ val classifyOp : string -> opOpt =
   | "cat" => AA_AM (fn (a1,a2) => L.catenate a1 a2)
   | "catV" => AA_AM (fn (a1,a2) => L.catenate a1 a2)
   | "compress" => AA_AM L.compress
-(*  | "snoc" => AA_AM (fn (a1,a2) => L.catenate a1 (L.dimincr a2)) *)
-  | "cons" => AA_AM (fn (a1,a2) => L.catenate (L.dimincr a1) a2)
   | "shape" => A_A (L.vec o L.shape)
+  | "shapeV" => A_A (L.vec o L.shape)
   | "first" => A_SM L.first
+  | "firstV" => A_SM L.first
   | "vreverseV" => A_AM L.vreverse
   | "vreverse" => A_AM L.vreverse
   | "prSclI" => S_SM (fn t => L.printf("[](%d)\n",[t]) >>= (fn _ => ret t))
@@ -112,9 +127,11 @@ val classifyOp : string -> opOpt =
   | "prSclD" => S_SM (fn t => L.printf("[](",[]) >>= (fn _ =>
                               L.printf("%DOUBLE",[t]) >>= (fn _ =>
                               L.printf(")\n",[]) >>= (fn _ => ret t))))
+  | "prSclC" => S_SM (fn t => L.printf("[](%c)\n",[t]) >>= (fn _ => ret t))
   | "prArrI" => A_AM (fn a => L.prArr a >>= (fn _ => ret a))
   | "prArrB" => A_AM (fn a => L.prArr a >>= (fn _ => ret a))
   | "prArrD" => A_AM (fn a => L.prArr a >>= (fn _ => ret a))
+  | "prArrC" => A_AM (fn a => L.prArr a >>= (fn _ => ret a))
   | "rav" => A_A L.rav
   | _ => NOTOP
 
@@ -152,7 +169,8 @@ fun ltypeOf t =
         SOME (bt,_) => if TY.isInt bt then L.Int
                        else if TY.isDouble bt then L.Double
                        else if TY.isBool bt then L.Bool
-                       else die "ltypeOf.supports only arrays of type int, bool, or double"
+                       else if TY.isChar bt then L.Char
+                       else die "ltypeOf.supports only arrays of type int, bool, char, or double"
       | NONE => die "ltypeOf.supports only arrays"
 
 fun comp (E:env) (e : E.exp) (k: lexp -> lexp L.M) : lexp L.M =
@@ -162,6 +180,7 @@ fun comp (E:env) (e : E.exp) (k: lexp -> lexp L.M) : lexp L.M =
            E.I i => kS $ L.I i
          | E.D d => kS $ L.D d
          | E.B b => kS $ L.B b
+         | E.C c => kS $ L.C c
          | E.Var(v,t) => 
            (case FM.lookup E v of
                 SOME e => k e
@@ -201,6 +220,10 @@ fun comp (E:env) (e : E.exp) (k: lexp -> lexp L.M) : lexp L.M =
             let val f = fn (x,y) => f [S x,S y] >>= (L.ret o unS "reduce")
             in L.reduce f n a S A >>= k
             end))))
+         | E.Op("replicate", [d,r,a], t) =>
+           (compS E d (fn d =>
+            compA E r (fn r =>
+            compA E a (fn a => L.replicate (d, r, a) >>= kA))))
          | E.Op("zipWith", [f,a1,a2], t) =>
            (compFN E f (fn f =>
             compA E a1 (fn a1 =>
@@ -225,7 +248,13 @@ fun comp (E:env) (e : E.exp) (k: lexp -> lexp L.M) : lexp L.M =
            compS E x (fn x =>
            compA E a (fn a =>
            L.catenate (L.vec(L.fromList(ltypeOf t)[x])) a >>= kA))
+         | E.Op("cons",[x,a], t) =>
+           compA E a (fn a =>
+           comp E x (fn A x => L.catenate (L.dimincr x) a >>= kA
+                      | S x => L.catenate (L.vec(L.fromList(ltypeOf t)[x])) a >>= kA
+                      | _ => die "cons"))
          | E.Op("zilde",[], t) => kA(L.zilde(ltypeOf t))
+         | E.Op("pi",[], t) => kS L.pi
          | E.Op(opr,es,_) =>
            (case classifyOp opr of
                 SS_S opr => compP compS compS E es (kS o opr)
@@ -241,7 +270,6 @@ fun comp (E:env) (e : E.exp) (k: lexp -> lexp L.M) : lexp L.M =
               | AA_AM opr => compP compA compA E es (fn p => opr p >>= kA)
               | VA_AM opr => compP compV compA E es (fn p => opr p >>= kA)
               | NOTOP => die ("comp: operator " ^ qq opr ^ " not supported"))
-      | _ => die "comp: expression not supported"
     end
 and comp_each E f a t k =
     compFN E f (fn f =>

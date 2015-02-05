@@ -2,6 +2,8 @@ N ← 20
 sh ← 2 (3×N)
 G ← ⍉ sh ⍴((3/N)/0 1 2),(3×N)⍴⍳N
 
+G ← ⌈ G ÷ 3
+
 ⎕ ← G
 
 ⍝ compress boolean

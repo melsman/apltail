@@ -3,6 +3,7 @@ signature TYPE = sig
   val Int      : T
   val Double   : T
   val Bool     : T
+  val Char     : T
   val Vec      : T -> T
   val prType   : T -> string
   val vecElem  : T -> T    (* may fail *)

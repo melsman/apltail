@@ -508,7 +508,7 @@ fun pp_exp (prtype:bool) e =
               | D r => $(Real.fmt (StringCvt.FIX (SOME 2)) r)
               | B true => $"tt"
               | B false => $"ff"
-              | C w => $(pr_char w)
+              | C w => $("'" ^ pr_char w ^ "'")
               | Iff (c,e1,e2,_) => 
                 let val i' = i + 2
                 in $"if " @@ pp (i+3) c @@ $" then" @@

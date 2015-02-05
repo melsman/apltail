@@ -75,9 +75,12 @@ CTESTS=test test1 test2 test3 test4 test5 test6 test7 test9 test10 \
        compress primes cons boolean innerLegrand5.3 quadassign \
        opr1 opr2 opr3 fun2 take drop vrev vrot rot rotfirst first powscl \
        vec zfunc ceilfloormaxmin easter eacheaster else \
-       innerproduct sign mean powmat life pow fib10
-#      replicate pow repl chars sierpinski0 shape ln circ timespi blackscholes pi readfile \
-#      readintvecfile tax dtransp abcd idx tup binaryops
+       innerproduct sign mean powmat life pow fib10 timespi ln \
+       chars pow repl replicate shape tup circ abcd dtransp tax binaryops \
+       pi blackscholes
+
+#      sierpinski0  readfile \
+#      readintvecfile idx
 
 CRESFILES=$(CTESTS:%=%.resc)
 
@@ -93,7 +96,7 @@ c/%.c: %.apl Makefile
 	../aplt -c -oc $@ ../prelude.apl $<
 
 c/%.exe: c/%.c
-	gcc --std=c99 -o $@ $<
+	gcc --std=c99 -O3 -o $@ $<
 
 %.outc: c/%.exe
 	$< > $@

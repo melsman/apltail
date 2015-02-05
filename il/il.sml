@@ -2,7 +2,7 @@ structure IL = struct
 
 fun die s = raise Fail ("IL." ^ s)
 
-datatype Type = Int | Double | Bool | Vec of Type
+datatype Type = Int | Double | Bool | Char | Vec of Type
 
 structure Name : sig
   eqtype t
@@ -18,6 +18,7 @@ struct
   fun prefix Int = "n"
     | prefix Double = "d"
     | prefix Bool = "b"
+    | prefix Char = "c"
     | prefix (Vec _) = "a"
   fun new0 b t = (prefix t ^ (if b then "i" else "") ^ Int.toString(!count) before count := !count + 1, t, b)
   fun new t = new0 false t
@@ -33,15 +34,17 @@ structure NameSet = OrderSet(struct type t = Name.t
 datatype Value =
          IntV of int
        | DoubleV of real
-       | BoolV of bool                  
+       | BoolV of bool
+       | CharV of word
        | ArrV of Value option ref vector
-datatype Unop = Neg | I2D | D2I | B2I | Not | Floor | Ceil
-datatype Binop = Add | Sub | Mul | Divv | Modv | Resi | Min | Max | Lt | Lteq | Eq | Andb | Orb | Xorb | Powd
+datatype Unop = Neg | I2D | D2I | B2I | Not | Floor | Ceil | Ln | Sin | Cos | Tan | Roll
+datatype Binop = Add | Sub | Mul | Divv | Modv | Resi | Min | Max | Lt | Lteq | Eq | Andb | Orb | Xorb | Powd | Ori | Andi | Xori | Shli | Shri | Shari
 datatype Exp =
          Var of Name.t
        | I of Int32.int
        | D of real
        | T | F
+       | C of word
        | If of Exp * Exp * Exp
        | Subs of Name.t * Exp
        | Alloc of Type * Exp
@@ -76,6 +79,7 @@ fun eq(e1,e2) =
     | (D d1, D d2) => Real.==(d1, d2)
     | (T,T) => true
     | (F,F) => true
+    | (C w1, C w2) => w1 = w2
     | (If(a1,a2,a3), If(b1,b2,b3)) => eq(a1,b1) andalso eq(a2,b2) andalso eq(a3,b3)
     | (Subs(n1,a),Subs(n2,b)) => n1=n2 andalso eq(a,b)
     | (Alloc(t1,a),Alloc(t2,b)) => t1 = t2 andalso eq(a,b)
@@ -111,10 +115,12 @@ structure Type : TYPE = struct
   val Int = IL.Int
   val Double = IL.Double
   val Bool = IL.Bool
+  val Char = IL.Char
   val Vec = IL.Vec
   fun prType IL.Int = "int"
     | prType IL.Double = "double"
     | prType IL.Bool = "bool"
+    | prType IL.Char = "char"
     | prType (IL.Vec t) = prType t ^ "*"
   fun vecElem (IL.Vec t) = t
     | vecElem t = raise Fail ("vecElem: Expecting vector type - got " ^ prType t)
@@ -139,6 +145,7 @@ signature PROGRAM = sig
   val I     : int -> e
   val D     : real -> e
   val B     : bool -> e
+  val C     : word -> e
   val If    : e * e * e -> e
 
   val addi  : e * e -> e   (* interger operations *)
@@ -155,6 +162,12 @@ signature PROGRAM = sig
   val maxi  : e * e -> e
   val mini  : e * e -> e
   val resi  : e * e -> e
+  val ori   : e * e -> e
+  val andi  : e * e -> e
+  val xori  : e * e -> e
+  val shli  : e * e -> e
+  val shri  : e * e -> e
+  val shari : e * e -> e
   val negi  : e -> e
 
   val addd  : e * e -> e  (* double operations *)
@@ -172,6 +185,8 @@ signature PROGRAM = sig
   val mind  : e * e -> e
   val negd  : e -> e
 
+  val eqc   : e * e -> e
+
   val orb   : e * e -> e   (* boolean operations *)
   val andb  : e * e -> e
   val xorb  : e * e -> e
@@ -183,10 +198,16 @@ signature PROGRAM = sig
   val b2i   : e -> e
   val ceil  : e -> e
   val floor : e -> e
+  val ln    : e -> e
+  val sin   : e -> e
+  val cos   : e -> e
+  val tan   : e -> e
   val max   : e -> e -> e
   val min   : e -> e -> e
   val powd  : e * e -> e
   val notb  : e -> e
+  val roll  : e -> e
+
   val unI   : e -> int option
   val unD   : e -> real option
 
@@ -237,6 +258,7 @@ in
        | D _ => true
        | T => true
        | F => true
+       | C _ => true
        | If(e0,e1,e2) => closed e0 andalso closed e1 andalso closed e2
        | Subs _ => false
        | Alloc (_,e) => closed e
@@ -256,6 +278,7 @@ in
         | D _ => true
         | T => true
         | F => true
+        | C _ => true
         | _ => false
 
   structure N = NameSet
@@ -266,6 +289,7 @@ in
        | D _ => acc
        | T => acc
        | F => acc
+       | C _ => acc
        | If(e0,e1,e2) => uses e0 (uses e1 (uses e2 acc))
        | Subs (n,e) => uses e (N.insert (acc,n))
        | Alloc (_,e) => uses e acc
@@ -359,6 +383,7 @@ in
         (IL.T,IL.F) => true
       | (IL.I x,IL.I y) => x <> y
       | (IL.D x,IL.D y) => Bool.not(Real.==(x,y))
+      | (IL.C x,IL.C y) => x <> y
       | _ => false
 
   fun If(IL.T,b,c) = b
@@ -389,6 +414,7 @@ in
   fun unI (IL.I n) = SOME n
     | unI _ = NONE
   fun D n = IL.D n
+  fun C c = IL.C c
   fun unD (IL.D n) = SOME n
     | unD _ = NONE
   fun B true = T
@@ -442,14 +468,14 @@ in
     | (Binop(Add,IL.I a,b)) - (IL.I c) = I (Int32.-(a,c)) + b
     | a        - b        = comp Sub a b
 
-  and (IL.I 0)              + b       = b
-    | a                     + (IL.I 0) = a
-    | (IL.I a)              + (IL.I b) = I(Int32.+(a,b))
-    | (IL.D a)              + (IL.D b) = D(Real.+(a,b))
-    | (Binop(Sub,a,IL.I b)) + (IL.I c) = let val d = Int32.-(c,b)
-                                         in if d > 0 then a + (I d)
-                                            else a - I (~d)
-                                         end
+  and (IL.I 0)              + b          = b
+    | a                     + (IL.I 0)   = a
+    | (IL.I a)              + (IL.I b)   = I(Int32.+(a,b))
+    | (IL.D a)              + (IL.D b)   = D(Real.+(a,b))
+    | (Binop(Sub,a,IL.I b)) + (IL.I c)   = let val d = Int32.-(c,b)
+                                           in if d > 0 then a + (I d)
+                                              else a - I (~d)
+                                           end
     | (Binop(Sub,IL.I a,b)) + (IL.I c) = I(Int32.+(a,c)) - b
     | (Binop(Add,x,IL.I a)) + (IL.I b) = x + I (Int32.+(a,b))
     | (Binop(Add,IL.I a,x)) + (IL.I b) = x + I (Int32.+(a,b))
@@ -459,7 +485,13 @@ in
     | (IL.I a)              + (IL.If(x,y,z)) = If(x,y+(I a),z+(I a))
     | (a as IL.If(e,x,y))   + (b as IL.If(e',x',y')) = if eq(e,e') then If(e,x+x',y+y')
                                                        else comp Add a b
-    | a                    + b         = comp Add a b
+    | a                     + b         =
+      case (a,b) of
+          (IL.D r, _) => if Real.==(r,0.0) then b
+                         else comp Add a b
+        | (_, IL.D r) => if Real.==(r,0.0) then a
+                         else comp Add a b
+        | _ => comp Add a b
 
   fun (IL.I a) * (IL.I b) = I(Int32.*(a,b))
     | (IL.D a) * (IL.D b) = D(Real.*(a,b))
@@ -506,6 +538,11 @@ in
   fun powd (a,b) = Binop(Powd,a,b)
   fun ceil a = Unop(Ceil,a)
   fun floor a = Unop(Floor,a)
+  fun ln a = Unop(Ln,a)
+  fun sin a = Unop(Sin,a)
+  fun cos a = Unop(Cos,a)
+  fun tan a = Unop(Tan,a)
+  fun roll a = Unop(Roll,a)
 
   fun andb (a,b) =
       case (a,b) of
@@ -524,9 +561,16 @@ in
 
   fun xorb (a,b) = Binop(Xorb,a,b)
   fun resi (a,b) = Binop(Resi,a,b)
+  fun ori (a,b) = Binop(Ori,a,b)
+  fun andi (a,b) = Binop(Andi,a,b)
+  fun xori (a,b) = Binop(Xori,a,b)
+  fun shli (a,b) = Binop(Shli,a,b)
+  fun shri (a,b) = Binop(Shri,a,b)
+  fun shari (a,b) = Binop(Shari,a,b)
 
   fun (IL.I a) < (IL.I b) = B(Int32.<(a,b))
     | (IL.D a) < (IL.D b) = B(Real.<(a,b))
+    | (IL.C a) < (IL.C b) = B(Word.<(a,b))
     | (IL.Binop(Sub,IL.I a,b)) < (IL.I c) = I(Int32.-(a,c)) < b
     | (IL.Binop(Sub,a,IL.I b)) < (IL.I c) = a < I(Int32.+(b,c))
     | (IL.Binop(Add,IL.I a,b)) < (IL.I c) = b < I(Int32.-(c,a))
@@ -535,6 +579,7 @@ in
 
   fun (IL.I a) <= (IL.I b) = B(Int32.<=(a,b))
     | (IL.D a) <= (IL.D b) = B(Real.<=(a,b))
+    | (IL.C a) <= (IL.C b) = B(Word.<=(a,b))
     | a <= b = Binop(Lteq,a,b)
 
   fun notb IL.T = B false
@@ -544,6 +589,7 @@ in
   infix ==
   fun (IL.I a) == (IL.I b) = B(a=b)
     | (IL.D a) == (IL.D b) = B(Real.==(a,b))
+    | (IL.C a) == (IL.C b) = B(a=b)
     | IL.T == b = b
     | a == IL.T = a
     | (Binop(Mul,IL.I 2,_)) == (IL.I 1) = IL.F
@@ -603,6 +649,9 @@ in
   val mind = fn (x,y) => min x y
   val maxd = fn (x,y) => max x y
   val negd = ~
+
+  val eqc = op ==
+
   val eqb = op ==
   val neqb = op <>
 
@@ -611,7 +660,9 @@ in
         IL.I c => D (real c)
       | _ => Unop(I2D,e)
   fun d2i e = Unop(D2I,e)
-  fun b2i e = Unop(B2I,e)
+  fun b2i IL.T = I 1
+    | b2i IL.F = I 0
+    | b2i e = Unop(B2I,e)
 end
 fun Subs(n,e) = IL.Subs(n,e)
 val Alloc = IL.Alloc
@@ -793,6 +844,7 @@ fun se_e (E:env) (e:e) : e =
                                         | NONE => $n)
     | IL.I i => I i
     | IL.D d => D d
+    | IL.C c => C c
     | IL.T => B true
     | IL.F => B false
     | IL.If(e0,e1,e2) => If(se_e E e0, se_e E e1, se_e E e2)
@@ -817,6 +869,12 @@ fun se_e (E:env) (e:e) : e =
     | IL.Binop(IL.Lteq,e1,e2) => (se_e E e1) <= (se_e E e2)
     | IL.Binop(IL.Eq,e1,e2) => (se_e E e1) == (se_e E e2)
     | IL.Binop(IL.Resi,e1,e2) => resi(se_e E e1, se_e E e2)
+    | IL.Binop(IL.Ori,e1,e2) => ori(se_e E e1, se_e E e2)
+    | IL.Binop(IL.Andi,e1,e2) => andi(se_e E e1, se_e E e2)
+    | IL.Binop(IL.Xori,e1,e2) => xori(se_e E e1, se_e E e2)
+    | IL.Binop(IL.Shli,e1,e2) => shli(se_e E e1, se_e E e2)
+    | IL.Binop(IL.Shri,e1,e2) => shri(se_e E e1, se_e E e2)
+    | IL.Binop(IL.Shari,e1,e2) => shari(se_e E e1, se_e E e2)
     | IL.Binop(IL.Andb,e1,e2) => andb(se_e E e1, se_e E e2)
     | IL.Binop(IL.Orb,e1,e2) => orb(se_e E e1, se_e E e2)
     | IL.Binop(IL.Xorb,e1,e2) => xorb(se_e E e1, se_e E e2)
@@ -825,6 +883,11 @@ fun se_e (E:env) (e:e) : e =
     | IL.Unop(IL.D2I,e1) => d2i (se_e E e1)
     | IL.Unop(IL.Ceil,e1) => ceil (se_e E e1)
     | IL.Unop(IL.Floor,e1) => floor (se_e E e1)
+    | IL.Unop(IL.Ln,e1) => ln (se_e E e1)
+    | IL.Unop(IL.Sin,e1) => sin (se_e E e1)
+    | IL.Unop(IL.Cos,e1) => cos (se_e E e1)
+    | IL.Unop(IL.Tan,e1) => tan (se_e E e1)
+    | IL.Unop(IL.Roll,e1) => roll (se_e E e1)
     | IL.Unop(IL.B2I,e1) => b2i (se_e E e1)
     | IL.Unop(IL.Not,e1) => notb(se_e E e1)
 

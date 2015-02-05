@@ -7,11 +7,18 @@
 // Some abbreviations
 // ------------------
 
+#define ori(x,y) (int)(((unsigned int)(x))|((unsigned int)(y)))
+#define andi(x,y) (int)(((unsigned int)(x))&((unsigned int)(y)))
+#define xori(x,y) (int)(((unsigned int)(x))^((unsigned int)(y)))
+#define shli(x,y) (int)(((unsigned int)(x))<<((unsigned int)(y)))
+#define shri(x,y) (int)(((unsigned int)(x))>>((unsigned int)(y)))
+#define shari(x,y) (int)(((int)(x))>>((unsigned int)(y)))
 #define max(x,y) (((x) > (y)) ? (x) : (y))
 #define min(x,y) (((x) < (y)) ? (x) : (y))
 #define i2d(x) ((double)x)
 #define d2i(x) ((int)x)
 #define b2i(x) ((x)?1:0)
+#define ln(x)  (log(x))
 #define true 1
 #define false 0
 #define bool int
@@ -77,6 +84,20 @@ static int floori(double x) {
 
 static int ceili(double x) {
   return (int)ceil(x);
+}
+
+// ------------------------------
+// Roll function
+// ------------------------------
+
+static double roll (int x) {
+  int i = rand();
+  double r = ((double)i)/((double)RAND_MAX);
+  if (x == 0) {
+    return r;
+  }
+  int y = (int)(x * r);
+  return (double)y;
 }
 
 // -----------------

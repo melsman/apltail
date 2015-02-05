@@ -13,6 +13,7 @@ signature LAILA = sig
   val I        : Int32.int -> t
   val D        : real -> t
   val B        : bool -> t
+  val C        : word -> t
   val i2d      : t -> t
   val b2i      : t -> t
   val If       : t * t * t -> t
@@ -45,6 +46,7 @@ signature LAILA = sig
   type INT = t
   type DOUBLE = t
   type BOOL = t
+  type CHAR = t
 
   val assert   : string -> BOOL -> 'a M -> 'a M
 
@@ -63,6 +65,14 @@ signature LAILA = sig
   val neqi    : INT * INT -> BOOL
   val negi    : INT -> INT
   val signi   : INT -> INT
+  val absi    : INT -> INT
+
+  val ori     : INT * INT -> INT
+  val andi    : INT * INT -> INT
+  val xori    : INT * INT -> INT
+  val shli    : INT * INT -> INT
+  val shri    : INT * INT -> INT
+  val shari   : INT * INT -> INT
 
   val addd    : DOUBLE * DOUBLE -> DOUBLE
   val subd    : DOUBLE * DOUBLE -> DOUBLE
@@ -79,9 +89,18 @@ signature LAILA = sig
   val eqd     : DOUBLE * DOUBLE -> BOOL
   val neqd    : DOUBLE * DOUBLE -> BOOL
   val negd    : DOUBLE -> DOUBLE
+  val absd    : DOUBLE -> DOUBLE
+  val ln      : DOUBLE -> DOUBLE
+  val sin     : DOUBLE -> DOUBLE
+  val cos     : DOUBLE -> DOUBLE
+  val tan     : DOUBLE -> DOUBLE
   val signd   : DOUBLE -> INT
   val floor   : DOUBLE -> INT
   val ceil    : DOUBLE -> INT
+  val pi      : DOUBLE
+  val roll    : INT -> DOUBLE   (* 0 -> [0;1[ ; n -> [0;n] whole number *)
+
+  val eqc     : CHAR * CHAR -> BOOL
 
   val eqb     : BOOL * BOOL -> BOOL
   val andb    : BOOL * BOOL -> BOOL
@@ -139,6 +158,7 @@ signature LAILA = sig
   val transpose2 : int list -> m -> m M
 
   val compress  : m * m -> m M
+  val replicate : t * m * m -> m M
 
   val power     : (m -> m M) -> INT -> m -> m M
   val powerScl  : (t -> t M) -> INT -> t -> t M

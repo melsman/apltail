@@ -38,11 +38,20 @@ structure ILUtil : ILUTIL = struct
     | ppB Andb = "&&"
     | ppB Orb = "||"
     | ppB Xorb = "^"
+    | ppB Ori = "ori"
+    | ppB Andi = "andi"
+    | ppB Xori = "xori"
+    | ppB Shli = "shli"
+    | ppB Shri = "shri"
+    | ppB Shari = "shari"
 
   fun pp_int i =
       if i = ~2147483648 then "-2147483648"
       else if i < 0 then "-" ^ pp_int (~i)
       else Int32.toString i
+
+  fun pp_char w =
+      "'" ^ (Char.toCString o Char.chr o Word.toInt) w ^ "'"
 
   fun pp_double d =
       if d < 0.0 then "-" ^ pp_double (~d)
@@ -62,8 +71,12 @@ structure ILUtil : ILUTIL = struct
       case v of
         IntV i => pp_int i
       | DoubleV d => pp_double d
+      | CharV c => pp_char c
       | BoolV b => Bool.toString b
       | ArrV v => "vec"
+
+  fun conv opr i1 i2 =
+      Word32.toIntX(opr(Word32.fromInt i1, Word32.fromInt i2))
 
   fun evalBinOp Add (IntV i1,IntV i2) = IntV(i1+i2)
     | evalBinOp Add (DoubleV i1,DoubleV i2) = DoubleV(i1+i2)
@@ -75,6 +88,12 @@ structure ILUtil : ILUTIL = struct
     | evalBinOp Divv (DoubleV i1,DoubleV i2) = DoubleV(i1 / i2)
     | evalBinOp Modv (IntV i1,IntV i2) = IntV(i1 mod i2)
     | evalBinOp Resi (IntV i1,IntV i2) = IntV(if i2 = 0 then i1 else (i1 mod i2))
+    | evalBinOp Ori (IntV i1,IntV i2) = IntV(conv Word32.orb i1 i2)
+    | evalBinOp Andi (IntV i1,IntV i2) = IntV(conv Word32.andb i1 i2)
+    | evalBinOp Xori (IntV i1,IntV i2) = IntV(conv Word32.xorb i1 i2)
+    | evalBinOp Shli (IntV i1,IntV i2) = IntV(conv Word32.<< i1 i2)
+    | evalBinOp Shri (IntV i1,IntV i2) = IntV(conv Word32.>> i1 i2)
+    | evalBinOp Shari (IntV i1,IntV i2) = IntV(conv Word32.~>> i1 i2)
     | evalBinOp Modv (DoubleV i1,DoubleV i2) = die "evalBinOp.mod double not implemented"
     | evalBinOp Min (IntV i1,IntV i2) = IntV(if i1 < i2 then i1 else i2)
     | evalBinOp Min (DoubleV i1,DoubleV i2) = DoubleV(if i1 < i2 then i1 else i2)
@@ -93,12 +112,20 @@ structure ILUtil : ILUTIL = struct
     | evalBinOp Xorb (BoolV b1,BoolV b2) = BoolV((b1 orelse b2) andalso b1 <> b2)
     | evalBinOp p (v1,v2) = die ("evalBinOp." ^ ppB p ^" - v1=" ^ ppValue v1 ^ ", v2=" ^ ppValue v2) 
         
+  val rgen = ref (Random.newgen ())
+
   fun evalUnOp Neg (IntV i) = IntV(~i)
     | evalUnOp Neg (DoubleV d) = DoubleV(~d)
     | evalUnOp I2D (IntV i) = DoubleV(real i)
     | evalUnOp D2I (DoubleV d) = (IntV(Real.trunc d))
     | evalUnOp Ceil (DoubleV d) = (IntV(Real.ceil d))
     | evalUnOp Floor (DoubleV d) = (IntV(Real.floor d))
+    | evalUnOp Ln (DoubleV d) = (DoubleV(Math.ln d))
+    | evalUnOp Sin (DoubleV d) = (DoubleV(Math.sin d))
+    | evalUnOp Cos (DoubleV d) = (DoubleV(Math.cos d))
+    | evalUnOp Tan (DoubleV d) = (DoubleV(Math.tan d))
+    | evalUnOp Roll (IntV 0) = (DoubleV(Random.random (!rgen)))
+    | evalUnOp Roll (IntV i) = (DoubleV(real (Random.range (0,i) (!rgen))))
     | evalUnOp B2I (BoolV b) = (IntV(if b then 1 else 0))
     | evalUnOp _ _ = die "evalUnOp"
 
@@ -109,6 +136,7 @@ structure ILUtil : ILUTIL = struct
                   | NONE => die("lookup: " ^ Name.pr n))
       | I i => IntV i
       | D d => DoubleV d
+      | C c => CharV c
       | T => BoolV true
       | F => BoolV false
       | Binop(binop,e1,e2) => evalBinOp binop (eval E e1, eval E e2)
@@ -210,6 +238,11 @@ structure ILUtil : ILUTIL = struct
     | ppU D2I = "d2i"
     | ppU Ceil = "ceili"
     | ppU Floor = "floori"
+    | ppU Ln = "ln"
+    | ppU Sin = "sin"
+    | ppU Cos = "cos"
+    | ppU Tan = "tan"
+    | ppU Roll = "roll"
     | ppU B2I = "b2i"
     | ppU Not = "!"
 
@@ -220,6 +253,7 @@ structure ILUtil : ILUTIL = struct
         Var n => %(Name.pr n)
       | I i => if i < 0 then par(%(pp_int i)) else %(pp_int i)
       | D d => if d < 0.0 then par(%(pp_double d)) else %(pp_double d)
+      | C c => %(pp_char c)
       | Binop(binop,e1,e2) => 
         if infi binop then par (pp e1 %% % (ppB binop) %% pp e2)
         else % (ppB binop) %% par(pp e1 %% %"," %% pp e2)
@@ -293,7 +327,7 @@ structure ILUtil : ILUTIL = struct
 
   fun assertEqT s t1 t2 =
       if t1 = t2 then ()
-      else die ("assertEqT: " ^ s)
+      else die ("assertEqT: " ^ s ^ "; t1=" ^ Type.prType t1 ^ "; t2=" ^ Type.prType t2)
 
   fun assertIntOrDouble s t =
       if t = Type.Int orelse t = Type.Double then ()
@@ -306,6 +340,10 @@ structure ILUtil : ILUTIL = struct
   fun assertBB s t1 t2 =
       if t1 = t2 andalso t2 = Type.Bool then ()
       else die ("assertBB: " ^ s)
+
+  fun assertII s t1 t2 =
+      if t1 = t2 andalso t2 = Type.Int then ()
+      else die ("assertII: " ^ s)
 
   fun assertDD s t1 t2 =
       if t1 = t2 andalso t2 = Type.Double then ()
@@ -326,8 +364,14 @@ structure ILUtil : ILUTIL = struct
       | Lteq => (assertIIorDD "Lteq" t1 t2; Type.Bool)
       | Eq => (assertEqT "Eq" t1 t2; Type.Bool)
       | Andb => (assertBB "Andb" t1 t2; Type.Bool)
-      | Orb => (assertBB "Andb" t1 t2; Type.Bool)
-      | Xorb => (assertBB "Andb" t1 t2; Type.Bool)
+      | Orb => (assertBB "Orb" t1 t2; Type.Bool)
+      | Xorb => (assertBB "Xorb" t1 t2; Type.Bool)
+      | Ori => (assertII "Ori" t1 t2; Type.Int)
+      | Andi => (assertII "Andi" t1 t2; Type.Int)
+      | Xori => (assertII "Xori" t1 t2; Type.Int)
+      | Shli => (assertII "Shli" t1 t2; Type.Int)
+      | Shri => (assertII "Shri" t1 t2; Type.Int)
+      | Shari => (assertII "Shari" t1 t2; Type.Int)
 
   fun assertIorD s t = if t = Type.Int orelse t = Type.Double then () else die ("assertIorD: " ^ s)
   fun assertI s t = if t = Type.Int then () else die ("assertI: " ^ s)
@@ -337,8 +381,13 @@ structure ILUtil : ILUTIL = struct
   fun typeUnop Neg t = (assertIorD "Neg" t; t)
     | typeUnop I2D t = (assertI "I2D" t; Type.Double)
     | typeUnop D2I t = (assertD "D2I" t; Type.Int)
-    | typeUnop Floor t = (assertD "Floor" t; Type.Int)
     | typeUnop Ceil t = (assertD "Ceil" t; Type.Int)
+    | typeUnop Floor t = (assertD "Floor" t; Type.Int)
+    | typeUnop Ln t = (assertD "Ln" t; Type.Double)
+    | typeUnop Sin t = (assertD "Sin" t; Type.Double)
+    | typeUnop Cos t = (assertD "Cos" t; Type.Double)
+    | typeUnop Tan t = (assertD "Tan" t; Type.Double)
+    | typeUnop Roll t = (assertI "Roll" t; Type.Double)
     | typeUnop B2I t = (assertB "B2I" t; Type.Int)
     | typeUnop Not t = (assertB "Not" t; Type.Bool)
 
@@ -347,6 +396,7 @@ structure ILUtil : ILUTIL = struct
         Var n => Name.typeOf n
       | I n => Type.Int
       | D d => Type.Double
+      | C c => Type.Char
       | T => Type.Bool
       | F => Type.Bool
       | If (e,e1,e2) =>
