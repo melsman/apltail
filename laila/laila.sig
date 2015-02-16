@@ -115,7 +115,7 @@ signature LAILA = sig
   val iota'   : m -> m
 
   val siz     : m -> INT
-  val dim     : m -> INT
+  val rank    : m -> INT
 
   val rav     : m -> m
   val rav0    : m -> v
@@ -125,9 +125,6 @@ signature LAILA = sig
 (*  val index   : Int Num v -> 'a m -> 'a m M *)
   val each    : T -> (t -> t M) -> m -> m
 
-  val meq     : (t * t -> BOOL) -> m -> m -> BOOL M  
-
-  val mif     : BOOL * m * m -> m
   val lett    : t -> t M
   val letm    : m -> m M
 
@@ -164,7 +161,7 @@ signature LAILA = sig
   val powerScl  : (t -> t M) -> INT -> t -> t M
 
   (* Printing routines *)
-  val prArr    : m -> INT M   (* dummy int *)
-  val printf   : string * t list -> t M
+  val prArr    : m -> unit M
+  val printf   : string * t list -> unit M
 
 end

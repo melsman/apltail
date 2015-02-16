@@ -9,21 +9,48 @@ structure P = Program
 type 'a M = 'a * (P.ss -> P.ss)
 
 type t = P.e
-datatype v = V of IL.Type * t * (t -> t M)
 
 type Value = IL.Value
 
-infix >>=
+infix >>= ::=
+val op := = P.:=
+
 fun (v,ssT) >>= f = let val (v',ssT') = f v in (v', ssT o ssT') end
 fun ret v = (v, fn ss => ss)
-fun runM0 (e,ssT) k = ssT [k e]
 
-fun runMss (e,ssT) k = ssT (k e)
+fun runM0 ((e,ssT) : 'a M) (k : 'a -> P.s) : P.ss =
+    ssT [k e]
+
+fun runMss ((e,ssT) : 'a M) (k : 'a -> P.ss) : P.ss =
+    ssT (k e)
 
 fun assert s b (m : 'a M) : 'a M  =
        let val (v, ssT) = m
        in (v, fn ss => ssT(P.Ifs(b,[],[P.Halt s]) ss))
        end
+
+fun ifM t (b,m1,m2) =
+    case P.unB b of
+        SOME true => m1
+      | SOME false => m2
+      | NONE => 
+        let val n = Name.new t
+        in (P.$ n, 
+            fn ss => P.Decl(n, NONE) ::
+                     P.Ifs(b,
+                           runMss m1 (fn v => [n := v]),
+                           runMss m2 (fn v => [n := v])) ss)
+        end
+
+fun ifUnit (b,m1,m2) =
+    case P.unB b of
+        SOME true => m1
+      | SOME false => m2
+      | NONE => 
+        ((), 
+         fn ss => P.Ifs(b,
+                        runMss m1 (fn () => []),
+                        runMss m2 (fn () => [])) ss)
 
 open Type
 type INT     = t
@@ -36,10 +63,54 @@ val D : real -> DOUBLE = P.D
 val B : bool -> BOOL = P.B
 val C : word -> CHAR = P.C
 
-fun uncurry f (x,y) = f x y
+fun lettWithName e =
+    let open P
+        val ty = ILUtil.typeExp e
+        val name = Name.new ty
+        fun ssT ss = Decl(name, SOME e) :: ss
+    in (($name,name), ssT)
+    end
 
-infix ::=
-val op := = P.:=
+fun lett e =
+    let open P
+    in if simpleExp e then ret e
+       else
+         let val ty = ILUtil.typeExp e
+             val name = Name.new ty
+             fun ssT ss = Decl(name, SOME e) :: ss
+         in ($name, ssT)
+         end
+    end
+
+fun for (n:t) (f:INT->unit M) : unit M =
+    let open P
+    in lett n >>= (fn n =>
+       ((), For(n, fn i => runMss (f i) (fn () => nil))))
+    end
+
+fun asgnArr (n:Name.t,i:t,v:t) : unit M =
+    let open P
+    in ((), fn ss => ((n,i) ::= v) :: ss)
+    end
+
+fun assign (n:Name.t) (v:t) : unit M =
+    let open P
+    in ((), fn ss => (n := v) :: ss)
+    end
+
+fun alloc ty (n:t) : ((t -> t M) * (t * t -> unit M)) M =
+    let open P
+        val tyv = Type.Vec ty
+        val name = Name.new tyv
+        fun ssT ss = Decl(name, SOME(Alloc(tyv,n))) :: ss
+        fun read i = ret (Subs(name,i))
+        fun write (i,v) = asgnArr (name,i,v)
+    in ((read,write), ssT)
+    end
+
+(* Vectors *)
+
+datatype v = V of IL.Type * t * (t -> t M)
 
 fun simple f =
     let open P 
@@ -55,7 +126,7 @@ fun materialize (V(ty,n,f)) =
     let open P
         val tyv = Type.Vec ty
         val name = Name.new tyv
-        val name_n = Name.newImperative Int
+        val name_n = Name.new Int
         fun ssT ss = Decl(name_n, SOME n) ::
                      Decl(name, SOME(Alloc(tyv,n))) ::
                      (For($name_n, fn i => runM0(f i)(fn v => (name,i) ::= v)) ss)
@@ -67,30 +138,9 @@ fun materializeWithName (v as V(ty,n,_)) =
     in ((V(ty,P.$name_n, fn i => ret(P.Subs(name,i))), name, name_n), ssT)
     end
 
-fun memoize t =
-    case t of
-      V (ty,n,f) =>
-      if simple f then ret t
-      else materializeWithName t >>= (fn (v, _, _) => ret v)
-
-fun lettWithName e =
-    let open P
-        val ty = ILUtil.typeExp e
-        val name = Name.newImperative ty
-        fun ssT ss = Decl(name, SOME e) :: ss
-    in (($name,name), ssT)
-    end
-
-fun lett e =
-    let open P
-    in if simpleExp e then ret e
-       else
-         let val ty = ILUtil.typeExp e
-             val name = Name.new ty
-             fun ssT ss = Decl(name, SOME e) :: ss
-         in ($name, ssT)
-         end
-    end
+fun memoize (t as V(ty,n,f)) =
+    if simple f then ret t
+    else materializeWithName t >>= (fn (v, _, _) => ret v)
 
 val letm = ret
 
@@ -138,6 +188,11 @@ in
   fun dr_unsafe t (V(ty,m,g)) = V(ty,subi(m,t), fn i => g(addi(i,t)))  (* assumes 0 <= t <= m *) 
 
   fun length (V(_,n,_)) = n
+
+  fun appi (g: INT -> t -> unit M) (V(ty,n,f):v) : unit M =
+      let fun h i = f i >>= (fn v => g i v)
+      in lett n >>= (fn n => for n h)
+      end 
 end
 
 val addi  : INT * INT -> INT = P.addi
@@ -199,7 +254,7 @@ val i2d  : INT -> DOUBLE = P.i2d
 val d2i  : DOUBLE -> INT = P.d2i
 val b2i  : BOOL -> INT = P.b2i
 
-fun printf (s, es) = (P.I 0, fn ss => P.Printf(s,es)::ss)
+fun printf (s, es) = ((), fn ss => P.Printf(s,es)::ss)
 
 (* Values and Evaluation *)
 type V    = IL.Value
@@ -217,25 +272,39 @@ val unVv     = fn IL.ArrV v => List.map (fn ref (SOME a) => a
 val Uv       = Iv 0
 val ppV      = ILUtil.ppValue 
 
+fun pr_wrap s f a =
+    let (*val () = print("[starting " ^ s ^ "]\n")*)
+        val r = f a
+        (*val () = print("[finished " ^ s ^ "]\n")*)
+    in r
+    end
+
+fun se_ss ss = pr_wrap "se_ss" (P.se_ss nil) ss
+fun rm_decls0 ss = pr_wrap "rm_decls0" P.rm_decls0 ss
+fun rm_decls p = pr_wrap "rm_decls" (fn (e,ss) => P.rm_decls e ss) p
+
 (* Some utility functions *)
 fun opt_ss0 ss =
-    let val ss = P.se_ss nil ss
-        val ss = P.se_ss nil ss
-    in P.rm_decls0 ss
+    let val ss = se_ss ss
+        val ss = se_ss ss
+    in rm_decls0 ss
     end
 
 fun opt_ss e ss =
-    let val ss = P.se_ss nil ss
-        val ss = P.se_ss nil ss
-    in P.rm_decls e ss
+    let val ss = se_ss ss
+        val ss = se_ss ss
+    in rm_decls (e,ss)
     end
 
 type prog = Type.T * Type.T * (Name.t * (P.e -> P.s) -> P.ss)
 
 fun pp_prog ((ta,tb,p): prog) : string =
     let val name_arg = Name.new ta
+(*        val () = print "generating laila program\n" *)
         val ss = p (name_arg, P.Ret)
+(*        val () = print "optimizing laila program\n" *)
         val ss = opt_ss0 ss
+(*        val () = print "printing laila program\n" *)
     in ILUtil.ppFunction "kernel" (ta,tb) name_arg ss
     end
 
@@ -315,57 +384,23 @@ fun If0 (x,m1,m2) =
 
 fun If (x,a1,a2) = P.If(x,a1,a2)
 
-fun Ifv (x,V(ty,n1,f1), V(_,n2,f2)) =
-    V(ty,P.If(x,n1,n2), 
-      fn i =>
-         let val m1 = f1 i
-             val m2 = f2 i
-         in If0(x,m1,m2)
-         end)
+fun Ifv (x, v1 as V(ty,n1,f1), v2 as V(_,n2,f2)) =
+    case P.unB x of
+        SOME true => v1
+      | SOME false => v2
+      | NONE => 
+        V(ty,P.If(x,n1,n2), 
+          fn i =>
+             let val m1 = f1 i
+                 val m2 = f2 i
+             in If0(x,m1,m2)
+             end)
            
-fun For'(n,e,body) =
-    let open P
-    in case unI n of
-         SOME 0 => (e, fn ss => ss)
-       | SOME 1 => 
-         let val ty = ILUtil.typeExp e
-             val a = Name.new ty
-             fun f e = Decl(a, SOME e)
-             val ss = body e f (I 0)
-         in case ss of
-              [s] => 
-              (case unDecl s of
-                 SOME (a',SOME e) => if a' = a then (e, fn ss => ss)
-                                     else die "For': weird"
-               | SOME (a',NONE) => die "For': weird2"
-               | NONE => ($a, fn ss => s :: ss))
-            | ss0 => ($a, fn ss => ss0 @ ss)
-         end
-       | _ => 
-         let val ty = ILUtil.typeExp e
-             val a = Name.new ty
-             fun f e = a := e
-         in lett n >>= (fn n =>
-               ($a, fn ss => 
-                        Decl(a, SOME e) ::
-                        For(n, body ($ a) f) ss))
-         end
-    end
+fun foldl (f: t * t -> t M) (e:t) (V(_,n,g)) =
+    lettWithName e >>= (fn (a,name) =>
+    for n (fn i => g i >>= (fn v => f(a,v) >>= assign name)) >>= (fn () => 
+    ret a))
 
-fun foldl f e (V(_,n,g)) =
-    let open P
-        fun body e h i =
-            runM0 (g i >>= (fn v => f(v,e))) h
-    in For'(n,e,body)
-    end
-
-fun foldr f e (V(_,n,g)) =
-    let open P
-        fun body e h i =
-            runM0 (g (subi(subi(n,I 1),i)) >>= (fn v => f(v,e))) h
-    in For'(n,e,body)
-    end
-                     
 fun concat v1 v2 =
     let val V(ty,n1,f1) = v1
         val V(_,n2,f2) = v2
@@ -400,7 +435,7 @@ fun concat v1 v2 =
   fun eq f v1 v2 =
       let val v = map2 Bool (ret o f) v1 v2
           val base = eqi(length v1,length v2)
-      in foldr (fn (b,a) => ret(If(a,b,a))) base v
+      in foldl (fn (b,a) => ret(If(a,b,a))) base v
       end
 
   fun sub_unsafe (V(_,n,g)) i = g i
@@ -495,23 +530,13 @@ fun concat v1 v2 =
       let val V(_,n,f) = bv
           val V(ty,m,g) = v
       in foldl (ret o addi) (I 0) (map Int (ret o b2i) bv) >>= (fn sz =>
-         let open P
-             val tyv = Type.Vec ty
-             val name = Name.new tyv
-             val count = Name.new Type.Int
-             fun ssT ss = Decl(name, SOME(Alloc(tyv,sz))) ::
-                          Decl(count, SOME(I 0)) ::
-                          For(n, fn i => runMss(f i)(fn b =>
-                            Ifs(b,
-                                runMss(g i)(fn v =>
-                                   [(name, $count) ::= v,
-                                    count := addi($count,I 1)]),
-                                [])
-                            []))
-                          ss
-         in (V(ty,sz,fn i => ret(Subs(name,i))),
-             ssT)
-         end)
+         alloc ty sz >>= (fn (rd,wr) =>
+         lettWithName (I 0) >>= (fn (count,count_name) =>
+         for n (fn i => f i >>= (fn b => ifUnit(b, g i >>= (fn v => 
+                                                     wr(count,v) >>= (fn () =>
+                                                     assign count_name (addi(count,I 1)))),
+                                                   ret ()))) >>= (fn () =>
+         ret (V(ty,sz,rd))))))
       end
 
   fun absi x = If(lti(x, I 0), negi x, x)
@@ -521,22 +546,13 @@ fun concat v1 v2 =
       let val V(_,n,f) = iv
           val V(ty,m,g) = v
       in foldl (ret o addi) (I 0) (map Int (ret o absi) iv) >>= (fn sz =>
-         let open P
-             val tyv = Type.Vec ty
-             val name = Name.new tyv
-             val count = Name.new Type.Int
-             fun ssT ss = Decl(name, SOME(Alloc(tyv,sz))) ::
-                          Decl(count, SOME(I 0)) ::
-                          For(n, fn i => runMss(f i)(fn r =>
-                            runMss(g i)(fn v =>
-                              For(r, fn _ =>              (* MEMO: if r < 0 we should output ~r def elements *)
-                                [(name, $count) ::= v,
-                                 count := addi($count,I 1)])
-                              [])))
-                          ss
-         in (V(ty,sz,fn i => ret(Subs(name,i))),
-             ssT)
-         end)
+         alloc ty sz >>= (fn (rd,wr) =>
+         lettWithName (I 0) >>= (fn (count,count_name) =>
+         for n (fn i => f i >>= (fn r => 
+                        g i >>= (fn v =>
+                        for r (fn _ => wr(count,v) >>= (fn () =>    (* MEMO: if r < 0 we should output ~r def elements *)
+                                       assign count_name (addi(count,I 1))))))) >>= (fn () =>
+         ret (V(ty,sz,rd))))))
       end
 
   fun extend n (V(ty,m,f)) =
@@ -557,7 +573,7 @@ fun concat v1 v2 =
      ; outln "#include <stdlib.h>"
      ; outln "#include <math.h>"
      ; outln "#include <string.h>"
-     ; outln "#include \"apl.h\""
+     ; outln "#include \"../../include/apl.h\""
      ; outln body
      ; outmain outln
      ; TextIO.closeOut os
@@ -614,7 +630,7 @@ fun iota' _ = die "iota' not implemented"
 fun shape (A(f,_)) = f
 fun snd (A(_,c)) = c
 fun siz (A(_,c)) = length c
-fun dim (A(f,_)) = Shape.length f
+fun rank (A(f,_)) = Shape.length f
 
 fun dimincr (A(f,v)) = A(Shape.concat f (Shape.single (I 1)),v)
 
@@ -631,11 +647,6 @@ fun zildeOf (A(f,v)) = A(Shape.singlez, emptyOf v)
 
 fun each ty g (A(f,cs)) = A(f, map ty g cs)
       
-fun meq f (A(f1,c1)) (A(f2,c2)) =
-    Shape.eq f1 f2 >>= (fn shape_eq => 
-     eq f c1 c2 >>= (fn content_eq =>
-      ret(If(shape_eq,content_eq,B false))))
-
 fun zipWith ty g a b =
     let val sha = shape a
 	val shb = shape b
@@ -663,15 +674,6 @@ fun catenate_first (A(s1,d1) : m) (A(s2,d2): m) : m M =
          assert "arguments to catenate_first have incompatible shapes" shapeeq
          (ret mv))
       end
-
-fun ifM t (b,m1,m2) =
-    let val n = Name.new t
-    in ($ n, 
-        fn ss => P.Decl(n, NONE) ::
-                 P.Ifs(b,
-                       runMss m1 (fn v => [n := v]),
-                       runMss m2 (fn v => [n := v])) ss)
-    end
 
 fun take n (a as A(shv,V(ty,sz,f))) =
     getShapeV "take" shv >>= (fn sh =>
@@ -798,6 +800,9 @@ fun vrotate n (a as A(sh, v0 as V(ty,sz,f))) =
 fun letts nil = ret (nil,nil)
   | letts (x::xs) = lettWithName x >>= (fn (e,n) => letts xs >>= (fn (es,ns) => ret (e::es,n::ns)))
 
+fun letts0 nil = ret nil
+  | letts0 (x::xs) = lett x >>= (fn e => letts0 xs >>= (fn es => ret (e::es)))
+
 fun power (f: m -> m M) (n: INT) (A(sh,vs)) : m M =
   getShapeV "power" sh >>= (fn sh =>
   letts sh >>= (fn (sh,names_sh) =>
@@ -810,26 +815,17 @@ fun power (f: m -> m M) (n: INT) (A(sh,vs)) : m M =
       val body = f (A(sh,vs)) >>= (fn A(sh',vs') =>
                  materializeWithName vs' >>= (fn (vs', name_vs', name_n') =>
                  getShapeV "power" sh' >>= (fn sh' =>
-                 letts sh' >>= (fn (sh',_) =>
-                 (I 0, fn ss => [Free name_vs,
-                                 name_vs := $name_vs',
-                                 name_n := $name_n'] @ multi_assign names_sh sh' @ ss)))))
-  in lett n >>= (fn n =>
-     (A(sh,vs),
-      fn ss => P.For(n, fn _ => runMss body (fn _ => []))
-               ss))
+                 letts0 sh' >>= (fn sh' =>
+                 ((), fn ss => [Free name_vs,
+                                name_vs := $name_vs',
+                                name_n := $name_n'] @ multi_assign names_sh sh' @ ss)))))
+  in for n (fn _ => body) >>= (fn () => ret(A(sh,vs)))
   end))))
 
 fun powerScl (f: t -> t M) (n: INT) (a: t) : t M =
-    let val ty = ILUtil.typeExp a
-        val name = Name.new ty
-    in lett n >>= (fn n =>
-       ($ name,
-        fn ss => P.Decl(name, SOME a) ::
-                 P.For(n, fn _ => runMss (f($name)) (fn (v : t) => [name := v]))
-                 ss))
-    end
-           
+    lettWithName a >>= (fn (a,name) =>
+    for n (fn _ => f a >>= (assign name)) >>= (fn () => ret a))
+
 fun fmtOfTy ty =
     if ty = Int orelse ty = Bool then "%d"
     else if ty = Char then "%c"
@@ -843,26 +839,26 @@ fun prScl (V(ty,_,f)) =
     f (I 0) >>= (fn e =>
     printf(fmtOfTyScl ty, [e]))
 
-fun prSeq sep (ty,n,f) =
-    let fun pr n i =
-            f i >>= (fn v =>
-            printf(fmtOfTy ty, [v]) >>= (fn _ =>
-            ifM Int (lti(i,subi(n,I 1)), 
-                     printf(sep,nil),
-                     ret (I 0))))
-        fun ssT n ss = P.For (n,fn i => runMss (pr n i) (fn _ => [])) ss
-    in lett n >>= (fn n => (I 0, ssT n))
-    end
+fun prSeq sep v =
+    lett (subi(length v,I 1)) >>= (fn sz_sub_one =>
+    let fun f i x =
+            printf(fmtOfTy(tyOfV v), [x]) >>= (fn () =>
+            if sep = "" then ret ()
+            else ifUnit (lti(i,sz_sub_one), 
+                    printf(sep,nil) >>= (fn () => ret ()),
+                    ret ()))
+    in appi f v
+    end)
 
-fun prVec thestart theend (V dat) =
-   printf(thestart,[]) >>= (fn _ =>
-   prSeq "," dat >>= (fn _ =>
+fun prVec thestart theend v =
+   printf(thestart,[]) >>= (fn () =>
+   prSeq "," v >>= (fn () =>
    printf(theend,[])))
 
 fun prAr (sh as V(_,rank,_)) (vs as V dat) =
-    let fun def() = prVec "[" "]" sh >>= (fn _ => prVec "(" ")" vs)
+    let fun def() = prVec "[" "]" sh >>= (fn () => prVec "(" ")" vs)
     in case P.unI rank of
-           SOME 1 => if #1 dat = Char then prSeq "" dat
+           SOME 1 => if #1 dat = Char then prSeq "" vs
                      else def()
          | _ => def()
     end
@@ -873,28 +869,26 @@ fun sepOfTy ty =
 fun prMat N M (V(ty,_,f)) =
     let fun prRow M j =
             lett (muli(j,M)) >>= (fn k =>
-            let val vec = (ty,M,fn x => f(addi(x,k)))
-            in printf(" ",[]) >>= (fn _ =>
-               prSeq (sepOfTy ty) vec >>= (fn _ =>
+            let val vec = V(ty,M,fn x => f(addi(x,k)))
+            in printf(" ",[]) >>= (fn () =>
+               prSeq (sepOfTy ty) vec >>= (fn () =>
                printf("\n",[])))
             end)
-        fun ssT N M ss = 
-            P.For (N,fn i => runMss (prRow M i) (fn _ => [])) ss
-    in printf("\n",[]) >>= (fn _ => lett N >>= (fn N => lett M >>= (fn M => (I 0, ssT N M))))
+    in printf("\n",[]) >>= (fn () => 
+       lett M >>= (fn M => 
+       for N (prRow M)))
     end
 
 fun fst (V(ty,n,f)) = f (I 0)
 fun snd (V(ty,n,f)) = f (I 1)
 
-fun szOf (V(_,n,_)) = n
-
 fun prArr (a as A(sh,vs)) =
     let val len = Shape.length sh
-    in ifM Int (andb(eqi(len,I 2),gti(szOf vs,I 0)),
-                fst sh >>= (fn N =>
-                snd sh >>= (fn M =>
-                prMat N M vs)),
-                prAr sh vs) >>= (fn _ =>
+    in ifUnit (andb(eqi(len,I 2),gti(length vs,I 0)),
+               fst sh >>= (fn N =>
+                 snd sh >>= (fn M =>
+                 prMat N M vs)),
+               prAr sh vs) >>= (fn () =>
        printf("\n",[]))
     end
 

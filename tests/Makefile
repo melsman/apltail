@@ -76,7 +76,7 @@ CTESTS=test test1 test2 test3 test4 test5 test6 test7 test9 test10 \
        opr1 opr2 opr3 fun2 take drop vrev vrot rot rotfirst first powscl \
        vec zfunc ceilfloormaxmin easter eacheaster else \
        innerproduct sign mean powmat life pow fib10 timespi ln \
-       chars pow repl replicate shape tup circ abcd dtransp tax binaryops \
+       chars repl replicate shape tup circ abcd dtransp tax binaryops \
        pi blackscholes
 
 #      sierpinski0  readfile \

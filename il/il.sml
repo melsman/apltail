@@ -7,25 +7,20 @@ datatype Type = Int | Double | Bool | Char | Vec of Type
 structure Name : sig
   eqtype t
   val new : Type -> t
-  val newImperative : Type -> t
   val pr : t -> string
   val typeOf : t -> Type
-  val isImperative : t -> bool
 end =
 struct
-  type t = string * Type * bool
+  type t = string * Type
   val count = ref 0
   fun prefix Int = "n"
     | prefix Double = "d"
     | prefix Bool = "b"
     | prefix Char = "c"
     | prefix (Vec _) = "a"
-  fun new0 b t = (prefix t ^ (if b then "i" else "") ^ Int.toString(!count) before count := !count + 1, t, b)
-  fun new t = new0 false t
-  fun newImperative t = new0 true t
-  fun isImperative (_,_,b) = b
-  fun pr (s,_,_) = s
-  fun typeOf (_,t,_) = t
+  fun new t = (prefix t ^ Int.toString(!count) before count := !count + 1, t)
+  fun pr (s,_) = s
+  fun typeOf (_,t) = t
 end
 
 structure NameSet = OrderSet(struct type t = Name.t
@@ -129,8 +124,6 @@ end
 signature NAME = sig
   eqtype t
   val new : Type.T -> t
-  val newImperative : Type.T -> t
-  val isImperative : t -> bool
   val pr  : t -> string
 end
 
@@ -209,6 +202,7 @@ signature PROGRAM = sig
   val roll  : e -> e
 
   val unI   : e -> int option
+  val unB   : e -> bool option
   val unD   : e -> real option
 
   type s
@@ -419,6 +413,9 @@ in
     | unD _ = NONE
   fun B true = T
     | B false = F 
+  fun unB T = SOME true
+    | unB F = SOME false
+    | unB _ = NONE
 
   fun comp0 neg t acc =
       case t of
@@ -907,12 +904,11 @@ fun se_ss (E:env) (ss:ss) : ss =
         let val e = se_e E e
 	    (* val () = assert_name(E,n) *)
             val E2 = 
-                if Name.isImperative n then E
-                else case (IL.Name.typeOf n, e) of
-                         (IL.Vec _, IL.Vect _) => (n,EqI e)::E
-                       | (IL.Vec _, _) => E
-                       | _ => if simpleExp e then (n,EqI e)::E
-                              else E
+                case (IL.Name.typeOf n, e) of
+                    (IL.Vec _, IL.Vect _) => (n,EqI e)::E
+                  | (IL.Vec _, _) => E
+                  | _ => if simpleExp e then (n,EqI e)::E
+                         else E
             val ss2 = se_ss E2 ss2
         in Decl(n,SOME e) :: ss2
         end
@@ -975,5 +971,6 @@ and peep ss =
        if n = n' then 
          peep((n := (se_e [(n,EqI e)] e')) :: ss')
        else ss
+    | s :: IL.Nop :: ss => peep (s::ss)
     | _ => ss
 end

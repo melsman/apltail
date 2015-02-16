@@ -122,16 +122,16 @@ val classifyOp : string -> opOpt =
   | "firstV" => A_SM L.first
   | "vreverseV" => A_AM L.vreverse
   | "vreverse" => A_AM L.vreverse
-  | "prSclI" => S_SM (fn t => L.printf("[](%d)\n",[t]) >>= (fn _ => ret t))
-  | "prSclB" => S_SM (fn t => L.printf("[](%d)\n",[t]) >>= (fn _ => ret t))
-  | "prSclD" => S_SM (fn t => L.printf("[](",[]) >>= (fn _ =>
-                              L.printf("%DOUBLE",[t]) >>= (fn _ =>
-                              L.printf(")\n",[]) >>= (fn _ => ret t))))
-  | "prSclC" => S_SM (fn t => L.printf("[](%c)\n",[t]) >>= (fn _ => ret t))
-  | "prArrI" => A_AM (fn a => L.prArr a >>= (fn _ => ret a))
-  | "prArrB" => A_AM (fn a => L.prArr a >>= (fn _ => ret a))
-  | "prArrD" => A_AM (fn a => L.prArr a >>= (fn _ => ret a))
-  | "prArrC" => A_AM (fn a => L.prArr a >>= (fn _ => ret a))
+  | "prSclI" => S_SM (fn t => L.printf("[](%d)\n",[t]) >>= (fn () => ret t))
+  | "prSclB" => S_SM (fn t => L.printf("[](%d)\n",[t]) >>= (fn () => ret t))
+  | "prSclD" => S_SM (fn t => L.printf("[](",[]) >>= (fn () =>
+                              L.printf("%DOUBLE",[t]) >>= (fn () =>
+                              L.printf(")\n",[]) >>= (fn () => ret t))))
+  | "prSclC" => S_SM (fn t => L.printf("[](%c)\n",[t]) >>= (fn () => ret t))
+  | "prArrI" => A_AM (fn a => L.prArr a >>= (fn () => ret a))
+  | "prArrB" => A_AM (fn a => L.prArr a >>= (fn () => ret a))
+  | "prArrD" => A_AM (fn a => L.prArr a >>= (fn () => ret a))
+  | "prArrC" => A_AM (fn a => L.prArr a >>= (fn () => ret a))
   | "rav" => A_A L.rav
   | _ => NOTOP
 
