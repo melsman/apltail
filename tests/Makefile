@@ -64,7 +64,7 @@ outv: $(OUTVFILES)
 
 clean:
 	rm -f *.tl *.out *.res *.resn *.outn *~ *.outv *.outc *.resc
-	rm -f c/*.out c/*.c c/*~ *~ c/*.exe
+	rm -f c/*.out c/*.c c/*~ *~ c/*.exe *.time *.dyatime *.comptime *.outd *.outb
 
 
 ################### Testing Laila (C) Backend ###################
@@ -96,7 +96,7 @@ c/%.c: %.apl Makefile
 	../aplt -c -oc $@ ../prelude.apl $<
 
 c/%.exe: c/%.c
-	gcc --std=c99 -O3 -o $@ $<
+	gcc --std=c99 -O3 -o $@ -lm $<
 
 %.outc: c/%.exe
 	$< > $@
@@ -112,3 +112,41 @@ c/%.exe: c/%.c
                 echo "Test $*.apl: *** ERR: file $*.out.ok does not exist ***" > $@ \
              ; fi \
          ; fi)
+
+###### Benchmarking the Laila (C) Backend against Dyalog interpreter ######
+#
+# This benchmarking assumes that dyalog is installed together with the 
+# rundyalog script (with IO<-1) being available in the user's PATH. 
+#
+
+TIME=/usr/bin/time
+#TIME=gtime
+
+BENCH=pi2 life2 primes2 easter3000 blacksch
+
+TIMEFILES=$(BENCH:%=%.time)
+DYATIMEFILES=$(BENCH:%=%.dyatime)
+COMPTIMEFILES=$(BENCH:%=%.comptime)
+
+.PHONY: bench
+bench: $(COMPTIMEFILES)
+	@echo
+	@echo "----- B E N C H M A R K --- R E P O R T-----"
+	@echo 'Benchmark        Dyalog        Laila'
+	@cat $(COMPTIMEFILES)
+	@echo "--------------------------------------------"
+
+c/%.c: %.apl Makefile
+	../aplt -c -oc $@ ../prelude.apl $<
+
+c/%.exe: c/%.c
+	gcc --std=c99 -O3 -o $@ -lm $<
+
+%.time: c/%.exe
+	$(TIME) -o $@ -f "%Us" $< > $*.outb
+
+%.dyatime: %.apl
+	$(TIME) -o $@ -f "%Us" rundyalog $< > $*.outd
+
+%.comptime: %.dyatime %.time
+	printf '%-15s %7s      %7s\n' "$*.apl" `cat $*.dyatime | tr -d '\n'` `cat $*.time | tr -d '\n'` > $@

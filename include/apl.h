@@ -7,6 +7,9 @@
 // Some abbreviations
 // ------------------
 
+#include <unistd.h>
+#include <math.h>
+
 #define ori(x,y) (int)(((unsigned int)(x))|((unsigned int)(y)))
 #define andi(x,y) (int)(((unsigned int)(x))&((unsigned int)(y)))
 #define xori(x,y) (int)(((unsigned int)(x))^((unsigned int)(y)))

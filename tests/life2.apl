@@ -31,7 +31,7 @@ square ← { x ← (5 ⊖ ⍵), 3 ⌽ ⍉ ⍵ ⋄ x ⍪ 4 ⊖ x }
 board ← square board
 board ← square board
 
-a ← 2000 nlife board
+a ← 20000 nlife board
 
 b ← life a
 
