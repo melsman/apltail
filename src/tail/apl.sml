@@ -116,7 +116,7 @@ fun scanlChunked defaultElem (f: 'a t * 'a t -> 'a t) (chunkSize : int) (vec : '
       fun next (i, x, y::ys) = if i mod chunkSize = 0
                                 then scl defaultElem x::y::ys
                                 else f(scl defaultElem x, y)::y::ys
-        | next (0, x, []) = [scl defaultElem x]
+        | next (_, x, []) = [scl defaultElem x]
 
       val xs : 'a t list = (rev (V.foldli next [] vec))
   in
@@ -125,7 +125,7 @@ fun scanlChunked defaultElem (f: 'a t * 'a t -> 'a t) (chunkSize : int) (vec : '
 
 in
 (* TODO: do we really need the neutral element? *)
-fun scan (f: 'a t * 'a t -> 'a t) (n:'a t) ((ns,vs,def):'a t) : 'a t = 
+fun scan (f: 'a t * 'a t -> 'a t) (n:'a t) ((ns,vs,def):'a t) : 'a t =
   case rev (list ns) of
       nil => (ns,vs,def)     (* scalar: scan is identity *)
     | [0] => zilde def       (* empty: scan is identity *)

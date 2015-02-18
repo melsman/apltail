@@ -46,6 +46,8 @@ local
         M a => M(a >>= (fn a => case b a of S x => ret x
                                           | M m => m))
       | S a => b a
+
+  (* subM : s N -> s M *)
   fun subM (M c) = c
     | subM (S e) = ret e
 
@@ -370,7 +372,7 @@ val classifyEach : s -> (s list -> s N) -> classifier = fn x => classify [x]
 val classifyPower : (s list -> s N) -> classifier = classify [Abs(zilde())]
 end
 
-fun compSlash r =
+fun compSlash (r : AplAst.reg) : s list -> s N =
     fn [Fs (f,ii)] =>
        rett(Fs (fn [Ads x] => S(reduce (fn (x,y) =>
                                            subM(f[Ds x,Ds y] >>>= (fn Ds z => rett z
@@ -440,9 +442,8 @@ fun compBackslash (r : AplAst.reg) : s list -> s N =
                   | _ => compErr r "Only arrays of integers and doubles are supported right now",noii))
      | _ => compErr r "This type of left-argument to scan not supported yet"
 
-
-fun compileAst flags G0 e =
-    let fun comp (G:env) e (k: s*env -> s N) : s N =
+fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
+    let fun comp (G:env) (e : AplAst.exp) (k: s*env -> s N) : s N =
             case e of
               IntE (s,r) =>
               (case StoI s of
@@ -898,8 +899,8 @@ fun compileAst flags G0 e =
                                     n m))
                   | _ => compErr r "expecting boolean or integer array as result of power")
              | _ => compErr r "expecting boolean or integer array as argument to power"
-        val c = comp G0 e (fn (s,_) => rett s)
-        val c' = subM c >>= (fn s =>
+        val c : s N = comp G0 e (fn (s,_) => rett s)
+        val c' : DOUBLE M = subM c >>= (fn s =>
                                 case s of
                                   Is i => ret (i2d i)
                                 | Bs b => ret (i2d(b2i b))
@@ -908,7 +909,7 @@ fun compileAst flags G0 e =
     in runM flags Double c'
     end
 
-val initialB =
+val initialB : AplParse.env * env =
     let open AplParse
         fun liftBinOpIII s f =
             let fun err () = compError ("dyadic function " ^ s ^ " expects two integer arrays as arguments")
@@ -941,7 +942,7 @@ val initialB =
 
 end
 
-fun parseFile flags pe f =
+fun parseFile (flags : Flags.flags) (pe : AplParse.env) (f : string) : AplAst.exp * AplParse.env =
     let val verbose_p = Flags.flag_p flags "-v"
         val silent_p = Flags.flag_p flags "-silent"
         val () = if not silent_p then Util.prln ("[Reading file: " ^ f ^ "]")
@@ -957,7 +958,7 @@ fun parseFile flags pe f =
        (e,pe')
     end
 
-fun parseFiles flags (pe0 : AplParse.env) (fs: string list) : AplAst.exp =
+fun parseFiles (flags : Flags.flags) (pe0 : AplParse.env) (fs: string list) : AplAst.exp =
     let val verbose_p = Flags.flag_p flags "-v"
         fun mergeExps (NONE,e) = SOME e
           | mergeExps (SOME e0,e) = SOME(AplParse.seq(e0,e))
@@ -971,7 +972,8 @@ fun parseFiles flags (pe0 : AplParse.env) (fs: string list) : AplAst.exp =
     in parseFs pe0 (fs,NONE)
     end
 
-fun compileExp flags G e =
+(* compileExp : flag list -> ??? Apl2Tail.env ??? -> AplAst.exp -> *)
+fun compileExp (flags : Flags.flags) G (e : AplAst.exp) : res =
     let (* val compile_only_p = flag_p flags "-c" *)
         val verbose_p = Flags.flag_p flags "-v"
         val silent_p = Flags.flag_p flags "-silent"
@@ -992,7 +994,7 @@ fun compileExp flags G e =
     in SOME p
     end
 
-fun errHandler e =
+fun errHandler (e : exn) : 'a option =
     case e of
         AplParse.ParseErr (l,msg) => (Util.prln ("Parse Error at " ^ 
                                                  Region.ppLoc l ^ ": \n  " ^ 
@@ -1000,7 +1002,7 @@ fun errHandler e =
       | Fail s => (Util.prln s; NONE)
       | _ => raise e
 
-fun compile flags fs =
+fun compile flags (fs : string list) : res =
     let val s_parse = Flags.flag_p flags "-s_parse"   (* stop after parsing *)
         val (PE,CE) = initialB
         val e = parseFiles flags PE fs
