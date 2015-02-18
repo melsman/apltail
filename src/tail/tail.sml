@@ -179,36 +179,35 @@ fun red f n e = Op_e("red",[mkFn2 f,n,e])
 fun mif (b,e1,e2) = If(b,e1,e2)
 fun zipWith f e1 e2 = Op_e("zipWith",[mkFn2m f,e1,e2])
 fun scan f e1 e2 = Op_e("scan",[mkFn2m f,e1,e2])
-fun getRank s e =
-    let fun fail s = raise Fail ("rank error: " ^ s ^ 
-                                 " not supported for arguments of unknown rank")
-        val t = typeOf e
+fun getStaticRank e =
+    let val t = typeOf e
     in case unS t of
-           SOME _ => 0
+           SOME _ => SOME 0
          | NONE =>
        case unSV t of
-           SOME _ => 1
+           SOME _ => SOME 1
          | NONE =>
        case unVcc t of
-           SOME _ => 1 
+           SOME _ => SOME 1 
          | NONE => 
        case unArr t of
-           SOME (_, r) => (case unRnk r of SOME i => i
-                                         | NONE => fail s)
-         | NONE => fail s
+           SOME (_, r) => (case unRnk r of SOME i => SOME i
+                                         | NONE => NONE)
+         | NONE => NONE
     end
 fun catenate e1 e2 =
     let fun cat () = Op_e("cat", [e1,e2])
         fun cons () = Op_e("cons",[e1,e2])
         fun snoc () = Op_e("snoc",[e1,e2])
         open Int
-    in case (getRank "cat" e1, getRank "cat" e2) of
-           (0, 0) => Vc_e[e1,e2]
-         | (r1, r2) => if r2=r1+1 then cons()
-                       else if r1=r2+1 then snoc()
-                       else if r1=r2 then cat()
+    in case (getStaticRank e1, getStaticRank e2) of
+           (SOME 0, SOME 0) => Vc_e[e1,e2]
+         | (SOME i1, SOME i2) => if i2=i1+1 then cons()
+                       else if i1=i2+1 then snoc()
+                       else if i1=i2 then cat()
                        else raise Fail ("rank error: incompatible argument ranks for catenate: " 
-                                        ^ Int.toString r1 ^ " and " ^ Int.toString r2)
+                                        ^ Int.toString i1 ^ " and " ^ Int.toString i2)
+         | _ => (*raise Fail "rank error: catenate not supported for arguments of unknown rank"*) cat()
     end
 fun take e1 e2 = Op_e("take", [e1,e2])
 fun drop e1 e2 = Op_e("drop", [e1,e2])
@@ -216,18 +215,20 @@ fun mem e = Op_e("mem",[e])
 fun reshape e1 e2 = Op_e("reshape", [e1,e2])
 fun shape e = Op_e("shape",[e])
 fun reduce f e1 e2 s a =
-    case getRank "reduce" e2 of
-        0 => s e2
-      | r => let val e = Op_e("reduce",[mkFn2m f,e1,e2])
-             in if r=1 then s e else a e
-             end
+    case getStaticRank e2 of
+        SOME 0 => s e2
+      | SOME r => let val e = Op_e("reduce",[mkFn2m f,e1,e2])
+                  in if r=1 then s e else a e
+                  end
+      | NONE => raise Fail "rank error: reduce not supported for arguments of unknown rank"
 
 fun idxS x ei ea s a =
     let val e = Op_e("idxS",[I x,ei,ea])
-    in case getRank "idxS" ea of
-           0 => raise Fail ("rank error: idxS applied to array argument of rank 0")
-         | 1 => s e
-         | _ => a e
+    in case getStaticRank ea of
+           SOME 0 => raise Fail "rank error: idxS applied to array argument of rank 0"
+         | SOME 1 => s e
+         | SOME _ => a e
+         | NONE => raise Fail "rank error: idxS not supported for arguments of unknown rank"
     end
 
 fun idx x eis ea = Op_e("idx",[I x,eis,ea])
