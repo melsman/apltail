@@ -401,6 +401,13 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           in assertR "reduce" rv' r
            ; Arr bt rv
           end
+        | ("scan", [tf,tn,tv]) =>
+          let val (bt1,bt2,bt) = unBinFun "first argument to scan" tf
+              val btn = unScl "scan neutral element" tn
+              val (btv,r) = unArr' "scan argument" tv
+            (* TODO: add assertions *)
+          in Arr bt r
+          end
         | ("idxS", [tsi,ti,ta]) =>
           let val (bta,r) = unArr' "idxS array argument" ta
               val (btsi,si) = unS' "idxS offset argument" tsi
@@ -821,6 +828,12 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                      val n = eval DE n
                      val a = eval DE a
                  in Apl.reduce (applyBin F) n a
+                 end
+               | ("scan", [f,n,a]) =>
+                 let val F = unFb2 DE "scan" f
+                     val n = eval DE n
+                     val a = eval DE a
+                 in Apl.scan (applyBin F) n a
                  end
                | ("idxS", [x,i,a]) =>
                  let val x = Apl.map 0 unIb (eval DE x)

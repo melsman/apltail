@@ -109,8 +109,29 @@ fun reduce (f: 'a t * 'a t -> 'a t) (n:'a t) (a:'a t) : 'a t =
             val vs = V.tabulate(k, fn i => loop (i*m))
         in (ns, vs, #3 a)
         end
+
+local
+fun scanlChunked defaultElem (f: 'a t * 'a t -> 'a t) (chunkSize : int) (vec : 'a vector) =
+  let
+      fun next (i, x, y::ys) = if i mod chunkSize = 0
+                                then scl defaultElem x::y::ys
+                                else f(scl defaultElem x, y)::y::ys
+        | next (0, x, []) = [scl defaultElem x]
+
+      val xs : 'a t list = (rev (V.foldli next [] vec))
+  in
+      V.fromList (List.map (unScl "scanl") xs)
+  end
+
+in
+(* TODO: do we really need the neutral element? *)
+fun scan (f: 'a t * 'a t -> 'a t) (n:'a t) ((ns,vs,def):'a t) : 'a t = 
+  case rev (list ns) of
+      nil => (ns,vs,def)     (* scalar: scan is identity *)
+    | [0] => zilde def       (* empty: scan is identity *)
+    | m::rns => (ns, scanlChunked def f m vs, def)
+end
             
-fun scan _ = raise Fail "scan not implemented"
 
 fun replicate0 s toI (is,vs) =
     let val (sh_is,vs_is,_) = is

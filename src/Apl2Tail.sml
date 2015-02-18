@@ -427,6 +427,20 @@ fun compSlash r =
   | [Bs x] => compSlash r ([Abs(scalar x)])
   | _ => compErr r "operator slash (reduce/replicate/compress) takes only one argument (monadic)"
 
+fun compBackslash (r : AplAst.reg) : s list -> s N =
+    fn [Fs (f,ii)] =>
+       rett(Fs (fn [Ads arr] => S(Ads(scan (fn (x,y) =>
+                                           subM(f[Ds x,Ds y] >>>= (fn Ds z => rett z
+                                                                  | _ => compErr r "expecting double as result of reduce")))
+                                       (D(id_item_double ii)) arr))
+                 | [Ais arr] => S(Ais(scan (fn (x,y) =>
+                                           subM(f[Is x,Is y] >>>= (fn Is z => rett z
+                                                                  | _ => compErr r "expecting integer as result of reduce")))
+                                                        (I(id_item_int ii)) arr))
+                  | _ => compErr r "Only arrays of integers and doubles are supported right now",noii))
+     | _ => compErr r "This type of left-argument to scan not supported yet"
+
+
 fun compileAst flags G0 e =
     let fun comp (G:env) e (k: s*env -> s N) : s N =
             case e of
@@ -623,6 +637,7 @@ fun compileAst flags G0 e =
                     noii), 
                 emp)
             | IdE(Symb L.Slash,r) => k (Fs (compSlash r, noii), emp)
+            | IdE(Symb L.Backslash,r) => k (Fs (compBackslash r, noii), emp)
             | IdE(Symb L.Slashbar,r) => compId G (Var "$slashbar",r) k
             | IdE(Symb L.Dot,r) => compId G (Var "$dot",r) k
             | IdE(Symb L.Each,r) => 

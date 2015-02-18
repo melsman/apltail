@@ -178,7 +178,7 @@ fun each f e = Op_e("each",[mkFn1m f,e])
 fun red f n e = Op_e("red",[mkFn2 f,n,e])
 fun mif (b,e1,e2) = If(b,e1,e2)
 fun zipWith f e1 e2 = Op_e("zipWith",[mkFn2m f,e1,e2])
-fun scan f e1 e2 = Op_e("scan",[mkFn2 f,e1,e2])
+fun scan f e1 e2 = Op_e("scan",[mkFn2m f,e1,e2])
 fun getRank s e =
     let fun fail s = raise Fail ("rank error: " ^ s ^ 
                                  " not supported for arguments of unknown rank")
