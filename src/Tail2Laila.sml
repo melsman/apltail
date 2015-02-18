@@ -24,7 +24,7 @@ datatype lexp = S of L.t     (*scalars*)
               | FN of lexp list -> lexp L.M
 
 infixr $
-fun f $ x = f x 
+val op $ = Util.$
 
 datatype opOpt = SS_S of L.t * L.t -> L.t
                | S_S of L.t -> L.t
@@ -116,8 +116,8 @@ val classifyOp : string -> opOpt =
   | "cat" => AA_AM (fn (a1,a2) => L.catenate a1 a2)
   | "catV" => AA_AM (fn (a1,a2) => L.catenate a1 a2)
   | "compress" => AA_AM L.compress
-  | "shape" => A_A (L.vec o L.shape)
-  | "shapeV" => A_A (L.vec o L.shape)
+  | "shape" => A_A L.shape
+  | "shapeV" => A_A L.shape
   | "first" => A_SM L.first
   | "firstV" => A_SM L.first
   | "vreverseV" => A_AM L.vreverse
@@ -185,9 +185,7 @@ fun comp (E:env) (e : E.exp) (k: lexp -> lexp L.M) : lexp L.M =
            (case FM.lookup E v of
                 SOME e => k e
               | NONE => die ("comp: identifier " ^ qq v ^ " not in environment"))
-         | E.Vc(es,t) => comps compS E es (fn vs => 
-                         L.fromListM (ltypeOf t) vs >>= (fn v =>
-                         kA $ L.vec $ v))
+         | E.Vc(es,t) => comps compS E es (fn vs => L.fromListM (ltypeOf t) vs >>= kA)
          | E.Let(v,tv,e1,e2,t) => 
            comp E e1 (fn e1 => 
            mklet e1 >>= (fn x => 
@@ -234,24 +232,24 @@ fun comp (E:env) (e : E.exp) (k: lexp -> lexp L.M) : lexp L.M =
          | E.Op("reshape",[v,a], _) =>
            compA E v (fn v =>
            compA E a (fn a =>
-           L.reshape (L.rav0 v) a >>= kA))
+           L.reshape v a >>= kA))
          | E.Op("snocV",[a,x], t) =>
            compA E a (fn a =>
            compS E x (fn x =>
-           L.catenate a (L.vec(L.fromList(ltypeOf t)[x])) >>= kA))
+           L.catenate a (L.enclose x) >>= kA))
          | E.Op("snoc",[a,x], t) =>
            compA E a (fn a =>
            comp E x (fn A x => L.catenate a (L.dimincr x) >>= kA
-                      | S x => L.catenate a (L.vec(L.fromList(ltypeOf t)[x])) >>= kA
+                      | S x => L.catenate a (L.enclose x) >>= kA
                       | _ => die "snoc"))
          | E.Op("consV",[x,a], t) =>
            compS E x (fn x =>
            compA E a (fn a =>
-           L.catenate (L.vec(L.fromList(ltypeOf t)[x])) a >>= kA))
+           L.catenate (L.enclose x) a >>= kA))
          | E.Op("cons",[x,a], t) =>
            compA E a (fn a =>
            comp E x (fn A x => L.catenate (L.dimincr x) a >>= kA
-                      | S x => L.catenate (L.vec(L.fromList(ltypeOf t)[x])) a >>= kA
+                      | S x => L.catenate (L.enclose x) a >>= kA
                       | _ => die "cons"))
          | E.Op("zilde",[], t) => kA(L.zilde(ltypeOf t))
          | E.Op("pi",[], t) => kS L.pi

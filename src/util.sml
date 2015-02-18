@@ -4,7 +4,7 @@ structure Util :> UTIL = struct
 fun curry f a b = f (a,b)
 fun uncurry f (a,b) = f a b
 
-infix $
+infixr $
 fun f $ e = f e
 
 fun iter f a (i,j) =

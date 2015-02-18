@@ -26,12 +26,12 @@ end
 structure NameSet = OrderSet(struct type t = Name.t
                                     fun compare (x, y) = String.compare (Name.pr x, Name.pr y)
                              end)
-datatype Value =
+datatype value =
          IntV of int
        | DoubleV of real
        | BoolV of bool
        | CharV of word
-       | ArrV of Value option ref vector
+       | ArrV of value option ref vector
 datatype Unop = Neg | I2D | D2I | B2I | Not | Floor | Ceil | Ln | Sin | Cos | Tan | Roll
 datatype Binop = Add | Sub | Mul | Divv | Modv | Resi | Min | Max | Lt | Lteq | Eq | Andb | Orb | Xorb | Powd | Ori | Andi | Xori | Shli | Shri | Shari
 datatype Exp =
@@ -131,7 +131,7 @@ structure Name : NAME = IL.Name
 
 signature PROGRAM = sig
   type e
-  val $     : Name.t -> e
+  val Var   : Name.t -> e
   val Subs  : Name.t * e -> e
   val Alloc : Type.T * e -> e
   val Vect  : Type.T * e list -> e
@@ -351,7 +351,7 @@ in
         in case s of
              IL.For(e,f) =>
              let val n = Name.new Type.Int
-                 val body = f($n)
+                 val body = f(Var n)
              in
              end
            | _ =>
@@ -395,7 +395,7 @@ in
          | _ => default()
       end
 
-  fun $ n = Var n
+  fun Var n = IL.Var n
   fun I n = IL.I n
   fun unI (IL.I n) = SOME n
     | unI _ = NONE
@@ -425,17 +425,17 @@ in
                         | NONE => 0.0
           in (SOME(IL.D(if neg then Real.-(a,d) else Real.+(a,d))), fn x => x)
           end
-        | Binop(Add,a,b) => 
+        | IL.Binop(IL.Add,a,b) => 
           let val (acc, f) = comp0 neg a acc
               val (acc, g) = comp0 neg b acc
           in (acc, f o g)
           end
-        | Binop(Sub,a,b) =>
+        | IL.Binop(IL.Sub,a,b) =>
           let val (acc, f) = comp0 neg a acc
               val (acc, g) = comp0 (Bool.not neg) b acc
           in (acc, f o g)
           end        
-        | Var _ => (acc, fn x => Binop(if neg then Sub else Add, x, t))
+        | IL.Var _ => (acc, fn x => Binop(if neg then IL.Sub else IL.Add, x, t))
         | _ => raise Fail "no"
 
   and comp p a b =
@@ -720,7 +720,7 @@ val For = ForOptimize (fn x => x)
 local open IL infix := ::= 
 in
   fun n := e = 
-     if IL.eq(e, $ n) then emp 
+     if IL.eq(e, Var n) then emp 
      else Assign(n,e)
   fun (n,i) ::= e = AssignArr(n, i, e)      
 end
@@ -825,8 +825,8 @@ fun modu E e1 e2 =
 (* Static evaluation *)
 fun se_e (E:env) (e:e) : e =
     case e of
-      IL.Var n => (case env_lookeq E n of SOME e => e (*if simpleExp e then e else $n *)
-                                        | NONE => $n)
+      IL.Var n => (case env_lookeq E n of SOME e => e (*if simpleExp e then e else Var n *)
+                                        | NONE => Var n)
     | IL.I i => I i
     | IL.D d => D d
     | IL.C c => C c

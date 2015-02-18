@@ -10,7 +10,7 @@ type 'a M = 'a * (P.ss -> P.ss)
 
 type t = P.e
 
-type Value = IL.Value
+type value = IL.value
 
 infix >>= ::=
 val op := = P.:=
@@ -35,7 +35,7 @@ fun ifM t (b,m1,m2) =
       | SOME false => m2
       | NONE => 
         let val n = Name.new t
-        in (P.$ n, 
+        in (P.Var n, 
             fn ss => P.Decl(n, NONE) ::
                      P.Ifs(b,
                            runMss m1 (fn v => [n := v]),
@@ -68,7 +68,7 @@ fun lettWithName e =
         val ty = ILUtil.typeExp e
         val name = Name.new ty
         fun ssT ss = Decl(name, SOME e) :: ss
-    in (($name,name), ssT)
+    in ((Var name,name), ssT)
     end
 
 fun lett e =
@@ -78,7 +78,7 @@ fun lett e =
          let val ty = ILUtil.typeExp e
              val name = Name.new ty
              fun ssT ss = Decl(name, SOME e) :: ss
-         in ($name, ssT)
+         in (Var name, ssT)
          end
     end
 
@@ -86,7 +86,7 @@ fun for (n:t) (f:INT->unit M) : unit M =
     let open P
         val name = Name.new Int
     in lett n >>= (fn n =>
-       ((), For(n, name, runMss (f($name)) (fn () => nil))))
+       ((), For(n, name, runMss (f(Var name)) (fn () => nil))))
     end
 
 fun asgnArr (n:Name.t,i:t,v:t) : unit M =
@@ -117,7 +117,7 @@ fun simple f =
     let open P 
         val tyv = Type.Vec Int
         val v = Name.new tyv
-        val (e,ssT) = f ($ v)
+        val (e,ssT) = f (Var v)
     in case ssT nil of
            nil => simpleIdx v e
          | _ => false
@@ -131,13 +131,13 @@ fun materialize (V(ty,n,f)) =
         val name_i = Name.new Int
         fun ssT ss = Decl(name_n, SOME n) ::
                      Decl(name, SOME(Alloc(tyv,n))) ::
-                     (For($name_n, name_i, runM0(f($name_i))(fn v => (name,$name_i) ::= v)) ss)
+                     (For(Var name_n, name_i, runM0(f(Var name_i))(fn v => (name,Var name_i) ::= v)) ss)
     in ((name,name_n), ssT)
     end
 
 fun materializeWithName (v as V(ty,n,_)) =
     let val ((name,name_n),ssT) = materialize v
-    in ((V(ty,P.$name_n, fn i => ret(P.Subs(name,i))), name, name_n), ssT)
+    in ((V(ty,P.Var name_n, fn i => ret(P.Subs(name,i))), name, name_n), ssT)
     end
 
 fun memoize (t as V(ty,n,f)) =
@@ -181,7 +181,7 @@ in
 
   fun emptyOf (V(ty,_,f)) = V(ty, I 0, f)
 
-  fun single ty t = V(ty, I 1, fn _ => ret t)
+  fun single t = V(ILUtil.typeExp t, I 1, fn _ => ret t)
 
   fun tk t (V(ty,m,g)) = V(ty,mini(t,m), g)
   fun tk_unsafe t (V(ty,m,g)) = V(ty,t,g)   (* assumes 0 <= t <= m *)
@@ -259,7 +259,7 @@ val b2i  : BOOL -> INT = P.b2i
 fun printf (s, es) = ((), fn ss => P.Printf(s,es)::ss)
 
 (* Values and Evaluation *)
-type V    = IL.Value
+type value   = IL.value
 val Iv       = IL.IntV
 val unIv     = fn IL.IntV i => i | _ => die "unIv"
 val Dv       = IL.DoubleV
@@ -310,7 +310,7 @@ fun pp_prog ((ta,tb,p): prog) : string =
     in ILUtil.ppFunction "kernel" (ta,tb) name_arg ss
     end
 
-fun eval ((ta,tb,p): prog) (v: V) : V =
+fun eval ((ta,tb,p): prog) (v: value) : value =
     let val name_arg = Name.new ta
         val ss = p (name_arg, P.Ret)
         val ss = opt_ss0 ss
@@ -348,7 +348,7 @@ fun typeComp s c =
     in ILUtil.typeExp e
     end
 
-val $ = P.$
+val Var = P.Var
 
 fun get_exp (m1 as (e,f)) =
     let val ss = f nil
@@ -366,7 +366,7 @@ fun If0 (x,m1,m2) =
         val n = Name.new t
     in case (get_exp m1, get_exp m2) of
          (SOME e1,SOME e2) => 
-         ($ n, fn ss => P.Decl(n,SOME(P.If(x,e1,e2)))::ss)
+         (Var n, fn ss => P.Decl(n,SOME(P.If(x,e1,e2)))::ss)
        | _ =>
          let val k = fn v => n := v
              val s1 = runM0 m1 k
@@ -374,11 +374,11 @@ fun If0 (x,m1,m2) =
              val s1 = opt_ss0 s1
              val s2 = opt_ss0 s2
              fun default() =
-                 ($ n, fn ss => P.Decl(n,NONE)::P.Ifs(x,s1,s2) ss)
+                 (Var n, fn ss => P.Decl(n,NONE)::P.Ifs(x,s1,s2) ss)
          in case (s1, s2) of
               ([IL.Assign(n1,e1)],[IL.Assign(n2,e2)]) =>
               if n = n1 andalso n = n2 then
-                ($ n, fn ss => P.Decl(n,SOME(P.If(x,e1,e2)))::ss)
+                (Var n, fn ss => P.Decl(n,SOME(P.If(x,e1,e2)))::ss)
               else default()
             | _ => default()
          end
@@ -419,13 +419,13 @@ fun concat v1 v2 =
                          end)
     end
    
-  fun fromList ty nil = empty Int
-    | fromList ty [t] = single ty t
-    | fromList ty (t::ts) = concat (single ty t) (fromList ty ts)
+  fun fromList nil = empty Int
+    | fromList [t] = single t
+    | fromList (t::ts) = concat (single t) (fromList ts)
 
-  fun fromListM ty nil = ret(empty Int)
-    | fromListM ty [t] = ret(single ty t)
-    | fromListM ty ts =
+  fun fromListMV ty nil = ret(empty Int)
+    | fromListMV ty [t] = ret(single t)
+    | fromListMV ty ts =
       let open P
           val tyv = Type.Vec ty
           val name = Name.new tyv
@@ -522,7 +522,7 @@ fun concat v1 v2 =
                      fun h i =
                          toSh sh' i >>= (fn sh'' =>
                          fromSh sh (exchange idxs sh'') >>= (fn x => g x))
-                 in ret (fromList Int sh',
+                 in ret (fromList sh',
                          V(ty,m,h))
                  end))
            | NONE => die "trans2: unknown number of dimensions not supported"
@@ -603,8 +603,8 @@ end = struct
   type t = v
   val concat   = concat
   val empty    = empty Int
-  val singlez  = single Int (I 0)
-  val single   = single Int
+  val singlez  = single (I 0)
+  val single   = single
   val product  : t -> INT M = foldl (ret o muli) (I 1)
   val length   : t -> INT = length
   val dr       : INT -> t -> t = dr
@@ -619,7 +619,9 @@ datatype m = A of Shape.t * v
 (* invariant: A(s,d) ==> product s = length d *) 
 
 fun vec c = A(Shape.single (length c), c)
-fun scl ty v = A(Shape.empty, single ty v)
+fun fromListM ty l = fromListMV ty l >>= (ret o vec)
+fun enclose t = vec (single t)
+fun scl ty t = A(Shape.empty, single t)
 fun first (A(_,v)) =
     let fun first_unsafe (V(_,_,f)) = f (I 0)
         fun maybe_pad (v as V(ty,n,f)) =
@@ -629,7 +631,8 @@ fun first (A(_,v)) =
 fun zilde ty = A(Shape.singlez, empty ty)
 fun iota n = vec (tabulate Int n (fn x => ret(addi(x,I 1))))
 fun iota' _ = die "iota' not implemented"
-fun shape (A(f,_)) = f
+fun shapeV (A(f,_)) = f
+fun shape (A(f,_)) = vec f
 fun snd (A(_,c)) = c
 fun siz (A(_,c)) = length c
 fun rank (A(f,_)) = Shape.length f
@@ -641,8 +644,6 @@ fun mem (A(f,d)) = memoize d >>= (fn d => ret (A(f,d)))
 (* Restructuring *)
 fun rav (A(_,c)) = vec c
 
-val rav0 = snd
-
 fun mif (x, A(f1,v1), A(f2,v2)) = A(Ifv(x,f1,f2), Ifv(x,v1,v2))
 
 fun zildeOf (A(f,v)) = A(Shape.singlez, emptyOf v)
@@ -650,8 +651,8 @@ fun zildeOf (A(f,v)) = A(Shape.singlez, emptyOf v)
 fun each ty g (A(f,cs)) = A(f, map ty g cs)
       
 fun zipWith ty g a b =
-    let val sha = shape a
-	val shb = shape b
+    let val sha = shapeV a
+	val shb = shapeV b
         val mv = A(sha,map2unsafe ty g (snd a) (snd b))
     in Shape.eq sha shb >>= (fn shapeeq =>      
        assert "arguments to zipWith have different shape" shapeeq
@@ -660,7 +661,7 @@ fun zipWith ty g a b =
 
 fun scan _ = die "scan: not implemented"
 
-fun pad1 s = Ifv(eqi(length s,I 0), single Int (I 1), s) 
+fun pad1 s = Ifv(eqi(length s,I 0), single (I 1), s) 
 
 fun catenate_first (A(s1,d1) : m) (A(s2,d2): m) : m M =
       let val s1 = pad1 s1
@@ -722,9 +723,11 @@ fun rotate n (A(f,d)) =
            A(f,concat (dr n d) (tk n d)))
     end
 
-fun reshape (f: v) (a: m) : m M =
-    Shape.product f >>= (fn p =>
-    ret(A(f,extend p (snd a))))
+fun reshape (f: m) (a: m) : m M =
+    let val v = snd f
+    in Shape.product v >>= (fn p =>
+       ret(A(v,extend p (snd a))))
+    end
 
 fun transpose (A(s,d)) = trans s d >>= (fn v => ret(A(rev s, v)))
 
@@ -809,7 +812,7 @@ fun power (f: m -> m M) (n: INT) (A(sh,vs)) : m M =
   getShapeV "power" sh >>= (fn sh =>
   letts sh >>= (fn (sh,names_sh) =>
   materializeWithName vs >>= (fn (vs,name_vs,name_n) =>
-  fromListM Int (List.map $ names_sh) >>= (fn sh =>
+  fromListMV Int (List.map Var names_sh) >>= (fn sh =>
   let open P
       fun multi_assign [] [] = []
         | multi_assign (n::ns) (x::xs) = (n := x) :: multi_assign ns xs
@@ -819,8 +822,8 @@ fun power (f: m -> m M) (n: INT) (A(sh,vs)) : m M =
                  getShapeV "power" sh' >>= (fn sh' =>
                  letts0 sh' >>= (fn sh' =>
                  ((), fn ss => [Free name_vs,
-                                name_vs := $name_vs',
-                                name_n := $name_n'] @ multi_assign names_sh sh' @ ss)))))
+                                name_vs := Var name_vs',
+                                name_n := Var name_n'] @ multi_assign names_sh sh' @ ss)))))
   in for n (fn _ => body) >>= (fn () => ret(A(sh,vs)))
   end))))
 

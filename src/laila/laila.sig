@@ -8,7 +8,6 @@ signature LAILA = sig
 
   (* Terms *)
   type t                      (* terms *)
-  type v                      (* vector terms *)
 
   val I        : Int32.int -> t
   val D        : real -> t
@@ -17,8 +16,6 @@ signature LAILA = sig
   val i2d      : t -> t
   val b2i      : t -> t
   val If       : t * t * t -> t
-  val fromList : T -> t list -> v
-  val fromListM : T -> t list -> v M
 
   (* Compiled Programs *)
   type prog
@@ -27,19 +24,19 @@ signature LAILA = sig
   val outprog  : string -> prog -> unit
  
   (* Values and Evaluation *)
-  type V
-  val Iv       : int -> V
-  val unIv     : V -> int     (* may fail *)
-  val Dv       : real -> V
-  val unDv     : V -> real    (* may fail *)
-  val Bv       : bool -> V
-  val unBv     : V -> bool    (* may fail *)
-  val Vv       : V list -> V
-  val unVv     : V -> V list  (* may fail *)
-  val Uv       : V 
-  val eval     : prog -> V -> V
+  type value
+  val Iv       : int -> value
+  val unIv     : value -> int     (* may fail *)
+  val Dv       : real -> value
+  val unDv     : value -> real    (* may fail *)
+  val Bv       : bool -> value
+  val unBv     : value -> bool    (* may fail *)
+  val Vv       : value list -> value
+  val unVv     : value -> value list  (* may fail *)
+  val Uv       : value
+  val eval     : prog -> value -> value
   val pp_prog  : prog -> string
-  val ppV      : V -> string
+  val ppV      : value -> string
 
   type m (* APL multi-dimensional arrays *)
 
@@ -48,7 +45,9 @@ signature LAILA = sig
   type BOOL = t
   type CHAR = t
 
-  val assert   : string -> BOOL -> 'a M -> 'a M
+  val fromListM : T -> t list -> m M
+
+  val assert    : string -> BOOL -> 'a M -> 'a M
 
   val addi    : INT * INT -> INT
   val subi    : INT * INT -> INT
@@ -109,8 +108,8 @@ signature LAILA = sig
   val notb    : BOOL -> BOOL
 
   val zilde   : T -> m
-  val scl     : T -> t -> m
-  val vec     : v -> m
+  val scl     : T -> t -> m  (* scalar value *) 
+  val enclose : t -> m       (* one dimensional vector with one element *)
   val iota    : INT -> m
   val iota'   : m -> m
 
@@ -118,7 +117,6 @@ signature LAILA = sig
   val rank    : m -> INT
 
   val rav     : m -> m
-  val rav0    : m -> v
 
   val dimincr : m -> m (* shape(dimincr(m)) = shape(m)@[1] *)
 
@@ -146,8 +144,8 @@ signature LAILA = sig
   val vreverse : m -> m M
   val vrotate  : INT -> m -> m M
 
-  val reshape  : v -> m -> m M
-  val shape    : m -> v
+  val reshape  : m -> m -> m M
+  val shape    : m -> m
 
   val reduce   : (t * t -> t M) -> t -> m -> (t -> 'b) -> (m -> 'b) -> 'b M
 

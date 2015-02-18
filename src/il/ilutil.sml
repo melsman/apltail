@@ -4,11 +4,11 @@ structure ILUtil : ILUTIL = struct
   type e = Program.e
   type s = Program.s
   type ss = Program.s list
-  type Value = IL.Value
+  type value = IL.value
 
   fun die s = raise Fail ("ILUtil." ^ s)
 
-  type Env = (Name.t, Value) Util.alist
+  type Env = (Name.t, value) Util.alist
   val emptyEnv = Util.emptyAlist()
   val lookup = Util.lookupAlist
   val add = Util.extendAlist
@@ -101,7 +101,7 @@ structure ILUtil : ILUTIL = struct
     | evalUnOp B2I (BoolV b) = (IntV(if b then 1 else 0))
     | evalUnOp _ _ = die "evalUnOp"
 
-  fun eval (E:Env) (e:Exp) : Value =
+  fun eval (E:Env) (e:Exp) : value =
       case e of
         Var n => (case lookup E n of
                     SOME v => v
