@@ -1,24 +1,11 @@
 functor Apl2Tail(T : TAIL) :
 sig
   (* supported flags: [-o f, -tl, -c, -v, -noopt, -p_types, -s_tail, -s_parse] *)
-  type flag = string * string option  
-
   type res = (unit, T.Double T.Num) T.prog option
 
-  val compile : flag list -> string list -> res
+  val compile : Flags.flags -> string list -> res
 end = 
 struct
-
-type flag =  string * string option
-
-fun prln s = print(s ^ "\n")
-
-fun minInt() = case Int.minInt of
-                 SOME i => i
-               | NONE => raise Fail "no minInt"
-fun maxInt() = case Int.maxInt of
-                 SOME i => i
-               | NONE => raise Fail "no maxInt"
 
 type res = (unit, T.Double T.Num) T.prog option
 
@@ -124,16 +111,11 @@ local
                  | Fs _ => ret s
 
   open AplAst
-  type env = (id * s) list
-  fun lookup (E:env) id =
-      case List.find (fn (id',_) => id = id') E of
-        SOME(_,r) => SOME r
-      | NONE => NONE
-  val emp : env = []
-  fun plus (e1,e2) = e2@e1
+  type env = (id,s)Util.alist
+  val lookup = Util.lookupAlist
+  val emp : env = Util.emptyAlist()
   infix ++ 
-  val op ++ = plus
-  fun uncurry f (x,y) = f x y
+  val op ++ = Util.plusAlist
   fun repair s = String.translate (fn #"-" => "~"
                                     | c => String.str c) s
   fun StoI s = Int.fromString(repair s)
@@ -788,9 +770,9 @@ fun compileAst flags G0 e =
             | IdE(Symb L.Pipe,r) => compPrimFunMD k r (compOpr1 absi absd,
                                                        compOpr2 resi resd) (Lii 0,Lii 0.0,NOii)
             | IdE(Symb L.Max,r) => compPrimFunMD k r (compOpr1i (fn x => x) ceil,
-                                                      compOpr2 (uncurry maxi) (uncurry maxd)) (LRii(minInt()), LRii(Real.negInf),NOii)
+                                                      compOpr2 (Util.uncurry maxi) (Util.uncurry maxd)) (LRii(Util.minInt), LRii(Real.negInf),NOii)
             | IdE(Symb L.Min,r) => compPrimFunMD k r (compOpr1i (fn x => x) floor,
-                                                      compOpr2 (uncurry mini) (uncurry mind)) (LRii(maxInt()), LRii(Real.posInf),NOii)
+                                                      compOpr2 (Util.uncurry mini) (Util.uncurry mind)) (LRii(Util.maxInt), LRii(Real.posInf),NOii)
             | IdE(Symb L.Lt,r) => compPrimFunD k r (compCmp lti ltd ltc) (LRii 0,LRii 0.0,LRii false)
             | IdE(Symb L.Lteq,r) => compPrimFunD k r (compCmp ltei lted ltec) (LRii 1,LRii 1.0,LRii true)
             | IdE(Symb L.Gt,r) => compPrimFunD k r (compCmp gti gtd gtc) (LRii 0,LRii 0.0,LRii false)
@@ -944,30 +926,14 @@ val initialB =
 
 end
 
-fun flag_p flags s =
-    List.exists (fn p => p = (s,NONE)) flags
-
-fun flag flags s =
-    case List.find (fn (s',_) => s' = s) flags of
-        SOME (_,SOME v) => SOME v
-      | _ => NONE
-
-fun readFile f =
-    let val is = TextIO.openIn f
-    in let val s = TextIO.inputAll is
-       in TextIO.closeIn is;
-          s
-       end handle ? => (TextIO.closeIn is; raise ?)
-    end
-
 fun parseFile flags pe f =
-    let val verbose_p = flag_p flags "-v"
-        val silent_p = flag_p flags "-silent"
-        val () = if not silent_p then prln ("[Reading file: " ^ f ^ "]")
+    let val verbose_p = Flags.flag_p flags "-v"
+        val silent_p = Flags.flag_p flags "-silent"
+        val () = if not silent_p then Util.prln ("[Reading file: " ^ f ^ "]")
                  else ()
-        val s = readFile f
+        val s = Util.readFile f
         val ts = AplLex.lex f s
-        fun pr f = if verbose_p then prln(f()) else ()
+        fun pr f = if verbose_p then Util.prln(f()) else ()
         val () = pr (fn () => "File lexed:")
         val () = pr (fn () => " " ^ AplLex.pr_tokens (map #1 ts))
         val () = pr (fn () => "Parsing tokens...")
@@ -977,7 +943,7 @@ fun parseFile flags pe f =
     end
 
 fun parseFiles flags (pe0 : AplParse.env) (fs: string list) : AplAst.exp =
-    let val verbose_p = flag_p flags "-v"
+    let val verbose_p = Flags.flag_p flags "-v"
         fun mergeExps (NONE,e) = SOME e
           | mergeExps (SOME e0,e) = SOME(AplParse.seq(e0,e))
         fun parseFs pe = 
@@ -992,12 +958,12 @@ fun parseFiles flags (pe0 : AplParse.env) (fs: string list) : AplAst.exp =
 
 fun compileExp flags G e =
     let (* val compile_only_p = flag_p flags "-c" *)
-        val verbose_p = flag_p flags "-v"
-        val silent_p = flag_p flags "-silent"
-        val p_tail = flag_p flags "-p_tail"
-        val p_types = flag_p flags "-p_types"
-        val optlevel = if flag_p flags "-noopt" then 0 else 1
-        val outfile = flag flags "-o"
+        val verbose_p = Flags.flag_p flags "-v"
+        val silent_p = Flags.flag_p flags "-silent"
+        val p_tail = Flags.flag_p flags "-p_tail"
+        val p_types = Flags.flag_p flags "-p_types"
+        val optlevel = if Flags.flag_p flags "-noopt" then 0 else 1
+        val outfile = Flags.flag flags "-o"
         val p = compileAst {verbose=verbose_p, optlevel=optlevel, prtype=p_types} G e
         val () =
             case outfile of
@@ -1013,17 +979,17 @@ fun compileExp flags G e =
 
 fun errHandler e =
     case e of
-        AplParse.ParseErr (l,msg) => (prln ("Parse Error at " ^ 
-                                            Region.ppLoc l ^ ": \n  " ^ 
-                                            msg); NONE)
-      | Fail s => (prln s; NONE)
+        AplParse.ParseErr (l,msg) => (Util.prln ("Parse Error at " ^ 
+                                                 Region.ppLoc l ^ ": \n  " ^ 
+                                                 msg); NONE)
+      | Fail s => (Util.prln s; NONE)
       | _ => raise e
 
 fun compile flags fs =
-    let val s_parse = flag_p flags "-s_parse"   (* stop after parsing *)
+    let val s_parse = Flags.flag_p flags "-s_parse"   (* stop after parsing *)
         val (PE,CE) = initialB
         val e = parseFiles flags PE fs
-    in if s_parse then (prln "Stopping after parsing."; NONE)
+    in if s_parse then (Util.prln "Stopping after parsing."; NONE)
        else compileExp flags CE e
     end handle ? => errHandler ?
 end

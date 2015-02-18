@@ -2,6 +2,7 @@ local
    $(SML_LIB)/basis/basis.mlb
    $(SMACKAGE)/kitlib/v1/set/set.mlb
    $(SMACKAGE)/kitlib/v1/random/random.mlb
+   ../util.mlb
 in
    type.sig
    il.sml

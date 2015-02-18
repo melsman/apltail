@@ -8,19 +8,10 @@ structure ILUtil : ILUTIL = struct
 
   fun die s = raise Fail ("ILUtil." ^ s)
 
-  fun iter f a (i,j) =
-      let fun loop a n = if n > j then a
-                         else loop (f (n,a)) (n+1)
-      in loop a i
-      end
-      
-  type Env = (Name.t * Value) list
-  val empty = []
-  fun add e (n,v) = (n,v)::e
-  fun lookup E n =
-      case List.find (fn (x,_) => x=n) E of
-        SOME(_,v) => SOME v
-      | NONE => NONE
+  type Env = (Name.t, Value) Util.alist
+  val emptyEnv = Util.emptyAlist()
+  val lookup = Util.lookupAlist
+  val add = Util.extendAlist
 
   (* Simple pretty printing *)
   fun ppB Add = "+"
@@ -45,32 +36,13 @@ structure ILUtil : ILUTIL = struct
     | ppB Shri = "shri"
     | ppB Shari = "shari"
 
-  fun pp_int i =
-      if i = ~2147483648 then "-2147483648"
-      else if i < 0 then "-" ^ pp_int (~i)
-      else Int32.toString i
-
   fun pp_char w =
       "'" ^ (Char.toCString o Char.chr o Word.toInt) w ^ "'"
 
-  fun pp_double d =
-      if d < 0.0 then "-" ^ pp_double (~d)
-      else
-        if Real.==(d,Real.posInf) then "HUGE_VAL"
-        else 
-          let val s = Real.toString d
-              val s = String.translate (fn #"~" => "-" 
-                                         | #"E" => "e" 
-                                         | c => String.str c) s
-          in if CharVector.exists (fn c => c = #".") s then s
-             else if CharVector.exists (fn c => c = #"e") s then s
-             else s ^ ".0"
-          end
-
   fun ppValue v = 
       case v of
-        IntV i => pp_int i
-      | DoubleV d => pp_double d
+        IntV i => Util.intToCString i
+      | DoubleV d => Util.realToCString d
       | CharV c => pp_char c
       | BoolV b => Bool.toString b
       | ArrV v => "vec"
@@ -133,7 +105,7 @@ structure ILUtil : ILUTIL = struct
       case e of
         Var n => (case lookup E n of
                     SOME v => v
-                  | NONE => die("lookup: " ^ Name.pr n))
+                  | NONE => die("eval.Var: " ^ Name.pr n))
       | I i => IntV i
       | D d => DoubleV d
       | C c => CharV c
@@ -169,10 +141,10 @@ structure ILUtil : ILUTIL = struct
         For (e, name, body) =>
         (case eval E e of
            IntV n =>
-           iter (fn (i,E) => 
-                    let val E = add E (name,IntV i)
-                    in evalSS E body rn
-                    end) E (0,n-1)
+           Util.iter (fn (i,E) => 
+                         let val E = add E (name,IntV i)
+                         in evalSS E body rn
+                         end) E (0,n-1)
          | _ => die "For")
       | Ifs(e,ss1,ss2) =>
         (case eval E e of
@@ -202,8 +174,6 @@ structure ILUtil : ILUTIL = struct
 
   and evalSS E ss rn =
       List.foldl (fn (s,E) => evalS E s rn) E ss
-
-  val emptyEnv = []
 
   datatype rope = % of string
                 | %% of rope * rope
@@ -248,8 +218,8 @@ structure ILUtil : ILUTIL = struct
   fun pp e =
       case e of
         Var n => %(Name.pr n)
-      | I i => if i < 0 then par(%(pp_int i)) else %(pp_int i)
-      | D d => if d < 0.0 then par(%(pp_double d)) else %(pp_double d)
+      | I i => if i < 0 then par(%(Util.intToCString i)) else %(Util.intToCString i)
+      | D d => if d < 0.0 then par(%(Util.realToCString d)) else %(Util.realToCString d)
       | C c => %(pp_char c)
       | Binop(binop,e1,e2) => 
         if infi binop then par (pp e1 %% % (ppB binop) %% pp e2)

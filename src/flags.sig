@@ -1,3 +1,7 @@
+(** Module for parsing commandline argument flags and invoking a general
+    run function.
+*)
+
 signature FLAGS = sig
   type flags = (string * string option) list
                                         
@@ -10,9 +14,6 @@ signature FLAGS = sig
 end
 
 (**
-
-  Module for parsing commandline argument flags and invoking a general
-  run function.
 
   [type flags] Flags are either nullary or unary.
 
