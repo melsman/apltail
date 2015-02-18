@@ -12,20 +12,23 @@ TLFILES=$(APLFILES:%.apl=%.tl)
 RESFILES=$(APLFILES:%.apl=%.res) $(APLFILES:%.apl=%.resn)
 OUTVFILES=$(APLFILES:%.apl=%.outv)
 
+PRELUDE=../lib/prelude.apl
+APLT=../aplt
+
 .PHONY: all
 all: $(TLFILES) test
 
 %.tl: %.apl Makefile ../aplt
-	../aplt -s_tail -c -o $@ ../prelude.apl $<
+	$(APLT) -s_tail -c -o $@ $(PRELUDE) $<
 
 %.out: %.apl Makefile ../aplt
-	../aplt -s_tail -silent ../prelude.apl $< > $@
+	$(APLT) -s_tail -silent $(PRELUDE) $< > $@
 
 %.outn: %.apl Makefile ../aplt
-	../aplt -s_tail -noopt -silent ../prelude.apl $< > $@
+	$(APLT) -s_tail -noopt -silent $(PRELUDE) $< > $@
 
 %.outv: %.apl Makefile ../aplt
-	../aplt -s_tail -p_tail -p_types -noopt ../prelude.apl $< > $@
+	$(APLT) -s_tail -p_tail -p_types -noopt $(PRELUDE) $< > $@
 
 %.res: %.out
 	@(diff -aq $< $<.ok > /dev/null 2>&1; \
@@ -93,7 +96,7 @@ testc: $(CRESFILES)
 	@echo "----------------------------------------------------"
 
 c/%.c: %.apl Makefile
-	../aplt -c -oc $@ ../prelude.apl $<
+	$(APLT) -c -oc $@ $(PRELUDE) $<
 
 c/%.exe: c/%.c
 	gcc --std=c99 -O3 -o $@ -lm $<
@@ -137,7 +140,7 @@ bench: $(COMPTIMEFILES)
 	@echo "--------------------------------------------"
 
 c/%.c: %.apl Makefile
-	../aplt -c -oc $@ ../prelude.apl $<
+	$(APLT) -c -oc $@ $(PRELUDE) $<
 
 c/%.exe: c/%.c
 	gcc --std=c99 -O3 -o $@ -lm $<

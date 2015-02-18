@@ -1,5 +1,6 @@
 local
   $(SML_LIB)/basis/basis.mlb
 in
+  flags.sig
   flags.sml
 end

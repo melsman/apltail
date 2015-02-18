@@ -4,9 +4,9 @@ This software implements an APL compiler in Standard ML. The compiler
 targets a [typed array intermediate
 language](http://www.elsman.com/pdf/array14_final.pdf) [1].
 
-See [the compilation scheme](comp.md).
+See [the compilation scheme](doc/comp.md).
 
-See also the [coverage page](coverage.md).
+See also the [coverage page](doc/coverage.md).
 
 See also [AplCompile](https://github.com/melsman/aplcompile).
 
@@ -173,7 +173,7 @@ To get `aplt` to output type instantiation list for the polymorphic
 functions, such as `reduce`, `each`, and `take`, you may pass the
 option `-p_types` to `aplt`.
 
-See also the [coverage page](coverage.md).
+See also the [coverage page](doc/coverage.md).
 
 ## License
 

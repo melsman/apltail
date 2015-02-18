@@ -166,16 +166,13 @@ structure ILUtil : ILUTIL = struct
   exception Halted of string
   fun evalS E (s: Stmt) rn : Env =
       case s of
-        For (e, f) =>
+        For (e, name, body) =>
         (case eval E e of
            IntV n =>
-           let val name = Name.new Type.Int
-               val ss = f (Var name)
-           in iter (fn (i,E) => 
-                       let val E = add E (name,IntV i)
-                       in evalSS E ss rn
-                       end) E (0,n-1)
-           end
+           iter (fn (i,E) => 
+                    let val E = add E (name,IntV i)
+                    in evalSS E body rn
+                    end) E (0,n-1)
          | _ => die "For")
       | Ifs(e,ss1,ss2) =>
         (case eval E e of
@@ -282,12 +279,11 @@ structure ILUtil : ILUTIL = struct
  
   and ppS s =
       case s of
-        For (e, f) =>
-        let val n = Name.new Type.Int
-            val ns = Name.pr n 
+        For (e, n, body) =>
+        let val ns = Name.pr n 
         in %("for (int " ^ ns ^ " = 0; " ^ ns ^ " < ") %%
              pp e %% %("; " ^ ns ^ "++) {") %% 
-               %>(ppSS0(f (Var n))) %%
+               %>(ppSS0 body) %%
              %$ %% %"}"
         end
       | Ifs(e,ss1,nil) => %"if " %% par(pp e) %% %" {" %%

@@ -1,8 +1,9 @@
 MLCOMP ?= mlton -mlb-path-map $(HOME)/.mlton/mlb-path-map
-FILES=flags.sml flags.mlb aplt.sml aplt.mlb apl2tail.mlb Apl2Tail.sml Tail2Laila.sml \
-  $(shell ls -1 tail/*.sig tail/*.sml tail/*.mlb) \
-  $(shell ls -1 il/*.sig il/*.sml il/*.mlb) \
-  $(shell ls -1 laila/*.sig laila/*.sml laila/*.mlb)
+FILES=src/flags.sml src/flags.mlb src/aplt.sml src/aplt.mlb \
+  src/apl2tail.mlb src/Apl2Tail.sml src/Tail2Laila.sml \
+  $(shell ls -1 src/tail/*.sig src/tail/*.sml src/tail/*.mlb) \
+  $(shell ls -1 src/il/*.sig src/il/*.sml src/il/*.mlb) \
+  $(shell ls -1 src/laila/*.sig src/laila/*.sml src/laila/*.mlb)
 
 SMACKAGE ?= $(HOME)/.smackage/lib
 APLPARSE_LIB ?= $(SMACKAGE)/aplparse/v2.3
@@ -10,7 +11,7 @@ APLPARSE_LIB ?= $(SMACKAGE)/aplparse/v2.3
 .PHONY: all
 all: aplt
 
-aplt: aplt.mlb $(FILES) aplt.sml Makefile
+aplt: src/aplt.mlb $(FILES) src/aplt.sml Makefile
 	$(MLCOMP) -mlb-path-var 'APLPARSE_LIB $(APLPARSE_LIB)' -output $@ $<
 
 .PHONY: install

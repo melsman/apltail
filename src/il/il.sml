@@ -50,7 +50,7 @@ datatype Exp =
 type Size = Exp
 type Index = Exp
              
-datatype Stmt = For of Exp * (Exp -> Block)
+datatype Stmt = For of Exp * Name.t * Block  (* name is a binding occurence *)
               | Ifs of Exp * Block * Block
               | Assign of Name.t * Exp
               | AssignArr of Name.t * Exp * Exp
@@ -87,7 +87,7 @@ and eqs (nil,nil) = true
   | eqs _ = false
 fun eq_s(s1,s2) =
     case (s1, s2) of
-      (For (e1,f1), For(e2,f2)) => false
+      (For _, For _) => false
     | (Ifs(e1,ss11,ss12), Ifs(e2,ss21,ss22)) => false
     | (Assign (n1,e1), Assign (n2,e2)) => n1 = n2 andalso eq(e1,e2)
     | (AssignArr(n1,e1,e2), AssignArr(n2,e12,e22)) => false
@@ -207,7 +207,7 @@ signature PROGRAM = sig
 
   type s
   type ss = s list
-  val For : e * (e -> ss) -> ss -> ss
+  val For : e * Name.t * ss -> ss -> ss
   val Ifs : e * ss * ss -> ss -> ss
   val :=  : Name.t * e -> s
   val ::= : (Name.t * e) * e -> s
@@ -303,11 +303,7 @@ in
       | IL.Ret e => uses e N.empty
       | IL.Halt _ => N.empty
       | IL.Ifs(e,s1,s2) => uses e (N.union (uses_ss s1,uses_ss s2))
-      | IL.For (e,f) =>
-        let val n = Name.new Type.Int
-            val body = f (IL.Var n)
-        in uses e (N.difference(uses_ss body,N.singleton n))
-        end
+      | IL.For(e,n,body) => uses e (N.difference(uses_ss body,N.singleton n))
       | IL.Printf(_, nil) => N.empty
       | IL.Printf(s, e::es) => uses e (uses_s (IL.Printf(s,es)))
 
@@ -325,11 +321,7 @@ in
       | IL.Assign(n,e) => N.singleton n
       | IL.AssignArr(n,e0,e) => N.empty
       | IL.Ifs(_,s1,s2) => N.union(defs_ss s1,defs_ss s2)
-      | IL.For(e,f) =>
-        let val n = Name.new Type.Int
-            val body = f (IL.Var n)
-        in N.difference(defs_ss body,N.singleton n)
-        end
+      | IL.For(e,n,body) => N.difference(defs_ss body,N.singleton n)
       | IL.Printf _ => N.empty
 
   and defs_ss nil = N.empty
@@ -345,7 +337,7 @@ in
       | IL.Assign(n,e) => N.empty
       | IL.AssignArr(n,e0,e) => N.empty
       | IL.Ifs(_,s1,s2) => N.empty
-      | IL.For(e,f) => N.empty
+      | IL.For(e,_,_) => N.empty
       | IL.Printf _ => N.empty
   and decls_ss nil = N.empty
     | decls_ss (s::ss) = N.union (decls_s s, decls_ss ss)
@@ -702,15 +694,14 @@ fun Ifs(e,ss1,ss2) ss =
         if IL.eq_ss(ss1, ss2) then ss1 @ ss
         else IL.Ifs(e,ss1,ss2) :: ss
 
-fun ForOptimize optimize (e,f) ss =
+fun ForOptimize optimize (e,n,body) ss =
     case e of
       IL.I 0 => optimize ss
-    | IL.I 1 => optimize(f (IL.I 0) @ ss)
+    | IL.I 1 => optimize (IL.Decl(n,SOME(IL.I 0)) :: body @ ss)
     | _ => 
-      let val body = f($(Name.new IL.Int))
-          fun default() = IL.For (e,f) :: optimize ss
+      let fun default() = IL.For (e,n,body) :: optimize ss
       in if isEmp body then optimize ss
-         else
+         else (*
            case e of
              IL.I n =>
              if Int32.<(Int32.*(size body, n), inlinethreshold) then
@@ -721,12 +712,10 @@ fun ForOptimize optimize (e,f) ss =
                in optimize ss
                end
              else default()
-           | _ => default()
+           | _ =>*) default()
       end
 
 val For = ForOptimize (fn x => x)
-
-(*val For = fn (e,f) => fn ss => IL.For (e,f) :: ss*)
 
 local open IL infix := ::= 
 in
@@ -748,9 +737,8 @@ fun defs ss : N.set =
       | IL.Decl(n,e) => N.remove (defs ss,n)
       | IL.Assign(n,e) => N.insert (defs ss,n)
       | IL.AssignArr(n,e0,e) => defs ss
-      | IL.For(e,f) =>
-        let val n = Name.new Type.Int
-            val ns = N.remove (defs(f($n)),n)
+      | IL.For(e,n,body) =>
+        let val ns = N.remove (defs body,n)
         in N.union (ns,defs ss)
         end
       | IL.Ifs(e,ss1,ss2) => N.union(N.union(defs ss1,defs ss2),defs ss)
@@ -931,17 +919,15 @@ fun se_ss (E:env) (ss:ss) : ss =
             val ss2 = se_ss E ss2
         in ((n,e0) ::= e) :: ss2
         end
-      | IL.For(e,f) =>
-        let val n = Name.new Type.Int
-            val body = f($n)
-            val defs_body = defs body
+      | IL.For(e,n,body) =>
+        let val defs_body = defs body
             val E' = env_cut E defs_body
             val e' = se_e E' e
             val E2 = (n,GtEqI(I 0))::E'
 	    val	E2 = (n,LtI e')::E2
             val ss1 = se_ss E2 body
             val ss1 = rm_decls0 ss1
-        in ForOptimize (se_ss E') (e', fn e => se_ss [(n,EqI e)] ss1) ss2
+        in ForOptimize (se_ss E') (e', n, ss1) ss2
         end
       | IL.Ifs(e,ss0,ss1) =>
         let val e = se_e E e

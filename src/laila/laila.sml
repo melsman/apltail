@@ -84,8 +84,9 @@ fun lett e =
 
 fun for (n:t) (f:INT->unit M) : unit M =
     let open P
+        val name = Name.new Int
     in lett n >>= (fn n =>
-       ((), For(n, fn i => runMss (f i) (fn () => nil))))
+       ((), For(n, name, runMss (f($name)) (fn () => nil))))
     end
 
 fun asgnArr (n:Name.t,i:t,v:t) : unit M =
@@ -127,9 +128,10 @@ fun materialize (V(ty,n,f)) =
         val tyv = Type.Vec ty
         val name = Name.new tyv
         val name_n = Name.new Int
+        val name_i = Name.new Int
         fun ssT ss = Decl(name_n, SOME n) ::
                      Decl(name, SOME(Alloc(tyv,n))) ::
-                     (For($name_n, fn i => runM0(f i)(fn v => (name,i) ::= v)) ss)
+                     (For($name_n, name_i, runM0(f($name_i))(fn v => (name,$name_i) ::= v)) ss)
     in ((name,name_n), ssT)
     end
 

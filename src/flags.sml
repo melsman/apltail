@@ -1,16 +1,4 @@
-
-structure Flags : sig
-type flags = (string * string option) list
-
-val flag_p : flags -> string -> bool
-val flag   : flags -> string -> string option
-
-val runargs : {unaries: string list,
-               usage: unit -> string, 
-               run: flags * string list -> unit} -> unit
-end
-
-= 
+structure Flags :> FLAGS = 
 struct
 
 type flags = (string * string option) list
