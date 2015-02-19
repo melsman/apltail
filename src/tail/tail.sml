@@ -232,6 +232,7 @@ fun idxS x ei ea s a =
     end
 
 fun idx x eis ea = Op_e("idx",[I x,eis,ea])
+fun idxassign is a v = Op_e("idxassign",[is,a,v])
 
 fun compress b a = Op_e("compress",[b,a])
 fun replicate v b a = Op_e("replicate",[v,b,a])

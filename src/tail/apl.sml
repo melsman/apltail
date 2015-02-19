@@ -1,28 +1,35 @@
 structure Apl :> APL = struct
 
 structure V = Vector
+structure A = Array
 
 type 'a t = int vector   (* shape vector *)
-          * 'a vector    (* elements *)
+          * 'a array     (* elements *)
           * 'a           (* default element *)
 
 fun list (v: 'a vector) : 'a list = 
     V.foldr (op ::) nil v
 
+fun alist (v: 'a array) : 'a list = 
+    A.foldr (op ::) nil v
+
+fun amap f a = A.fromList(List.map f (alist a))
+fun aconcat (a1,a2) = A.fromList (alist a1 @ alist a2)
+
 fun pp_sh v =
     "[" ^ String.concatWith "," (List.map Int.toString (list v)) ^ "]"
 
 fun scl (def:'a) (v:'a) : 'a t = 
-    (V.fromList [], V.fromList [v], def)
+    (V.fromList [], A.fromList [v], def)
 
 fun vec v (vs: 'a list) : 'a t =
-    (V.fromList [length vs], V.fromList vs, v)
+    (V.fromList [length vs], A.fromList vs, v)
 
 fun zilde v = vec v []
 
 fun unScl s (v: 'a t) : 'a =
     let val len = V.length (#1 v)
-    in if len = 0 then V.sub(#2 v,0)
+    in if len = 0 then A.sub(#2 v,0)
        else raise Fail ("expecting scalar argument for " ^ s ^ " - got array of rank " ^ Int.toString len)
     end
 fun liftU def f v =
@@ -31,23 +38,23 @@ fun liftB def f (v1,v2) =
     scl def (f (unScl "liftB:1" v1, unScl "liftB:1" v2))
 
 fun unVec s (v: 'a t) : 'a vector =
-    if V.length (#1 v) = 1 then #2 v
+    if V.length (#1 v) = 1 then A.vector(#2 v)
     else raise Fail ("expecting vector argument for " ^ s)
 
 fun shape (a : 'a t) : int t =
     let val sh = #1 a
-    in (V.fromList[V.length sh], sh, 0)
+    in (V.fromList[V.length sh], A.fromList(list sh), 0)
     end
 
 fun product (v: int vector) : int =
     V.foldl (op * ) 1 v
 
 (* resize: for reshape operation *)
-fun resize (n:int) (x:'a) (v: 'a vector) : 'a vector =
-    let val n0 = V.length v
-    in V.tabulate (n,
+fun resize (n:int) (x:'a) (v: 'a array) : 'a array =
+    let val n0 = A.length v
+    in A.tabulate (n,
                    if n0 = 0 then fn _ => x
-                   else fn i => V.sub(v,i mod n0))
+                   else fn i => A.sub(v,i mod n0))
     end
 
 fun reshape (sh:int t, a : 'a t) : 'a t =
@@ -59,18 +66,18 @@ fun reshape (sh:int t, a : 'a t) : 'a t =
 
 fun ravel (a : 'a t) : 'a t =
     let val vs = #2 a
-    in (V.fromList[V.length vs], vs, #3 a)
+    in (V.fromList[A.length vs], vs, #3 a)
     end
 
 fun first (a : 'a t) : 'a t =
     let val vs = #2 a
-        val v = if V.length vs > 0 then V.sub(vs,0) else #3 a
+        val v = if A.length vs > 0 then A.sub(vs,0) else #3 a
     in scl (#3 a) v
     end
 
 fun iota (n : int t) : int t =
     let val n = unScl "iota" n
-    in (V.fromList[n], V.tabulate(n, fn x => x + 1), 0)
+    in (V.fromList[n], A.tabulate(n, fn x => x + 1), 0)
     end
 
 fun unliftU s (def: 'a) (f : 'a t -> 'b t) : 'a -> 'b =
@@ -80,7 +87,7 @@ fun unliftB s (defa: 'a) (defb: 'b) (f : 'a t * 'b t -> 'c t) : 'a * 'b -> 'c =
     fn (x,y) => unScl s (f (scl defa x, scl defb y))
 
 fun each (x:'b) (f: 'a t -> 'b t) (a : 'a t) : 'b t =
-    (#1 a, V.map (unliftU "each" (#3 a) f) (#2 a), x)
+    (#1 a, amap (unliftU "each" (#3 a) f) (#2 a), x)
 
 fun power (f: 'a t -> 'a t) (n : int t) (a : 'a t) : 'a t =
     let val n = unScl "power" n
@@ -90,7 +97,7 @@ fun power (f: 'a t -> 'a t) (n : int t) (a : 'a t) : 'a t =
     end
                 
 fun map (def: 'b) (f: 'a -> 'b) (a : 'a t) : 'b t =
-    (#1 a, V.map f (#2 a), def)
+    (#1 a, amap f (#2 a), def)
     
 fun reduce (f: 'a t * 'a t -> 'a t) (n:'a t) (a:'a t) : 'a t =
     case rev (list (#1 a)) of
@@ -103,24 +110,24 @@ fun reduce (f: 'a t * 'a t -> 'a t) (n:'a t) (a:'a t) : 'a t =
             fun loop i =
                 let fun run j a =
                         if j >= m then a
-                        else run (j+1) (f(scl(#3 a)(V.sub(vs0,i+j)),a))
-                in unScl "loop" (run 1 (scl(#3 a)(V.sub(vs0,i))))
+                        else run (j+1) (f(scl(#3 a)(A.sub(vs0,i+j)),a))
+                in unScl "loop" (run 1 (scl(#3 a)(A.sub(vs0,i))))
                 end
-            val vs = V.tabulate(k, fn i => loop (i*m))
+            val vs = A.tabulate(k, fn i => loop (i*m))
         in (ns, vs, #3 a)
         end
 
 local
-fun scanlChunked defaultElem (f: 'a t * 'a t -> 'a t) (chunkSize : int) (vec : 'a vector) =
+fun scanlChunked defaultElem (f: 'a t * 'a t -> 'a t) (chunkSize : int) (vec : 'a array) =
   let
       fun next (i, x, y::ys) = if i mod chunkSize = 0
                                 then scl defaultElem x::y::ys
                                 else f(scl defaultElem x, y)::y::ys
         | next (_, x, []) = [scl defaultElem x]
 
-      val xs : 'a t list = (rev (V.foldli next [] vec))
+      val xs : 'a t list = (rev (A.foldli next [] vec))
   in
-      V.fromList (List.map (unScl "scanl") xs)
+      A.fromList (List.map (unScl "scanl") xs)
   end
 
 in
@@ -136,7 +143,7 @@ end
 fun replicate0 s toI (is,vs) =
     let val (sh_is,vs_is,_) = is
         val (sh_vs,vs_vs,v0) = vs
-        fun toList v = Vector.foldr (op ::) nil v
+        fun toList v = A.foldr (op ::) nil v
         fun loop (0::cs,_::vs,acc) = loop(cs,vs,acc)
           | loop (c::cs,v::vs,acc) =
             if c < 0 then loop(c+1::cs,v::vs,v0::acc)
@@ -161,10 +168,11 @@ fun toSh sh (i:int) : int list =
         let val p = prod xs
         in i div p :: toSh xs (i mod p)
         end
-fun fromSh sh (idx:int list) : int =
+fun fromSh msg sh (idx:int list) : int =
     case (sh, idx) of
         (nil, nil) => 0
-      | (_::sh, i::idx) => i * prod sh + fromSh sh idx
+      | (s::sh, i::idx) => if i >= s then raise Fail (msg ^ ": INDEX ERROR")
+                           else i * prod sh + fromSh msg sh idx
       | _ => raise Fail "fromSh: dimension mismatch"
 
 fun transpose (a: 'a t) : 'a t =
@@ -172,7 +180,7 @@ fun transpose (a: 'a t) : 'a t =
         val sh' = rev sh
         val vs = #2 a
     in (V.fromList sh',
-        V.tabulate(V.length vs, fn i => V.sub(vs, fromSh sh (rev (toSh sh' i)))),
+        A.tabulate(A.length vs, fn i => A.sub(vs, fromSh "transpose" sh (rev (toSh sh' i)))),
         #3 a)
     end
 
@@ -192,7 +200,7 @@ fun exchange' ctrl xs =
     end
 
 fun transpose2 (I: int t, a: 'a t) : 'a t =
-    let val I = list(#2 I)
+    let val I = alist(#2 I)
         val sh = list(#1 a)
         val () = if length sh <> length I then
                    raise Fail "transpose2: wrong index vector length"
@@ -206,17 +214,17 @@ fun transpose2 (I: int t, a: 'a t) : 'a t =
         val sh' = exchange' I sh
         val vs = #2 a
     in (V.fromList sh',
-        V.tabulate(V.length vs, fn i => V.sub(vs, fromSh sh (exchange I (toSh sh' i)))),
+        A.tabulate(A.length vs, fn i => A.sub(vs, fromSh "transpose2" sh (exchange I (toSh sh' i)))),
         #3 a)
     end
 
 fun vcat (a1: 'a t, a2: 'a t) : 'a t =
     case (list (#1 a1), list (#1 a2)) of
-        (nil, nil) => (V.fromList[2], V.fromList[V.sub(#2 a1,0),V.sub(#2 a2,0)], #3 a1)
+        (nil, nil) => (V.fromList[2], A.fromList[A.sub(#2 a1,0),A.sub(#2 a2,0)], #3 a1)
       | (x::xs,y::ys) =>
         if xs <> ys then raise Fail "vcat dimension mismatch"
         else let val sh = (x+y)::xs
-             in (V.fromList sh, V.concat[#2 a1,#2 a2], #3 a1)
+             in (V.fromList sh, aconcat(#2 a1,#2 a2), #3 a1)
              end
       | _ => raise Fail "vcat rank mismatch"
 
@@ -235,7 +243,7 @@ fun zipWith (x:'c) (f: 'a t * 'b t -> 'c t) (a : 'a t) (b : 'b t) : 'c t =
     in if sha <> shb then
          raise Fail ("incompatible shapes in zipWith operation: shape " ^ pp_sh sha ^ " is incompatible with " ^ pp_sh shb)
        else 
-         (#1 a, V.fromList(ListPair.map (unliftB "zipWith" (#3 a) (#3 b) f) (list(#2 a),list(#2 b))), x)
+         (#1 a, A.fromList(ListPair.map (unliftB "zipWith" (#3 a) (#3 b) f) (alist(#2 a),alist(#2 b))), x)
     end
 
 fun rot 0 a = a
@@ -251,6 +259,7 @@ fun desnoc A = case rev A of
 fun front A = #1 (desnoc A)
 fun last A = #2 (desnoc A)
 
+(*
 fun dot f g n A B =
     let val (shA,_,_) = A
         val (shB,_,_) = B
@@ -269,12 +278,13 @@ fun dot f g n A B =
         val R1 = zipWith (unScl "dot" n) g TA TB
     in reduce f n R1
     end
+*)
 
 fun reverse (a: 'a t) : 'a t =
     let val sh = #1 a    
     in if V.length sh > 1 then
          raise Fail "apl.reverse: supported only for vectors and scalars"
-       else (sh,V.fromList (rev (list(#2 a))),#3 a)
+       else (sh,A.fromList (rev (alist(#2 a))),#3 a)
     end
 
 fun vrotate (n : int t, (sh,src,default): 'a t) : 'a t =
@@ -289,7 +299,7 @@ fun vrotate (n : int t, (sh,src,default): 'a t) : 'a t =
                val n = if n > 0 then n else s - n 
                val offset = n * prod sh'
            in (sh, 
-               V.tabulate(sz, fn i => V.sub(src, (i+offset) mod sz)),
+               A.tabulate(sz, fn i => A.sub(src, (i+offset) mod sz)),
                default)
            end
     end
@@ -302,10 +312,10 @@ fun vreverse ((sh,src,default): 'a t) : 'a t =
          | n :: subsh =>
           let val subsz = prod subsh
           in (sh,
-              V.tabulate(sz, fn i => 
+              A.tabulate(sz, fn i => 
                                 let val y = n - (i div subsz) - 1
                                     val x = i mod subsz
-                                in V.sub(src,y*subsz+x)
+                                in A.sub(src,y*subsz+x)
                                 end),
               default)
           end
@@ -320,7 +330,7 @@ fun rotate (i : int t, a: 'a t) : 'a t =
         val i = find i
     in if V.length sh > 1 then
          raise Fail "apl.rotate: supported only for vectors and scalars"
-       else (sh,V.fromList (rot i (list(#2 a))),#3 a)
+       else (sh,A.fromList (rot i (alist(#2 a))),#3 a)
     end
 
 (*
@@ -354,21 +364,21 @@ fun drop (i : int t, (sh,src,default): 'a t) : 'a t =
                 nil => 0
               | _ :: subsh => Int.max(0,i * prod subsh)
     in (V.fromList sh',
-        V.tabulate(sz', fn i => V.sub(src,i+offset)),
+        A.tabulate(sz', fn i => A.sub(src,i+offset)),
         default)
     end
 
 fun take (n : int t, (sh,src,default): 'a t) : 'a t =
     let val n = unScl "take" n
-        val sz = V.length src
+        val sz = A.length src
         val sh' = case list sh of nil => [Int.abs n]
                                 | _ :: subsh => Int.abs n :: subsh
         val sz' = prod sh'
         val offset = sz' - sz
     in (V.fromList sh',
-        V.tabulate (sz', fn i => if (n < 0 andalso i < offset) then default
+        A.tabulate (sz', fn i => if (n < 0 andalso i < offset) then default
                                  else if (n >= 0 andalso i >= sz) then default
-                                 else V.sub(src,if n<0 then i-offset else i)),
+                                 else A.sub(src,if n<0 then i-offset else i)),
         default)
     end
 
@@ -383,7 +393,7 @@ fun foreach n f =
 
 fun idx (I : int t option list) (a: 'a t) : 'a t =
     let val sh = list (#1 a)
-        val vs = list (#2 a)
+        val vs = alist (#2 a)
         fun tk n l = List.take(l,n)
         fun dr n l = List.drop(l,n)
         fun indx I sh vs acc =
@@ -406,7 +416,7 @@ fun idx (I : int t option list) (a: 'a t) : 'a t =
           | compShape (SOME _::I) (s::sh) = compShape I sh
           | compShape _ _ = raise Fail "idx.compShape: indexes do not match array rank"
         val sh' = compShape I sh
-    in (V.fromList sh',V.fromList vs', #3 a)
+    in (V.fromList sh',A.fromList vs', #3 a)
     end
 
 fun idxS  (x: int t, n: int t, a: 'a t) : 'a t =
@@ -418,11 +428,19 @@ fun idxS  (x: int t, n: int t, a: 'a t) : 'a t =
     in idx (comp 1) a
     end
 
+fun idxassign (is: int t, a : 'a t, v : 'a) : unit =
+    let val is = alist (#2 is)
+        val is = List.map (fn x => x - 1) is
+        val sh = list (#1 a)
+        val i = fromSh "idxassign" sh is
+    in A.update (#2 a, i, v)
+    end
+
 fun pr (p,sep) (a: 'a t) : string =
     let fun prv sep p s e v =
             s ^ String.concatWith sep (List.map p v) ^ e
         val shape = list (#1 a)
-        val values = list (#2 a)
+        val values = alist (#2 a)
         fun flat () =
             (prv "," Int.toString "[" "]" shape ^
              prv sep p "(" ")" values)

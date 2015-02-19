@@ -418,6 +418,17 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
            ; assertR "idxS" rv' r
            ; Arr bta rv
           end
+        | ("idxassign", [tis,ta,tv]) =>
+          let val (bta,ra) = unArr' "idxassign array argument" ta
+              val btv = unScl "idxassign value element" tv
+          in case unVec0 tis of
+                 SOME (btis,r) =>
+                 ( assertB "idxassign expects integer index vector" btis IntB
+                 ; assertB "idxassign expects array argument and value argument to be of the same underlying type" bta btv
+                 ; assertR "idxassign expects integer vector to be identical to argument array rank" ra r
+                 ; Bool)
+               | NONE => raise Fail "idxassign expects statically sized index vector"
+          end
         | ("compress", [tb,ta]) =>
           let val (btb,rb) = unArr' "compress first argument" tb
               val (bta,ra) = unArr' "compress second argument" ta
@@ -840,6 +851,14 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                      val i = Apl.map 0 unIb (eval DE i)
                      val a = eval DE a
                  in Apl.idxS(x,i,a)
+                 end
+               | ("idxassign", [is,a,v]) =>
+                 let val is = Apl.map 0 unIb (eval DE is)
+                     val a = eval DE a
+                     val v = eval DE v
+                     val v = Apl.unScl "idxassign" v
+                 in Apl.idxassign(is,a,v)
+                  ; Apl.scl (Bb false) (Bb true)
                  end
                | ("compress", [e1,e2]) => 
                  let val v1 = Apl.map false (fn Bb b => b | _ => raise Fail "eval:compress") (eval DE e1)

@@ -24,8 +24,10 @@ signature APL = sig
   val catenate  : 'a t * 'a t -> 'a t
   val cons      : 'a t * 'a t -> 'a t
   val snoc      : 'a t * 'a t -> 'a t
+(*
   val dot       : ('c t * 'c t -> 'c t) -> ('a t * 'b t -> 'c t)
                   -> 'c t -> 'a t -> 'b t -> 'c t
+*)
   val zipWith   : 'c -> ('a t * 'b t -> 'c t) -> 'a t -> 'b t -> 'c t
   val transpose : 'a t -> 'a t
   val transpose2: int t * 'a t -> 'a t
@@ -40,7 +42,7 @@ signature APL = sig
 
   val compress  : bool t * 'a t -> 'a t
   val replicate : int t * 'a t -> 'a t
-
+  val idxassign : int t * 'a t * 'a -> unit
   val idxS      : int t * int t * 'a t -> 'a t
 
   val pr        : ('a -> string)*string -> 'a t -> string

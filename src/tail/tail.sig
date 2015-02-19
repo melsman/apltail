@@ -198,6 +198,8 @@ signature TAIL = sig
   val idxS      : int -> INT -> 'a m -> ('a t -> 'b) -> ('a m -> 'b) -> 'b
   val idx       : int -> Int Num m -> 'a m -> 'a m
 
+  val idxassign : Int Num m -> 'a m -> 'a t -> BOOL
+
   (* Printing routines *)
   val prArrI    : Int Num m -> Int Num m
   val prArrB    : Bool m -> Bool m

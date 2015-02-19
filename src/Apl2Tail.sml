@@ -511,7 +511,7 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                                               | _ => compErr r "malformed indexing")
                             | (s, _) => compErrS r s "index function supports tuples, boolean arrays, double arrays, and integer arrays only")
               end
-            | AssignE(v,e,_) =>
+            | AssignE(v,nil,e,_) =>
               let fun cont f x = 
                       let val t = f x
                       in k(t,[(Var v,t)])
@@ -533,6 +533,37 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                           | (Bs a,_) => contS prSclB Bs a
                           | (Cs a,_) => contS prSclC Cs a
                           | (s,_) => k(s,[(Var v,s)]))
+              end
+            | AssignE(id,opts,e,r) =>
+              let fun toI (SOME(Bs b)) = b2i b
+                    | toI (SOME(Is b)) = b
+                    | toI (SOME s) = compErrS r s "expecting integer arguments for index assignments" 
+                    | toI NONE = compErr r "non-supported indexing for index assignment - all indexes must be present"
+                  fun genericIndexAssign unCon a =
+                      comp G e (fn (e,G1) =>
+                      compOpts (G++G1) opts (fn (opts,_) =>
+                      let val is = List.map toI opts                      
+                          val v = vec(fromList Int is)
+                      in M(lett(idxassign v a (unCon e))) >>>= (fn x => k(Bs x,emp))
+                      end))
+                  fun unDs (Ds d) = d
+                    | unDs (Is i) = i2d i
+                    | unDs (Bs b) = i2d(b2i b)
+                    | unDs s = compErrS r s "expecting rhs double, integer, or boolean in index assignment"
+                  fun unIs (Is i) = i
+                    | unIs (Bs b) = b2i b
+                    | unIs s = compErrS r s "expecting rhs integer or boolean in index assignment"
+                  fun unBs (Bs b) = b
+                    | unBs s = compErrS r s "expecting rhs boolean in index assignment"
+                  fun unCs (Cs c) = c
+                    | unCs s = compErrS r s "expecting rhs character in index assignment"
+              in case lookup G (Var id) of
+                     SOME (Abs a) => genericIndexAssign unBs a
+                   | SOME (Ais a) => genericIndexAssign unIs a
+                   | SOME (Ads a) => genericIndexAssign unDs a
+                   | SOME (Acs a) => genericIndexAssign unCs a
+                   | SOME s => compErrS r s "index assignment supported for integer arrays only"
+                   | NONE => compErr r ("identifier " ^ id ^ " not in scope for index assignment")
               end
             | SeqE ([],r) => compErr r "empty sequences not supported"
             | SeqE ([e],_) => comp G e k
