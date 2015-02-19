@@ -369,7 +369,7 @@ val dummyBoolS = Bs (B false)
 val dummyDoubleS = Ds (D 0.0)
 val classifyReduce : (s list -> s N) -> classifier = classify [dummyBoolS,dummyBoolS]
 val classifyEach : s -> (s list -> s N) -> classifier = fn x => classify [x]
-val classifyPower : (s list -> s N) -> classifier = classify [Abs(zilde())]
+val classifyPower : s -> (s list -> s N) -> classifier = fn x => classify [x]
 end
 
 fun compSlash (r : AplAst.reg) : s list -> s N =
@@ -916,12 +916,12 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
              | [Ais m] => doPower power "integer array" Ais unAis m
              | [Is m] => doPower powerScl "integer scalar" Is unIs m
              | [Bs m] =>
-               (case classifyPower f of
+               (case classifyPower dummyBoolS f of
                     INT_C => compPower r f n [Is(b2i m)]
                   | BOOL_C => doPower powerScl "boolean scalar" Bs unBs m
                   | _ => compErr r "expecting boolean or integer scalar as result of power")
              | [Abs m] =>
-               (case classifyPower f of
+               (case classifyPower (Abs(zilde())) f of
                     INT_C => compPower r f n [Ais(each (ret o b2i) m)]
                   | BOOL_C => doPower power "boolean array" Abs unAbs m
                   | _ => compErr r "expecting boolean or integer array as result of power")
