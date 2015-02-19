@@ -477,23 +477,26 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                     | toI x = x
                   fun toi (Bs b) = b2i b
                     | toi (Is i) = i
-                    | toi s = compErrS r s "expects a simple index"
+                    | toi s = compErrS r s "expects a simple index (toi) "
                   fun findOpt n (NONE::xs) = findOpt (n+1) xs
                     | findOpt n (SOME(Is e)::xs) = SOME(n,e,xs)
                     | findOpt n (SOME s::xs) = compErrS r s ("expects a simple index")
                     | findOpt n nil = NONE
-              in comp G e (fn (Ais a,_) =>
-                              compOpts G opts (fn (opts,_) =>
-                                                  case findOpt 1 (List.map toI opts) of
-                                                      SOME (x,i,xs) => 
-                                                      (case findOpt 1 xs of
-                                                           NONE => k(idxS x i a Is Ais, emp)
-                                                         | SOME _ => compErr r "only simple indexing supported")
-                                                    | NONE => k(Ais a,emp)
-                                              )
-                          | (Ts ss, _) =>
-                            compOpts G opts (fn ([SOME x],_) =>
-                                                (case Exp.T.unS (Exp.typeOf (toi x)) of
+                  fun genericIndexing scalar array a =
+                      compOpts G opts (fn (opts,_) =>
+                                          case findOpt 1 (List.map toI opts) of
+                                              SOME (x,i,xs) => 
+                                              (case findOpt 1 xs of
+                                                   NONE => k(idxS x i a scalar array, emp)
+                                                 | SOME _ => compErr r "only simple indexing supported")
+                                            | NONE => k(array a,emp)
+                                      )
+              in comp G e (fn (Ais a,_) => genericIndexing Is Ais a
+                            | (Ads a,_) => genericIndexing Ds Ads a
+                            | (Abs a,_) => genericIndexing Bs Abs a
+                            | (Ts ss, _) =>
+                              compOpts G opts (fn ([SOME x],_) =>
+                                                  (case Exp.T.unS (Exp.typeOf (toi x)) of
                                                      NONE => compErr r "static indexing required"
                                                    | SOME (_,rnk) =>
                                                      case Exp.T.unRnk rnk of
@@ -505,8 +508,8 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                                                                                        ^ Int.toString (length ss) ^ " elements")
                                                          in k(s,emp)
                                                          end)
-                                            | _ => compErr r "malformed indexing")
-                          | (s, _) => compErrS r s "index function supports ints only")
+                                              | _ => compErr r "malformed indexing")
+                            | (s, _) => compErrS r s "index function supports tuples, boolean arrays, double arrays, and integer arrays only")
               end
             | AssignE(v,e,_) =>
               let fun cont f x = 
@@ -643,15 +646,24 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
             | IdE(Symb L.Dot,r) => compId G (Var "$dot",r) k
             | IdE(Symb L.Each,r) => 
               k(Fs (fn [Fs (f,_)] =>
-                       let exception No
-                           fun tryInt g x =
+                       let fun doInt g =
                                each (fn x => subM(f[g x] >>>= (fn Is v => rett v
-                                                                | _ => raise No))) x
-                           fun tryDouble g x =
+                                                                | _ => compErr r "problem with each - expecting scalar int as function result")))
+                           fun doBool g =
+                               each (fn x => subM(f[g x] >>>= (fn Bs v => rett v
+                                                                | _ => compErr r "problem with each - expecting scalar boolean as function result")))
+                           fun doDouble g =
                                each (fn x => subM(f[g x] >>>= (fn Ds v => rett v
-                                                                | _ => raise compErr r "problem with each operator - function is perhaps not returning a scalar"))) x
-                       in rett(Fs (fn [Ais x] => (S(Ais(tryInt Is x)) handle No => S(Ads(tryDouble Is x)))
-                                    | [Ads x] => (S(Ais(tryInt Ds x)) handle No => S(Ads(tryDouble Ds x)))
+                                                                | _ => compErr r "problem with each - expecting scalar double as function result")))
+                           fun classify dummy g x =
+                               case classifyEach dummy f of
+                                   INT_C => S(Ais(doInt g x))
+                                 | BOOL_C => S(Abs(doBool g x))
+                                 | DOUBLE_C => S(Ads(doDouble g x))
+                                 | UNKNOWN_C => compErr r "failed to classify each operation"
+                       in rett(Fs (fn [Ais x] => classify dummyIntS Is x
+                                    | [Ads x] => classify dummyDoubleS Ds x
+                                    | [Abs x] => classify dummyBoolS Bs x
                                     | _ => compErr r "expecting array as right argument to each operation",
                                    noii))
                        end
@@ -659,8 +671,8 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                     noii), 
                 emp)
             | IdE(Symb L.Iota,r) => compPrimFunM k r (fn r =>
-                                                      fn Is i => S(Ais(iota i))
-                                                       | Ais a => S(Ais(iota' a))
+                                                      fn Is i => (S(Ais(iota i)) handle Fail msg => compErr r msg)
+                                                       | Ais a => (S(Ais(iota' a)) handle Fail msg => compErr r msg)
                                                        | s => compErrS r s "expects an integer argument to iota")
             | IdE(Symb L.Trans,r) => compPrimFunMD k r (fn r =>
                                                         fn Ais a => S(Ais(transpose a))
@@ -882,23 +894,39 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
             in comp (G++G') e (fn (s,_) => rett s)
             end
         and compPower r f n =
-            fn [Ais m] => S(Ais(power (fn x =>
-                                        subM(f[Ais x] >>>= (fn Ais z => rett z
-                                                             | s => compErrS r s "expects integer array as result of power")))
-                                    n m))
-             | [Is m] => S(Is(powerScl (fn x =>
-                                        subM(f[Is x] >>>= (fn Is z => rett z
-                                                            | s => compErrS r s "expects integer scalar as result of power")))
-                                    n m))
+            let fun unAis (Ais a) = SOME a
+                  | unAis _ = NONE
+                fun unIs (Is i) = SOME i
+                  | unIs _ = NONE
+                fun unAbs (Abs a) = SOME a
+                  | unAbs _ = NONE
+                fun unBs (Bs b) = SOME b
+                  | unBs _ = NONE
+                fun unAds (Ads a) = SOME a
+                  | unAds _ = NONE
+                fun unDs (Ds d) = SOME d
+                  | unDs _ = NONE
+                fun doPower p ty g ung m =
+                    S(g(p (fn x =>
+                              subM(f[g x] >>>= (fn s => case ung s of SOME z => rett z
+                                                                    | NONE => compErrS r s ("expects " ^ ty ^ " as result of power"))))
+                          n m))
+            in
+            fn [Ads m] => doPower power "double array" Ads unAds m
+             | [Ais m] => doPower power "integer array" Ais unAis m
+             | [Is m] => doPower powerScl "integer scalar" Is unIs m
+             | [Bs m] =>
+               (case classifyPower f of
+                    INT_C => compPower r f n [Is(b2i m)]
+                  | BOOL_C => doPower powerScl "boolean scalar" Bs unBs m
+                  | _ => compErr r "expecting boolean or integer scalar as result of power")
              | [Abs m] =>
                (case classifyPower f of
                     INT_C => compPower r f n [Ais(each (ret o b2i) m)]
-                  | BOOL_C => S(Abs(power (fn x =>
-                                            subM(f[Abs x] >>>= (fn Abs z => rett z
-                                                                 | s => compErrS r s "expects boolean array as result of power")))
-                                    n m))
+                  | BOOL_C => doPower power "boolean array" Abs unAbs m
                   | _ => compErr r "expecting boolean or integer array as result of power")
-             | _ => compErr r "expecting boolean or integer array as argument to power"
+             | _ => compErr r "expecting scalar or array (boolean, integer, or double) as argument to power"
+            end
         val c : s N = comp G0 e (fn (s,_) => rett s)
         val c' : DOUBLE M = subM c >>= (fn s =>
                                 case s of
