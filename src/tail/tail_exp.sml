@@ -510,6 +510,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | ("prArrC",[t]) => (assert_sub opr t (Arr CharB (RnkVar())); t)
         | ("readFile",[t]) => (assert_sub opr t (VecB CharB); VecB CharB)
         | ("readIntVecFile",[t]) => (assert_sub opr t (VecB CharB); VecB IntB)
+        | ("readDoubleVecFile",[t]) => (assert_sub opr t (VecB CharB); VecB DoubleB)
         | (_,[t1,t2]) =>
           if isBinOpIII opr then tyBin Int Int Int opr t1 t2
           else if isBinOpDDD opr then tyBin Double Double Double opr t1 t2
@@ -903,6 +904,15 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                                                 | NONE => raise Fail ("expecting only integers in file - found '" ^ s ^ "'")) ints
                          end
                  in fileVecReader (eval DE e) scanner 0 Ib
+                 end
+               | ("readDoubleVecFile",[e]) =>
+                 let fun scanner s =
+                         let val fields = String.tokens Char.isSpace s
+                         in List.map (fn s => case Real.fromString s of
+                                                  SOME i => i
+                                                | NONE => raise Fail ("expecting only numbers in file - found '" ^ s ^ "'")) fields
+                         end
+                 in fileVecReader (eval DE e) scanner 0.0 Db
                  end
                | (opr,[e1,e2]) =>
                  let val v1 = eval DE e1

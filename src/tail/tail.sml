@@ -582,5 +582,6 @@ fun eval p v =
 
 fun readFile e = Op_e("readFile", [e])
 fun readIntVecFile e = Op_e("readIntVecFile", [e])
+fun readDoubleVecFile e = Op_e("readDoubleVecFile", [e])
     
 end

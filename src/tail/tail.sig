@@ -213,6 +213,7 @@ signature TAIL = sig
   (* File access *)
   val readFile  : Char m -> Char m
   val readIntVecFile : Char m -> Int Num m
+  val readDoubleVecFile : Char m -> Double Num m
            
   (* Int32 binary operations *)
   val andi      : INT * INT -> INT

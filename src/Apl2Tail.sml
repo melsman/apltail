@@ -987,6 +987,7 @@ val initialB : AplParse.env * env =
         val initial =
             [Fun1Acs2 Acs "Quad$ReadFile" readFile,
              Fun1Acs2 Ais "Quad$ReadIntVecFile" readIntVecFile,
+             Fun1Acs2 Ads "Quad$ReadDoubleVecFile" readDoubleVecFile,
              liftUnOpII "Quad$INT32NOT" noti,
              liftBinOpIII "Quad$INT32AND" andi,
              liftBinOpIII "Quad$INT32OR" ori,
