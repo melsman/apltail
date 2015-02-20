@@ -9,8 +9,22 @@ signature TAIL_EXP = sig
 
   type rnk = T.rnk
   type typ = T.typ
-  type var = string
   type opr = string
+
+  eqtype var
+  val newVar : unit -> var
+  val mutableVar : var -> bool ref
+  val ppVar  : var -> string
+
+  structure FM : sig
+     type dom = var
+     type 'b map       
+     val empty      : 'b map
+     val singleton  : dom * 'b -> 'b map
+     val lookup     : 'b map -> dom -> 'b option
+     val add        : dom * 'b * 'b map -> 'b map
+  end
+
   datatype exp =
            Var of var * typ
          | I of Int32.int

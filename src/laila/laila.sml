@@ -2,9 +2,12 @@
 
 structure Laila :> LAILA = struct
 
+structure P = Program
+
 fun die s = raise Fail ("Laila." ^ s)
 
-structure P = Program
+infixr $
+val op $ = Util.$
 
 type 'a M = 'a * (P.ss -> P.ss)
 
@@ -629,7 +632,8 @@ fun first (A(_,v)) =
     in first_unsafe(maybe_pad v)
     end
 fun zilde ty = A(Shape.singlez, empty ty)
-fun iota n = vec (tabulate Int n (fn x => ret(addi(x,I 1))))
+fun iota0 n = tabulate Int n (fn x => ret(addi(x,I 1)))
+fun iota n = vec (iota0 n)
 fun iota' _ = die "iota' not implemented"
 fun shapeV (A(f,_)) = f
 fun shape (A(f,_)) = vec f
@@ -833,14 +837,41 @@ fun powerScl (f: t -> t M) (n: INT) (a: t) : t M =
 
 (* Indexing *)
 
+fun indexFirst (n:INT) (A(sh,vs as V(_,_,f))) (scalar: t -> 'b) (array: m -> 'b) : 'b M =
+    lett (subi(n,I 1)) >>= (fn nminus1 =>
+    getShapeV "indexFirst" sh >>= 
+    (fn nil => die "indexFirst expect non-scalar array"
+      | [s] => assert "VECTOR INDEX OUT OF BOUNDS" (ltei(n,s))
+               (f nminus1 >>= (ret o scalar))
+      | s::sh' => assert "ARRAY INDEX OUT OF BOUNDS" (ltei(n,s))
+                  (lett (lprod sh') >>= (fn bulksz =>
+                   lett (muli(nminus1,bulksz)) >>= (fn offset =>
+                   let val sh' = Shape.dr_unsafe (I 1) sh
+                       val vs' = tk_unsafe bulksz (dr_unsafe offset vs)
+                   in ret $ array $ A(sh',vs')
+                   end)))))
+
 (*
   d: dimension, n: index in dimension, a: array being indexed.
   The result may be a scalar (if a is of rank 1, i.e., a vector) or an
   array (if a is of rank > 1). The scalar and array functions provide
   embedding functions for both cases.
 *)
-fun idxS (d:INT) (n:INT) (a:m) (scalar: t -> 'b) (array: m -> 'b) : 'b M =
-    die "idxS not implemented"
+fun idxS (d:INT) (n:INT) (a as A(V(_,r,_),_)) (scalar: t -> 'b) (array: m -> 'b) : 'b M =
+    case (P.unI d, P.unI r) of
+        (SOME d, SOME r) =>
+        let fun tk n l = List.take(l,n)
+            fun dr n l = List.drop(l,n)
+            val () = if d < 1 orelse d > r then die "idxS.dimension index error"
+                     else ()
+            val iotar = List.tabulate (r, fn i => i+1)
+            val iotar = dr 1 iotar
+            val I = tk (d-1) iotar @ [1] @ dr (d-1) iotar  (* squeze in a 1 in position d *)
+        in transpose2 I a >>= (fn a2 =>
+           indexFirst n a2 scalar array)
+        end
+     | (_,NONE) => die "idxS.expecting statically known rank of argument array"
+     | (NONE,_) => die "idxS.expecting statically known dimension specification"
 
 (* Printing *)
 
@@ -909,5 +940,17 @@ fun prArr (a as A(sh,vs)) =
                prAr sh vs) >>= (fn () =>
        printf("\n",[]))
     end
+
+datatype mm = MA of Shape.t * IL.Type * t * Name.t
+fun mk_mm (A(sh, v as V(ty,_,_))) =
+    materialize v >>= (fn (name,name_n) =>
+    ret(MA(sh,ty,P.Var name_n, name)))
+    
+fun idxassign (A(_,is)) (MA(sh,ty,_,name)) v : unit M =
+    getShapeV "idxassign.sh" sh >>= (fn sh =>
+    getShapeV "idxassign.is" is >>= (fn is =>
+    fromSh sh (List.map (fn i => subi(i,I 1)) is) >>= (fn i => asgnArr(name,i,v))))
+
+fun mm2m (MA(sh,ty,n,name)) = A(sh,V(ty,n,fn i => ret(P.Subs(name,i))))
 
 end

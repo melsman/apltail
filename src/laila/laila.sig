@@ -164,4 +164,9 @@ signature LAILA = sig
   val prArr      : m -> unit M
   val printf     : string * t list -> unit M
 
+  (* Multi-dimensional mutable arrays - used for idxassign *)
+  type mm
+  val mk_mm      : m -> mm M
+  val idxassign  : m -> mm -> t -> unit M
+  val mm2m       : mm -> m
 end

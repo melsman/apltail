@@ -1,8 +1,21 @@
 functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   structure T = T
   open T
-  type var = string
   type opr = string
+
+  type var = {id:string,mutable:bool ref}
+  local val c = ref 0
+  in fun newVar() = 
+         {id="v" ^ Int.toString (!c),mutable=ref false}
+         before c := !c + 1
+     fun mutableVar (v:var) = #mutable v
+     fun ppVar (v:var) = if !(#mutable v) then "m" ^ #id v
+                         else #id v
+  end
+
+  structure FM = OrderFinMap(struct type t = var 
+                                    fun compare (v1:t,v2:t) = String.compare(#id v1,#id v2)
+                             end)
 
   (* General feature functions *)
   fun qq s = "'" ^ s ^ "'" 
@@ -537,7 +550,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
               case e of
                   Var(v, t0) => (case lookup E v of
                                      SOME t => (assert "var" t t0; t)
-                                  |  NONE => raise Fail ("Unknown variable " ^ qq v))
+                                  |  NONE => raise Fail ("Unknown variable " ^ qq (ppVar v)))
                 | I n => S IntB (rnk n)
                 | D _ => Double
                 | B true => S BoolB (rnk 1)
@@ -555,7 +568,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                    ; t0
                   end
                 | Let (v,t,e1,e2,t0) =>
-                  (assert_sub ("let-binding of " ^ v) (ty E e1) t;
+                  (assert_sub ("let-binding of " ^ ppVar v) (ty E e1) t;
                    let val t' = ty (add E v t) e2
                    in assert_sub "let" t' t0
                     ; t'
@@ -759,7 +772,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           Var(x,_) =>
           (case lookup DE x of
                SOME v => v
-             | NONE => raise Fail ("eval.cannot locate variable " ^ x))
+             | NONE => raise Fail ("eval.cannot locate variable " ^ ppVar x))
         | I i => Apl.scl (Ib 0) (Ib i)
         | D d => Apl.scl (Db 0.0) (Db d)
         | B b => Apl.scl (Bb false) (Bb b)

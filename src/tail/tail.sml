@@ -2,6 +2,8 @@ structure Tail : TAIL = struct
 
 structure Exp = TailExp(TailType)
 
+fun die s = raise Fail ("Tail." ^ s)
+
 open TailType
 open Exp
 type Int = unit
@@ -128,23 +130,20 @@ fun (f : 'a M) >>= (g : 'a -> 'b M) : 'b M =
 (* Compiled Programs *)
 type ('a,'b) prog = exp
 fun toExp x = x
-fun runF _ f = f (Var("arg",TyVar())) (fn x => x)
+val main_arg_var = newVar()
+fun runF _ f = f (Var(main_arg_var,TyVar())) (fn x => x)
  
 (* Values and Evaluation *)
 type 'a V = Exp.value
-fun Iv _ = raise Fail "Tail.Iv"
-fun unIv _ = raise Fail "Tail.unIv"
+fun Iv _ = die "Iv"
+fun unIv _ = die "unIv"
 val Dv = Exp.Dvalue
 val unDv = Exp.unDvalue
-fun Bv _ = raise Fail "Tail.Bv"
-fun unBv _ = raise Fail "Tail.unBv"
-fun Vv _ = raise Fail "Tail.Vv"
-fun unVv _ = raise Fail "Tail.unVv"
+fun Bv _ = die "Bv"
+fun unBv _ = die "unBv"
+fun Vv _ = die "Vv"
+fun unVv _ = die "unVv"
 val Uv = Exp.Uvalue
-
-local val c = ref 0
-in fun newVar() = "v" ^ Int.toString (!c) before c := Int.+(!c,1)
-end
 
 type 'a MVec = unit
 type 'a m = exp
@@ -205,9 +204,9 @@ fun catenate e1 e2 =
          | (SOME i1, SOME i2) => if i2=i1+1 then cons()
                        else if i1=i2+1 then snoc()
                        else if i1=i2 then cat()
-                       else raise Fail ("rank error: incompatible argument ranks for catenate: " 
-                                        ^ Int.toString i1 ^ " and " ^ Int.toString i2)
-         | _ => (*raise Fail "rank error: catenate not supported for arguments of unknown rank"*) cat()
+                       else die ("rank error: incompatible argument ranks for catenate: " 
+                                 ^ Int.toString i1 ^ " and " ^ Int.toString i2)
+         | _ => (*die "rank error: catenate not supported for arguments of unknown rank"*) cat()
     end
 fun take e1 e2 = Op_e("take", [e1,e2])
 fun drop e1 e2 = Op_e("drop", [e1,e2])
@@ -220,19 +219,22 @@ fun reduce f e1 e2 s a =
       | SOME r => let val e = Op_e("reduce",[mkFn2m f,e1,e2])
                   in if r=1 then s e else a e
                   end
-      | NONE => raise Fail "rank error: reduce not supported for arguments of unknown rank"
+      | NONE => die "rank error: reduce not supported for arguments of unknown rank"
 
 fun idxS x ei ea s a =
     let val e = Op_e("idxS",[I x,ei,ea])
     in case getStaticRank ea of
-           SOME 0 => raise Fail "rank error: idxS applied to array argument of rank 0"
+           SOME 0 => die "rank error: idxS applied to array argument of rank 0"
          | SOME 1 => s e
          | SOME _ => a e
-         | NONE => raise Fail "rank error: idxS not supported for arguments of unknown rank"
+         | NONE => die "rank error: idxS not supported for arguments of unknown rank"
     end
 
 fun idx x eis ea = Op_e("idx",[I x,eis,ea])
-fun idxassign is a v = Op_e("idxassign",[is,a,v])
+fun idxassign is a v = 
+    case a of
+        Var (var,_) => Op_e("idxassign",[is,a,v]) before mutableVar var := true
+      | _ => die "idxassign.expects Var"
 
 fun compress b a = Op_e("compress",[b,a])
 fun replicate v b a = Op_e("replicate",[v,b,a])
@@ -278,11 +280,10 @@ end
 
 (* Optimization *)
 
-structure M = StringFinMap
 structure Optimize = struct
 
 type def = {shape: Exp.exp option, value: Exp.exp option}
-type env = def M.map
+type env = def FM.map
 
 fun rot 0 es = es
   | rot n es = if n < 0 then rev(rot (~n) (rev es))
@@ -363,7 +364,7 @@ and getShape (E:env) (e : Exp.exp) : Exp.exp option =
          | NONE =>
        case e of
            Op("reshape",[sh,e],_) => SOME sh
-         | Var(v,_) => (case M.lookup E v of
+         | Var(v,_) => (case FM.lookup E v of
                             SOME{shape=SOME sh,...} => SOME sh
                           | _ => NONE)
          | Vc(es,_) => SOME(Vc([I(Int32.fromInt(length es))],SV IntB (rnk(length es))))
@@ -389,7 +390,7 @@ fun optimize optlevel e =
     let fun add E k v = E
         fun opt E e =
             case e of
-                Var (v,_) => (case M.lookup E v of
+                Var (v,_) => (case FM.lookup E v of
                                   SOME{value=SOME e,...} => e
                                 | _ => e)
               | I i => e
@@ -402,22 +403,22 @@ fun optimize optlevel e =
               | Let (v,ty,e1,e2,t) => 
                 let val e1 = opt E e1
                 in if simple e1 then
-                     let val E' = M.add(v,{shape=NONE,value=SOME e1},E)
+                     let val E' = FM.add(v,{shape=NONE,value=SOME e1},E)
                      in opt E' e2
                      end
                    else 
                      let val sh = getShape E e1
-                         val E' = M.add(v,{shape=sh,value=NONE},E)
+                         val E' = FM.add(v,{shape=sh,value=NONE},E)
                          val e2 = opt E' e2
                      in Let(v,ty,e1,e2,t)
                      end
                 end
               | Fn (v,t,e,t') => 
-                let val E' = M.add(v,{shape=NONE,value=NONE},E)
+                let val E' = FM.add(v,{shape=NONE,value=NONE},E)
                 in Fn(v,t,opt E' e,t')
                 end
         and opts E es = List.map (opt E) es
-        val initE = M.empty
+        val initE = FM.empty
     in opt initE e
     end
 end
@@ -428,17 +429,17 @@ fun prInstanceLists opr es t =
     let 
         fun unArr'' at = case unArr' at of
                              SOME p => p
-                           | NONE => raise Fail ("Tail.unArr'': " ^ opr)
+                           | NONE => die ("unArr'': " ^ opr)
         fun len at =
             case unVcc at of
                 SOME(_,r) => r
               | NONE => case unSV at of
                             SOME _ => T.rnk 1
-                          | NONE => raise Fail ("Tail.prInstanceLists.len: " ^ opr)
+                          | NONE => die ("prInstanceLists.len: " ^ opr)
         fun value at =
             case unS at of
                 SOME (_,r) => r
-              | NONE => raise Fail ("Tail.prInstanceLists.value: " ^ opr)
+              | NONE => die ("prInstanceLists.value: " ^ opr)
         val rnk = #2 o unArr''  (* return the rank of an array *)
         val bt  = #1 o unArr''  (* return the base type of an array type *)
         val ts = List.map typeOf es
@@ -505,7 +506,7 @@ fun pp_exp (prtype:bool) e =
               else "")
         fun pp i e : t =
             case e of
-                Var (v,_) => $v
+                Var (v,_) => $(ppVar v)
               | I i => $(Int32.toString i)
               | D r => $(Real.fmt (StringCvt.FIX (SOME 2)) r)
               | B true => $"tt"
@@ -522,12 +523,12 @@ fun pp_exp (prtype:bool) e =
                 | Op (opr,nil,t) => $opr
                 | Op (opr,es,t) => $opr @@ maybePrType opr es t 
                                     @@ $"(" @@ pps (i+1+size opr) es @@ $")"
-                | Let (v,ty,e1,e2,_) => $"let " @@ $v @@ $":" @@ $(prType ty) @@ $" = " @@ pp (i+2) e1 @@ $" in" @@ 
+                | Let (v,ty,e1,e2,_) => $"let " @@ $(ppVar v) @@ $":" @@ $(prType ty) @@ $" = " @@ pp (i+2) e1 @@ $" in" @@ 
                                          indent i @@ pp i e2
                 | Fn (v,t,e,_) =>
                   (case lookForOp [v] e of
                        SOME (opr,t) => $opr
-                     | NONE => $("fn " ^ v ^ ":" ^ prType t ^ " => ") @@ pp (i+2) e)
+                     | NONE => $("fn " ^ ppVar v ^ ":" ^ prType t ^ " => ") @@ pp (i+2) e)
         and pps i nil = $""
           | pps i [e] = pp i e
           | pps i (e::es) = pp i e @@ $"," @@ pps i es
@@ -560,7 +561,7 @@ fun runM {verbose,optlevel,prtype} tt m =
                 in prln (fn() => msg);
                    prln (fn() => "Program:");
                    prln (fn() => pp_prog prtype p);
-                   raise Fail msg
+                   die msg
                 end
               | OK t => (prln (fn() => "  Program has type: " ^ prType t);   (* perhaps unify tt with t!! *)
                          let val p = Exp.resolveShOpr p
@@ -575,7 +576,7 @@ fun runM {verbose,optlevel,prtype} tt m =
     end
 
 fun eval p v =
-    let val de = Exp.addDE Exp.empDEnv "arg" v
+    let val de = Exp.addDE Exp.empDEnv main_arg_var v
         val v' = Exp.eval de p
     in v'
     end

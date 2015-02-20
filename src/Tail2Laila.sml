@@ -21,6 +21,7 @@ structure L = Laila
 
 datatype lexp = S of L.t     (*scalars*)
               | A of L.m
+              | MA of L.mm
               | FN of lexp list -> lexp L.M
 
 infixr $
@@ -135,7 +136,8 @@ val classifyOp : string -> opOpt =
   | "rav" => A_A L.rav
   | _ => NOTOP
 
-structure FM = StringFinMap
+structure FM = E.FM
+
 type env = lexp FM.map
 
 fun compP c1 c2 E es k =
@@ -160,9 +162,11 @@ fun extendE (nil,nil,E) = E
   | extendE (v::vs,x::xs,E) = extendE (vs,xs,FM.add(v,x,E))
   | extendE _ = die "extendE"
 
-fun mklet (A a) = L.letm a >>= (L.ret o A)
-  | mklet (S s) = L.lett s >>= (L.ret o S)
-  | mklet _ = die "mklet expects array or scalar"
+fun mklet mutable (A a) = 
+    if mutable then L.mk_mm a >>= (L.ret o MA)
+    else L.letm a >>= (L.ret o A)
+  | mklet _ (S s) = L.lett s >>= (L.ret o S)
+  | mklet _ _ = die "mklet expects array or scalar"
 
 fun ltypeOf t =
     case TY.unArr' t of
@@ -184,11 +188,11 @@ fun comp (E:env) (e : E.exp) (k: lexp -> lexp L.M) : lexp L.M =
          | E.Var(v,t) => 
            (case FM.lookup E v of
                 SOME e => k e
-              | NONE => die ("comp: identifier " ^ qq v ^ " not in environment"))
+              | NONE => die ("comp: identifier " ^ qq (E.ppVar v) ^ " not in environment"))
          | E.Vc(es,t) => comps compS E es (fn vs => L.fromListM (ltypeOf t) vs >>= kA)
          | E.Let(v,tv,e1,e2,t) => 
-           comp E e1 (fn e1 => 
-           mklet e1 >>= (fn x => 
+           comp E e1 (fn e1 =>
+           mklet (!(E.mutableVar v)) e1 >>= (fn x => 
            comp (FM.add(v,x,E)) e2 k))
          | E.Fn(v,tv,e,t) =>
            let val (vs,e) = fnExtract e
@@ -253,6 +257,14 @@ fun comp (E:env) (e : E.exp) (k: lexp -> lexp L.M) : lexp L.M =
                       | _ => die "cons"))
          | E.Op("zilde",[], t) => kA(L.zilde(ltypeOf t))
          | E.Op("pi",[], t) => kS L.pi
+         | E.Op("idxS", [d,n,a], t) =>
+           (compS E d (fn d =>
+            compS E n (fn n =>
+            compA E a (fn a => L.idxS d n a S A >>= k))))
+         | E.Op("idxassign", [is,ma,v], t) =>
+           (compA E is (fn is =>
+            compS E v (fn v =>
+            compMA E ma (fn ma => L.idxassign is ma v >>= (fn () => kS(L.B true))))))
          | E.Op(opr,es,_) =>
            (case classifyOp opr of
                 SS_S opr => compP compS compS E es (kS o opr)
@@ -276,10 +288,17 @@ and comp_each E f a t k =
     in k $ A $ L.each (ltypeOf t) f a
     end))
 and unS s = fn S s => s | _ => die ("unS: " ^ s)
-and unA s = fn A a => a | _ => die ("unA: " ^ s)
+and unA s = fn A a => a 
+             | MA a => L.mm2m a
+             | _ => die ("unA: " ^ s)
 and compS E e k = comp E e (k o unS "compS")
 and compA E (e : E.exp) (k: L.m -> lexp L.M) : lexp L.M =
-    comp E e (fn A a => k a | _ => die ("compA; e = " ^ T.pp_exp true e))
+    comp E e (fn A a => k a 
+               | MA a => k (L.mm2m a)
+               | _ => die ("compA; e = " ^ T.pp_exp true e))
+and compMA E (e : E.exp) (k: L.mm -> lexp L.M) : lexp L.M =
+    comp E e (fn MA a => k a
+               | _ => die ("compMA; e = " ^ T.pp_exp true e))
 and compV E (e : E.exp) (k: int list -> lexp L.M) : lexp L.M =
     case e of
         E.Vc(xs,_) => k(List.map (fn E.I x => x
