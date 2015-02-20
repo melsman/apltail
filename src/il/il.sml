@@ -47,9 +47,6 @@ datatype Exp =
        | Binop of Binop * Exp * Exp
        | Unop of Unop * Exp
                 
-type Size = Exp
-type Index = Exp
-             
 datatype Stmt = For of Exp * Name.t * Block  (* name is a binding occurence *)
               | Ifs of Exp * Block * Block
               | Assign of Name.t * Exp

@@ -831,6 +831,19 @@ fun powerScl (f: t -> t M) (n: INT) (a: t) : t M =
     lettWithName a >>= (fn (a,name) =>
     for n (fn _ => f a >>= (assign name)) >>= (fn () => ret a))
 
+(* Indexing *)
+
+(*
+  d: dimension, n: index in dimension, a: array being indexed.
+  The result may be a scalar (if a is of rank 1, i.e., a vector) or an
+  array (if a is of rank > 1). The scalar and array functions provide
+  embedding functions for both cases.
+*)
+fun idxS (d:INT) (n:INT) (a:m) (scalar: t -> 'b) (array: m -> 'b) : 'b M =
+    die "idxS not implemented"
+
+(* Printing *)
+
 fun fmtOfTy ty =
     if ty = Int orelse ty = Bool then "%d"
     else if ty = Char then "%c"

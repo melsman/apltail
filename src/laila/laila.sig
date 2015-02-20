@@ -120,7 +120,6 @@ signature LAILA = sig
 
   val dimincr : m -> m (* shape(dimincr(m)) = shape(m)@[1] *)
 
-(*  val index   : Int Num v -> 'a m -> 'a m M *)
   val each    : T -> (t -> t M) -> m -> m
 
   val lett    : t -> t M
@@ -130,36 +129,39 @@ signature LAILA = sig
 
   val scan    : T -> T -> (t * t -> t) -> t -> m -> m M
 
-  val catenate : m -> m -> m M
+  val catenate   : m -> m -> m M
 
-  val take    : INT -> m -> m M
-  val drop    : INT -> m -> m M
+  val take       : INT -> m -> m M
+  val drop       : INT -> m -> m M
 
-  val first   : m -> t M
+  val first      : m -> t M
 
-  val mem     : m -> m M
+  val mem        : m -> m M
 
-  val rotate  : INT -> m -> m  (* ok for vectors *)
+  val rotate     : INT -> m -> m  (* ok for vectors *)
 
-  val vreverse : m -> m M
-  val vrotate  : INT -> m -> m M
+  val vreverse   : m -> m M
+  val vrotate    : INT -> m -> m M
 
-  val reshape  : m -> m -> m M
-  val shape    : m -> m
+  val reshape    : m -> m -> m M
+  val shape      : m -> m
 
-  val reduce   : (t * t -> t M) -> t -> m -> (t -> 'b) -> (m -> 'b) -> 'b M
+  val reduce     : (t * t -> t M) -> t -> m -> (t -> 'b) -> (m -> 'b) -> 'b M
 
-  val transpose : m -> m M
+  val transpose  : m -> m M
   val transpose2 : int list -> m -> m M
 
-  val compress  : m * m -> m M
-  val replicate : t * m * m -> m M
+  val compress   : m * m -> m M
+  val replicate  : t * m * m -> m M
 
-  val power     : (m -> m M) -> INT -> m -> m M
-  val powerScl  : (t -> t M) -> INT -> t -> t M
+  val power      : (m -> m M) -> INT -> m -> m M
+  val powerScl   : (t -> t M) -> INT -> t -> t M
+
+  (* Indexing *)
+  val idxS       : INT -> INT -> m -> (t -> 'b) -> (m -> 'b) -> 'b M
 
   (* Printing routines *)
-  val prArr    : m -> unit M
-  val printf   : string * t list -> unit M
+  val prArr      : m -> unit M
+  val printf     : string * t list -> unit M
 
 end
