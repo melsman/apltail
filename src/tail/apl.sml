@@ -134,13 +134,12 @@ fun scanlChunked defaultElem (f: 'a t * 'a t -> 'a t) (chunkSize : int) (vec : '
 
 in
 (* TODO: do we really need the neutral element? *)
-fun scan (f: 'a t * 'a t -> 'a t) (n:'a t) ((ns,vs,def):'a t) : 'a t =
+fun scan (f: 'a t * 'a t -> 'a t) ((ns,vs,def):'a t) : 'a t =
   case rev (list ns) of
       nil => (ns,vs,def)     (* scalar: scan is identity *)
     | [0] => zilde def       (* empty: scan is identity *)
     | m::rns => (ns, scanlChunked def f m vs, def)
 end
-            
 
 fun replicate0 s toI (is,vs) =
     let val (sh_is,vs_is,_) = is

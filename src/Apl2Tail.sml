@@ -434,11 +434,11 @@ fun compBackslash (r : AplAst.reg) : s list -> s N =
        rett(Fs (fn [Ads arr] => S(Ads(scan (fn (x,y) =>
                                            subM(f[Ds x,Ds y] >>>= (fn Ds z => rett z
                                                                   | _ => compErr r "expecting double as result of reduce")))
-                                       (D(id_item_double ii)) arr))
+                                           arr))
                  | [Ais arr] => S(Ais(scan (fn (x,y) =>
                                            subM(f[Is x,Is y] >>>= (fn Is z => rett z
                                                                   | _ => compErr r "expecting integer as result of reduce")))
-                                                        (I(id_item_int ii)) arr))
+                                                        arr))
                   | _ => compErr r "Only arrays of integers and doubles are supported right now",noii))
      | _ => compErr r "This type of left-argument to scan not supported yet"
 

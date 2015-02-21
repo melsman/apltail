@@ -87,49 +87,34 @@ dv ← dv, 153714688 507854848 254402560 88403968 883578880 235160576
 dv ← dv, 118055424 422917888 371224704 326210368 654926368 691353392
 dv ← dv, 773877944 930190180 554263078 842348331
 
-dirVec ← dv
-
-w ← 32 ⍝ word size
-⍝ dec2bin ← {(w⍴2)⊤⍵}
-⍝ bin2dec ← {(w⍴2)⊥⍵}
-
-⍝ ⍝ Bitwise operations
-⍝ sll ← {bin2dec (⍵↓dec2bin ⍺),⍵⍴0}
-⍝ srl ← {bin2dec (⍵⍴0),(-⍵)↓dec2bin ⍺}
-⍝ xor ← {bin2dec (dec2bin ⍺) ≠ dec2bin ⍵}
-⍝ testBit ← {(dec2bin ⍵)[w-⍺-1]} ⍝ Does not work for other than scalar arguments!
-
-testBit ← { 0 ≠ ⍺ ⎕INT32AND (1 ⎕INT32SHL ⍵) }
-
-grayCode ← { ⍵ ⎕INT32XOR ⍵ ⎕INT32SHR 1 }
-
-bitCount ← 30
-dim ← 1
-divisor ← 2*30
+dirVec ← 15 30 ⍴ dv
 
 
 contract ← 2
 ⍝ num_mc_it ← 1048576
-num_mc_it ← 10480
+num_mc_it ← 100000
 num_dates ← 5
 num_under ← 3
 num_models ← 1
 num_bits ← 30
 
+testBit ← { 0≠⍵ ⎕INT32AND 1 ⎕INT32SHL (⍺-1) }
+grayCode ← { ⍵ ⎕INT32XOR ⍵ ⎕INT32SHR 1 }
+
+
 ⍝ Sobol sequences using inductive approach
 sobolIndI ← {
   dirVec ← ⍵
   n ← ⍺
-  bitsNum ← 1↓⍴dirVec
-  bits  ← ⍳⊃bitsNum
-  is ← {⍵ testBit (grayCode n)} ¨ bits
-  is2 ← dirVec × (⍴dirVec)⍴is
-  ⎕INT32XOR/is2
+  bitsNum ← (⍴dirVec)[⊃⍴⍴dirVec]
+  bits  ← ⍳bitsNum
+  is ← n ∘.{⍵ testBit (grayCode ⍺)} bits
+  is ⎕INT32XOR.× ⍉dirVec
 }
 
 sobolIndR ← {
   arri ← ⍺ sobolIndI ⍵
-  bitsNum ← 1↓⍴⍵
+  bitsNum ← (⍴⍵)[⊃⍴⍴⍵]
   arri÷2*bitsNum
 }
 
@@ -156,22 +141,22 @@ tail_as ← tail_as , 0.026532189526576123093 0.0012426609473880784386 (2.711555
 tail_bs ←            1.0                     0.59983220655588793769 0.13692988092273580531 0.0148753612908506148525
 tail_bs ← tail_bs ,  (7.868691311456132591 × 10*¯4) (1.8463183175100546818 × 10*¯5) (1.4215117583164458887 × 10*¯7) (2.04426310338993978564 × 10*¯15)
 
+
+appr ← { (⍺×(⍺×(⍺×(⍺×(⍺×(⍺×(⍺×⍵[8]+⍵[7])+⍵[6])+⍵[5])+⍵[4])+⍵[3])+⍵[2])+⍵[1]) }
+
 smallcase ← {
   x ← 0.180625 - ⍵×⍵
-  op ← {x×⍵ + ⍺}
-  ⍵ × (op/small_as) ÷ (op/small_bs)
+  ⍵ × (x appr small_as) ÷ (x appr small_bs)
 }
 
 intermediate ← {
   x ← ⍵ - 1.6
-  op ← {⍺ + x×⍵}
-  (op/interm_as) ÷ (op/interm_bs)
+  (x appr interm_as) ÷ (x appr interm_bs)
 }
 
 tail ← {
   x ← ⍵ - 5.0
-  op ← {⍺ + x×⍵}
-  (op/tail_as) ÷ (op/tail_bs)
+  (x appr tail_as) ÷ (x appr tail_bs)
 }
 
 ugaussianEl ← {
@@ -272,26 +257,22 @@ payoff2 ← {
   xss ← ⍵
   mins ← ⌊/xss × (⍴xss)⍴ ÷ 3758.05 11840.0 1200.0
 
-  ⍝ mins[1] ≥ 1: return ← 1150.0 × md_disc[1]
-  ⍝ mins[2] ≥ 1: return ← 1300.0 × md_disc[2]
-  ⍝ mins[3] ≥ 1: return ← 1450.0 × md_disc[3]
-  ⍝ mins[4] ≥ 1: return ← 1600.0 × md_disc[4]
-  ⍝ mins[5] ≥ 1: return ← 1750.0 × md_disc[5]
-  ⍝ mins[5] ≥ 0.75: return ← 1000.0 × md_disc[5]
+  bools ← (mins ≥ 1), (mins[5] ≥ 0.75), 1
+  X ← 1000.0 × md_disc[5]
+  results ← (md_disc × 1000 + 150 × ⍳5), X, mins[5] × X
 
-  mins[5] × 1000.0 × md_disc[5]
+  (bools/results)[1]
 }
 
 compute ← {
   n ← ⍵
   payoffs ← 0
   
+  sobol_mat ← (⍳⍵) sobolIndR dirVec
+  gauss_mat ← ugaussian sobol_mat
+
   compute1 ← {
-    sobol_mat ← ⍵ sobolIndR dirVec
-    gauss_mat ← ugaussian sobol_mat
-
-    bb_mat ← brownianBridge (num_under num_dates bb_ind bb_data gauss_mat)
-
+    bb_mat ← brownianBridge (num_under num_dates bb_ind bb_data (gauss_mat[⍵;]))
     bs_mat ← blackScholes (num_under md_c md_vols md_drifts md_starts bb_mat)
 
     md_disc payoff2 bs_mat

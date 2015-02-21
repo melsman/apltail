@@ -663,7 +663,28 @@ fun zipWith ty g a b =
        (ret mv))
     end
 
-fun scan _ = die "scan: not implemented"
+fun scanChunked ty sz n m g f = 
+    alloc ty sz >>= (fn (read,write) =>
+    for n (fn i =>
+      lett (muli(i,m)) >>= (fn offset =>
+      for m (fn j =>
+        lett (addi(j,offset)) >>= (fn idx =>
+        g idx >>= (fn v =>
+        ifUnit(eqi(j,I 0),
+               write (idx,v),
+               read (subi(idx, I 1)) >>= (fn p => 
+               f(p,v) >>= (fn res =>             
+               write (idx,res))))))))) >>= (fn () =>
+    ret(V(ty,sz,read))))
+
+fun scan f (a as A(sh,V(ty,sz,g))) =
+    getShapeV "scan" sh >>= (fn shl =>
+    case List.rev shl of
+        nil => ret a
+      | m::rsh =>
+        lett (lprod rsh) >>= (fn n =>   (* n times m chunks should be scanned *)
+        scanChunked ty sz n m g f >>= (fn vs' =>
+        ret (A(sh,vs')))))
 
 fun pad1 s = Ifv(eqi(length s,I 0), single (I 1), s) 
 

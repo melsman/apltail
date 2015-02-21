@@ -177,7 +177,7 @@ fun each f e = Op_e("each",[mkFn1m f,e])
 fun red f n e = Op_e("red",[mkFn2 f,n,e])
 fun mif (b,e1,e2) = If(b,e1,e2)
 fun zipWith f e1 e2 = Op_e("zipWith",[mkFn2m f,e1,e2])
-fun scan f e1 e2 = Op_e("scan",[mkFn2m f,e1,e2])
+fun scan f e2 = Op_e("scan",[mkFn2m f,e2])
 fun getStaticRank e =
     let val t = typeOf e
     in case unS t of

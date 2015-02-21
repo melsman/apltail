@@ -20,7 +20,7 @@ signature APL = sig
   val each      : 'b -> ('a t -> 'b t) -> 'a t -> 'b t
   val power     : ('a t -> 'a t) -> int t -> 'a t -> 'a t
   val reduce    : ('a t * 'a t -> 'a t) -> 'a t -> 'a t -> 'a t
-  val scan      : ('a t * 'a t -> 'a t) -> 'a t -> 'a t -> 'a t
+  val scan      : ('a t * 'a t -> 'a t) -> 'a t -> 'a t
   val catenate  : 'a t * 'a t -> 'a t
   val cons      : 'a t * 'a t -> 'a t
   val snoc      : 'a t * 'a t -> 'a t

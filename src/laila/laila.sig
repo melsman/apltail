@@ -127,7 +127,7 @@ signature LAILA = sig
 
   val zipWith : T -> (t * t -> t M) -> m -> m -> m M
 
-  val scan    : T -> T -> (t * t -> t) -> t -> m -> m M
+  val scan       : (t * t -> t M) -> m -> m M
 
   val catenate   : m -> m -> m M
 

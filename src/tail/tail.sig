@@ -165,7 +165,7 @@ signature TAIL = sig
 
   val zipWith   : ('a t * 'b t -> 'c t M) -> 'a m -> 'b m -> 'c m
 
-  val scan      : ('a t * 'b t -> 'a t M) -> 'a t -> 'b m -> 'a m
+  val scan      : ('a t * 'b t -> 'a t M) -> 'b m -> 'a m
 
   val catenate  : 'a m -> 'a m -> 'a m
   val catenate_first : 'a m -> 'a m -> 'a m

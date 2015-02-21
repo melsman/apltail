@@ -226,6 +226,12 @@ fun comp (E:env) (e : E.exp) (k: lexp -> lexp L.M) : lexp L.M =
            (compS E d (fn d =>
             compA E r (fn r =>
             compA E a (fn a => L.replicate (d, r, a) >>= kA))))
+         | E.Op("scan", [f,a], t) =>
+           (compFN E f (fn f =>
+            compA E a (fn a =>
+            let val f = fn (x,y) => f [S x,S y] >>= (L.ret o unS "scan")
+            in L.scan f a >>= kA
+            end)))
          | E.Op("zipWith", [f,a1,a2], t) =>
            (compFN E f (fn f =>
             compA E a1 (fn a1 =>
