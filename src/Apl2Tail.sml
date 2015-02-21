@@ -863,17 +863,17 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                    | [x] => mon r x
                    | _ => compErr r "function expects one or two arguments",
                   ii),
-              emp)
+              emp) handle Fail msg => compErr r msg
         and compPrimFunM k r mon =
             k(Fs (fn [x] => mon r x 
                    | _ => compErr r "monadic function expects one argument",
                   noii),
-              emp) 
+              emp) handle Fail msg => compErr r msg
         and compPrimFunD k r dya ii =
             k(Fs (fn [x1,x2] => dya r (x1,x2)
                    | _ => compErr r "dyadic function expects two arguments",
                   ii),
-              emp)
+              emp) handle Fail msg => compErr r msg
         and compId G (id,r) k =
             case compIdOpt G (id,r) k of
                 SOME r => r
