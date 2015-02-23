@@ -30,3 +30,11 @@ $log ← {
   ⍝ Dyadic logarithm
   (⍟⍵)÷⍟⍺
 }
+
+ReadCSVDouble ← ⎕ReadDoubleVecFile
+ReadCSVInt ← ⎕ReadIntVecFile
+xor ← ⎕INT32XOR
+and ← ⎕INT32AND
+sll ← ⎕INT32SHL
+srl ← ⎕INT32SHR
+testBit ← { 0≠⍵ and 1 sll (⍺-1) }
