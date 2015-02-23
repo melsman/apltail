@@ -260,6 +260,15 @@ val d2i  : DOUBLE -> INT = P.d2i
 val b2i  : BOOL -> INT = P.b2i
 
 fun printf (s, es) = ((), fn ss => P.Printf(s,es)::ss)
+fun sprintfV (s, es) = 
+    let val sz = size s + 25 * List.length es
+        val ty = Type.Char
+        val tyv = Type.Vec ty
+        val name = Name.new tyv
+        fun ssT ss = P.Decl(name, SOME(P.Alloc(tyv,P.I sz))) :: 
+                     P.Sprintf(name,s,es) :: ss
+    in (V(ty,P.strlen (P.Var name), fn i => ret(P.Subs(name,i))), ssT)
+    end
 
 (* Values and Evaluation *)
 type value   = IL.value
@@ -565,6 +574,7 @@ fun concat v1 v2 =
 
   fun outmain outln =
     ( outln "int main() {"
+    ; outln "  initialize();"
     ; outln "  prScalarDouble(kernel(0));"
     ; outln "  printf(\"\\n\");"
     ; outln "  return 0;"
@@ -933,6 +943,8 @@ fun prAr (sh as V(_,rank,_)) (vs as V dat) =
          | _ => def()
     end
 
+fun sprintf (s,es) = sprintfV(s,es) >>= (ret o vec)
+
 fun sepOfTy ty =
     if ty = Char then "" else " "
 
@@ -973,5 +985,10 @@ fun idxassign (A(_,is)) (MA(sh,ty,_,name)) v : unit M =
     fromSh sh (List.map (fn i => subi(i,I 1)) is) >>= (fn i => asgnArr(name,i,v))))
 
 fun mm2m (MA(sh,ty,n,name)) = A(sh,V(ty,n,fn i => ret(P.Subs(name,i))))
+
+(* Time.now *)
+
+fun nowi x = P.nowi x
+    
 
 end

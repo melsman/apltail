@@ -32,7 +32,7 @@ datatype value =
        | BoolV of bool
        | CharV of word
        | ArrV of value option ref vector
-datatype Unop = Neg | I2D | D2I | B2I | Not | Floor | Ceil | Ln | Sin | Cos | Tan | Roll
+datatype Unop = Neg | I2D | D2I | B2I | Not | Floor | Ceil | Ln | Sin | Cos | Tan | Roll | Now | Strlen
 datatype Binop = Add | Sub | Mul | Divv | Modv | Resi | Min | Max | Lt | Lteq | Eq | Andb | Orb | Xorb | Powd | Ori | Andi | Xori | Shli | Shri | Shari
 datatype Exp =
          Var of Name.t
@@ -57,6 +57,8 @@ datatype Stmt = For of Exp * Name.t * Block  (* name is a binding occurence *)
               | Ret of Exp
               | Halt of string
               | Printf of string * Exp list
+              | Sprintf of Name.t * string * Exp list
+
 withtype Block = Stmt list
 
 (* kernel names, kernel definitions, and programs *)
@@ -95,6 +97,7 @@ fun eq_s(s1,s2) =
     | (Ret e1, Ret e2) => eq(e1,e2)
     | (Halt s1, Halt s2) => s1 = s2
     | (Printf(s1,es1), Printf(s2,es2)) => s1 = s2 andalso eqs(es1,es2)
+    | (Sprintf(n1,s1,es1), Sprintf(n2,s2,es2)) => n1 = n2 andalso s1 = s2 andalso eqs(es1,es2)
     | _ => false
 and eq_ss (nil,nil) = true
   | eq_ss (s1::ss1,s2::ss2) = eq_s(s1,s2) andalso eq_ss(ss1,ss2)
@@ -137,6 +140,7 @@ signature PROGRAM = sig
   val B     : bool -> e
   val C     : word -> e
   val If    : e * e * e -> e
+  val strlen : e -> e
 
   val addi  : e * e -> e   (* interger operations *)
   val subi  : e * e -> e
@@ -159,6 +163,7 @@ signature PROGRAM = sig
   val shri  : e * e -> e
   val shari : e * e -> e
   val negi  : e -> e
+  val nowi  : e -> e
 
   val addd  : e * e -> e  (* double operations *)
   val subd  : e * e -> e
@@ -213,6 +218,7 @@ signature PROGRAM = sig
   val Free : Name.t -> s
   val Halt : string -> s
   val Printf : string * e list -> s
+  val Sprintf : Name.t * string * e list -> s
   val emp : s
   val unDecl : s -> (Name.t * e option) option
 
@@ -303,6 +309,8 @@ in
       | IL.For(e,n,body) => uses e (N.difference(uses_ss body,N.singleton n))
       | IL.Printf(_, nil) => N.empty
       | IL.Printf(s, e::es) => uses e (uses_s (IL.Printf(s,es)))
+      | IL.Sprintf(n, _, nil) => N.singleton n
+      | IL.Sprintf(n, s, e::es) => uses e (uses_s (IL.Sprintf(n,s,es)))
 
   and uses_ss nil = N.empty
     | uses_ss (s::ss) = N.union (uses_s s, uses_ss ss)
@@ -320,6 +328,7 @@ in
       | IL.Ifs(_,s1,s2) => N.union(defs_ss s1,defs_ss s2)
       | IL.For(e,n,body) => N.difference(defs_ss body,N.singleton n)
       | IL.Printf _ => N.empty
+      | IL.Sprintf _ => N.empty
 
   and defs_ss nil = N.empty
     | defs_ss (s::ss) = N.union (defs_s s, defs_ss ss)
@@ -336,6 +345,7 @@ in
       | IL.Ifs(_,s1,s2) => N.empty
       | IL.For(e,_,_) => N.empty
       | IL.Printf _ => N.empty
+      | IL.Sprintf _ => N.empty
   and decls_ss nil = N.empty
     | decls_ss (s::ss) = N.union (decls_s s, decls_ss ss)
 
@@ -521,7 +531,8 @@ in
       if Int32.>=(d,b) andalso Int32.>=(d,c) then y else Binop(Max,x,y)
     | max a b = if eq(a,b) then a else Binop(Max,a,b)
 
-  fun powd (a,b) = Binop(Powd,a,b)
+  fun powd (* (IL.D a,IL.D b) = IL.D(Math.pow(a,b))
+    | powd*) (a,b) = Binop(Powd,a,b)
   fun ceil a = Unop(Ceil,a)
   fun floor a = Unop(Floor,a)
   fun ln a = Unop(Ln,a)
@@ -606,6 +617,8 @@ in
       | IL.D c => D (Real.~c)
       | _ => Unop(Neg,e)
 
+  fun strlen x = Unop(Strlen,x)
+
   val addi = op +
   val subi = op -
   val muli = op *
@@ -620,7 +633,7 @@ in
   val mini = fn (x,y) => min x y
   val maxi = fn (x,y) => max x y
   val negi = ~
-
+  fun nowi x = Unop(Now,x)
   val addd = op +
   val subd = op -
   val muld = op *
@@ -668,6 +681,7 @@ val Ret = IL.Ret
 val Halt = IL.Halt
 val Free = IL.Free
 val Printf = IL.Printf
+val Sprintf = IL.Sprintf
 fun isEmp ss = List.all (fn IL.Nop => true | _ => false) ss
 fun size ss =
     case ss of
@@ -739,7 +753,8 @@ fun defs ss : N.set =
         in N.union (ns,defs ss)
         end
       | IL.Ifs(e,ss1,ss2) => N.union(N.union(defs ss1,defs ss2),defs ss)
-      | IL.Printf _ => N.empty
+      | IL.Printf _ => defs ss
+      | IL.Sprintf _ => defs ss
 
 fun rm_declsU U ss =
     let fun rm nil = (nil,U)
@@ -872,6 +887,8 @@ fun se_e (E:env) (e:e) : e =
     | IL.Unop(IL.Roll,e1) => roll (se_e E e1)
     | IL.Unop(IL.B2I,e1) => b2i (se_e E e1)
     | IL.Unop(IL.Not,e1) => notb(se_e E e1)
+    | IL.Unop(IL.Now,e1) => nowi(se_e E e1)
+    | IL.Unop(IL.Strlen,e1) => strlen(se_e E e1)
 
 fun se_ss (E:env) (ss:ss) : ss =
     case peep ss of
@@ -938,6 +955,7 @@ fun se_ss (E:env) (ss:ss) : ss =
         in Ifs(e,ss0,ss1) ss2
         end
       | IL.Printf(s,es) => Printf(s, List.map(se_e E)es) :: se_ss E ss2
+      | IL.Sprintf(n,s,es) => Sprintf(n, s, List.map(se_e E)es) :: se_ss E ss2
 
 (* Peep hole optimization *)
 and peep ss =

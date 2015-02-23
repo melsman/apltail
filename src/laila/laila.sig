@@ -163,6 +163,10 @@ signature LAILA = sig
   (* Printing routines *)
   val prArr      : m -> unit M
   val printf     : string * t list -> unit M
+  val sprintf    : string * t list -> m M
+
+  (* Time.now *)
+  val nowi       : INT -> INT
 
   (* Multi-dimensional mutable arrays - used for idxassign *)
   type mm

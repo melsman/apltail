@@ -784,6 +784,15 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                         | s => compErrS r s "expects an array or a scalar as right argument to disclose operation"
               in compPrimFunM k r comp_first
               end
+            | IdE(Symb L.Thorn,r) =>
+              let fun comp_format r s =
+                      case s of
+                          Is a => S(Acs(formatI a))
+                        | Ds a => S(Acs(formatD a))
+                        | Bs a => S(Acs(formatI (b2i a)))
+                        | s => compErrS r s "expects a numeric scalar as right argument to format operation"
+              in compPrimFunM k r comp_format
+              end
             | IdE(Symb L.Take,r) => compPrimFunD k r (compOpr2_i8a2a_td e take take take take) noii
             | IdE(Symb L.Drop,r) => compPrimFunD k r (compOpr2_i8a2a_td e drop drop drop drop) noii
             | IdE(Symb L.Rot,r) => 
@@ -984,10 +993,16 @@ val initialB : AplParse.env * env =
             (s, fun1, Fs (fn [Acs x] => rett(g (f x))
                          | l => compError ("monadic function " ^ s ^ " expects character vector as argument"),
                           noii))
+        fun Fun1Is2 g s f =
+            (s, fun1, Fs (fn [Is x] => rett(g (f x))
+                         | [Bs x] => rett(g (f(b2i x)))
+                         | l => compError ("monadic function " ^ s ^ " expects integer argument"),
+                          noii))
         val initial =
             [Fun1Acs2 Acs "Quad$ReadFile" readFile,
              Fun1Acs2 Ais "Quad$ReadIntVecFile" readIntVecFile,
              Fun1Acs2 Ads "Quad$ReadDoubleVecFile" readDoubleVecFile,
+             Fun1Is2 Is "Quad$NOW" nowi,
              liftUnOpII "Quad$INT32NOT" noti,
              liftBinOpIII "Quad$INT32AND" andi,
              liftBinOpIII "Quad$INT32OR" ori,

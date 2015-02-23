@@ -9,6 +9,7 @@
 
 #include <unistd.h>
 #include <math.h>
+#include <sys/time.h>
 
 #define ori(x,y) (int)(((unsigned int)(x))|((unsigned int)(y)))
 #define andi(x,y) (int)(((unsigned int)(x))&((unsigned int)(y)))
@@ -47,14 +48,19 @@ static ssize_t countChar(ssize_t c, char *s) {
   return count;
 }
 
-static void prDouble(double arg)
+static void formatD(char* buf, double arg)
 {
-  char buf[64];
   sprintf(buf, "%.12g", arg);
   if( countChar('.', buf) == 0 && countChar('E', buf) == 0 ) 
     {
       strcat(buf, ".0");
     }
+}
+
+static void prDouble(double arg)
+{
+  char buf[64];
+  formatD(buf, arg);
   printf("%s", buf);
 }
 
@@ -101,6 +107,29 @@ static double roll (int x) {
   }
   int y = (int)(x * r);
   return (double)y;
+}
+
+
+// -----------------
+// Now function
+// -----------------
+
+struct timeval tv_init;
+
+static void initialize() {
+  gettimeofday(&tv_init, NULL);
+  return;
+}
+
+// return time since process start in milliseconds
+static int now (int x) {
+  struct timeval tv_check, tv_diff;
+  gettimeofday(&tv_check, NULL);
+  timersub(&tv_check, &tv_init, &tv_diff);
+  long int usec = tv_diff.tv_usec;
+  long int sec = tv_diff.tv_sec;
+  long int msec = usec / 1000;
+  return (int)(sec*1000+msec);
 }
 
 // -----------------

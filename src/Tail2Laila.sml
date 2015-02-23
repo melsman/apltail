@@ -38,6 +38,7 @@ datatype opOpt = SS_S of L.t * L.t -> L.t
                | VA_AM of int list * L.m -> L.m L.M
                | A_AM of L.m -> L.m L.M
                | S_SM of L.t -> L.t L.M
+               | S_AM of L.t -> L.m L.M
                | A_SM of L.m -> L.t L.M
                | NOTOP
 
@@ -60,6 +61,7 @@ val classifyOp : string -> opOpt =
   | "eqi" => SS_S L.eqi
   | "neqi" => SS_S L.neqi
   | "negi" => S_S L.negi 
+  | "nowi" => S_S L.nowi 
   | "signi" => S_S L.signi 
   | "absi" => S_S L.absi 
   | "ori" => SS_S L.ori
@@ -133,6 +135,8 @@ val classifyOp : string -> opOpt =
   | "prArrB" => A_AM (fn a => L.prArr a >>= (fn () => ret a))
   | "prArrD" => A_AM (fn a => L.prArr a >>= (fn () => ret a))
   | "prArrC" => A_AM (fn a => L.prArr a >>= (fn () => ret a))
+  | "formatI" => S_AM (fn t => L.sprintf("%d",[t]))
+  | "formatD" => S_AM (fn t => L.sprintf("%DOUBLE",[t]))
   | "rav" => A_A L.rav
   | _ => NOTOP
 
@@ -282,6 +286,7 @@ fun comp (E:env) (e : E.exp) (k: lexp -> lexp L.M) : lexp L.M =
               | A_AM opr => compU compA E es (fn p => opr p >>= kA)
               | S_SM opr => compU compS E es (fn p => opr p >>= kS)
               | A_SM opr => compU compA E es (fn p => opr p >>= kS)
+              | S_AM opr => compU compS E es (fn p => opr p >>= kA)
               | SA_AM opr => compP compS compA E es (fn p => opr p >>= kA)
               | AA_AM opr => compP compA compA E es (fn p => opr p >>= kA)
               | VA_AM opr => compP compV compA E es (fn p => opr p >>= kA)

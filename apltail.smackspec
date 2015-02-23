@@ -2,5 +2,5 @@ description: APL compiler targeting a Typed Array Intermediate Language
 maintainer: Martin Elsman <mael@di.ku.dk>
 keywords: APL
 license: MIT License
-requires: aplparse v2 (v2.4.0)
+requires: aplparse v2 (v2.5.0)
 requires: kitlib v1 (v1.0.2)

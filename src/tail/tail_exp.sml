@@ -477,6 +477,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           end
         | ("absi",[t]) => (assert_sub opr t Int; Int)
         | ("noti",[t]) => (assert_sub opr t Int; Int)
+        | ("nowi",[t]) => (assert_sub opr t Int; Int)
         | ("signi",[t]) => (assert_sub opr t Int; Int)
         | ("signd",[t]) => (assert opr Double t; Int)
         | ("negd",[t]) => (assert opr Double t; Double)
@@ -520,6 +521,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | ("prArrB",[t]) => (assert_sub opr t (Arr BoolB (RnkVar())); t)
         | ("prArrD",[t]) => (assert_sub opr t (Arr DoubleB (RnkVar())); t)
         | ("prArrC",[t]) => (assert_sub opr t (Arr CharB (RnkVar())); t)
+        | ("formatI",[t]) => (assert_sub opr t Int; VecB CharB)
+        | ("formatD",[t]) => (assert_sub opr t Double; VecB CharB)
         | ("readFile",[t]) => (assert_sub opr t (VecB CharB); VecB CharB)
         | ("readIntVecFile",[t]) => (assert_sub opr t (VecB CharB); VecB IntB)
         | ("readDoubleVecFile",[t]) => (assert_sub opr t (VecB CharB); VecB DoubleB)
@@ -746,6 +749,13 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
 
   fun println s = print (s ^ "\n")
 
+  fun format pr unArg x =
+      let val arg = Apl.unScl "format" x
+          val s = pr (unArg arg)
+          val elts = (List.map (Cb o Word.fromInt o Char.ord) o explode) s
+      in Apl.vec (Cb 0w32) elts
+      end
+
   fun prArr v = (println(pr_value v); v)
   fun prArrC v = (println(Apl.pr (pr_bv,"") v); v)
 
@@ -764,6 +774,13 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           val content = readFile fname
           val list = f content
       in Apl.vec (g d) (List.map g list)
+      end
+
+  val processStartTime = Time.now()
+  fun nowMilliseconds() =
+      let val t = Time.now()
+          val delta = Time.-(t, processStartTime)
+      in Int.fromLarge(Time.toMilliseconds delta)
       end
 
   fun eval DE e : value =
@@ -797,6 +814,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                | ("b2i", [e]) => Apl.liftU (Ib 0) (fn Bb b => Ib(if b then 1 else 0) | _ => raise Fail "eval:b2i") (eval DE e)
                | ("negi", [e]) => Apl.liftU (Ib 0) (fn Ib i => Ib(~i) | _ => raise Fail "eval:negi") (eval DE e)
                | ("absi", [e]) => Apl.liftU (Ib 0) (fn Ib i => Ib(Int.abs i) | _ => raise Fail "eval:absi") (eval DE e)
+               | ("nowi", [e]) => Apl.liftU (Ib 0) (fn Ib 0 => Ib(nowMilliseconds()) | _ => raise Fail "eval:nowi") (eval DE e)
                | ("signi", [e]) => Apl.liftU (Ib 0) (fn Ib i => Ib(if i >= 0 then 1 else ~1) | _ => raise Fail "eval:signi") (eval DE e)
                | ("signd", [e]) => Apl.liftU (Ib 0) (fn Db i => Ib(if i >= 0.0 then 1 else ~1) | _ => raise Fail "eval:signd") (eval DE e)
                | ("negd", [e]) => Apl.liftU (Db 0.0) (fn Db i => Db(Real.~i) | _ => raise Fail "eval:negd") (eval DE e)
@@ -906,6 +924,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                | ("prSclB",[e]) => prArr (eval DE e)
                | ("prSclD",[e]) => prArr (eval DE e)
                | ("prSclC",[e]) => prArr (eval DE e)
+               | ("formatI",[e]) => format pr_int unIb (eval DE e)
+               | ("formatD",[e]) => format pr_double unDb (eval DE e)
                | ("readFile",[e]) => fileVecReader (eval DE e) (List.map (Word.fromInt o Char.ord) o explode) 0w32 Cb 
                | ("readIntVecFile",[e]) =>
                  let fun scanner s =

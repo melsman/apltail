@@ -45,6 +45,7 @@ val shari = binOp "shari"
 val shli = binOp "shli"
 val xori = binOp "xori"
 fun noti x = Op_e("noti",[x])
+fun nowi x = Op_e("nowi",[x])
 
 fun floor x= Op_e("floor",[x])
 fun ceil x = Op_e("ceil",[x])
@@ -276,6 +277,8 @@ val prSclI = pr "prSclI"
 val prSclB = pr "prSclB"
 val prSclD = pr "prSclD"
 val prSclC = pr "prSclC"
+val formatI = pr "formatI"
+val formatD = pr "formatD"
 end
 
 (* Optimization *)
@@ -304,6 +307,12 @@ and peepOp E (opr,es,t) =
       | ("subi", [e,I 0]) => e
       | ("negi", [I i]) => I(Int32.~ i)
       | ("absi", [I i]) => I(Int32.abs i)
+(*
+      | ("powd", [D a, D b]) => D(Math.pow(a,b))
+      | ("muld", [D a, D b]) => D(Real.*(a,b))
+      | ("addd", [D a, D b]) => D(Real.+(a,b))
+      | ("subd", [D a, D b]) => D(Real.-(a,b))
+*)
       | ("i2d", [I i]) => D(Real.fromLargeInt (Int32.toLarge i))
       | ("b2i", [B true]) => I 1
       | ("b2i", [B false]) => I 0
@@ -350,6 +359,7 @@ and peepOp E (opr,es,t) =
       | ("reshape", [Vc([I n],_), Vc(es',t')]) =>
         if Int32.toInt n = length es' then Vc(es',t')
         else Op(opr,es,t)
+      | ("idxS", [I 1, I i, Vc(xs,_)]) => List.nth(xs,i-1)
       | _ => Op(opr,es,t)
                
 and getShape (E:env) (e : Exp.exp) : Exp.exp option =

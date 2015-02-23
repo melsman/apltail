@@ -209,6 +209,8 @@ signature TAIL = sig
   val prSclB    : BOOL -> BOOL
   val prSclD    : DOUBLE -> DOUBLE
   val prSclC    : CHAR -> CHAR
+  val formatI   : INT -> Char m
+  val formatD   : DOUBLE -> Char m
 
   (* File access *)
   val readFile  : Char m -> Char m
@@ -223,5 +225,8 @@ signature TAIL = sig
   val shli      : INT * INT -> INT
   val xori      : INT * INT -> INT
   val noti      : INT -> INT      
+
+  (* Time.now *)
+  val nowi      : INT -> INT   (* nowi 0 returns time in milliseconds since process start *)
                       
 end

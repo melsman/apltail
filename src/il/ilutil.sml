@@ -86,6 +86,13 @@ structure ILUtil : ILUTIL = struct
         
   val rgen = ref (Random.newgen ())
 
+  val processStartTime = Time.now()
+  fun nowMilliseconds() =
+      let val t = Time.now()
+          val delta = Time.-(t,processStartTime)
+      in Int.fromLarge(Time.toMilliseconds delta)
+      end
+
   fun evalUnOp Neg (IntV i) = IntV(~i)
     | evalUnOp Neg (DoubleV d) = DoubleV(~d)
     | evalUnOp I2D (IntV i) = DoubleV(real i)
@@ -99,6 +106,7 @@ structure ILUtil : ILUTIL = struct
     | evalUnOp Roll (IntV 0) = (DoubleV(Random.random (!rgen)))
     | evalUnOp Roll (IntV i) = (DoubleV(real (Random.range (0,i) (!rgen))))
     | evalUnOp B2I (BoolV b) = (IntV(if b then 1 else 0))
+    | evalUnOp Now (IntV 0) = (IntV(nowMilliseconds()))
     | evalUnOp _ _ = die "evalUnOp"
 
   fun eval (E:Env) (e:Exp) : value =
@@ -170,6 +178,7 @@ structure ILUtil : ILUTIL = struct
       | Free n => die "Free.unimplemented"
       | Printf(s,nil) => (print s; E)
       | Printf(s,es) => die "eval.Printf not implemented"
+      | Sprintf(n,s,es) => die "eval.Sprintf not implemented"
       | Nop => E
 
   and evalSS E ss rn =
@@ -210,8 +219,10 @@ structure ILUtil : ILUTIL = struct
     | ppU Cos = "cos"
     | ppU Tan = "tan"
     | ppU Roll = "roll"
+    | ppU Now = "now"
     | ppU B2I = "b2i"
     | ppU Not = "!"
+    | ppU Strlen = "strlen"
 
   fun pp_t t = %(Type.prType t)
 
@@ -279,6 +290,9 @@ structure ILUtil : ILUTIL = struct
       | Printf(s,nil) => %("printf(\"" ^ String.toCString s ^ "\");")
       | Printf("%DOUBLE",[e]) => %"prDouble" %% par(pp e) %% %";" 
       | Printf(s,es) => %("printf(\"" ^ String.toCString s ^ "\",") %% pp_es "," es %% %");" 
+      | Sprintf(n,"%DOUBLE",[e]) => %"formatD" %% par(pp_es "," [Var n,e]) %% %";" 
+      | Sprintf(n,s,nil) => %("sprintf(" ^ Name.pr n ^ ",\"" ^ String.toCString s ^ "\"") %% %");" 
+      | Sprintf(n,s,es) => %("sprintf(" ^ Name.pr n ^ ",\"" ^ String.toCString s ^ "\",") %% pp_es "," es %% %");" 
 
   fun ppSS n ss = ropeToString n (%$ %% ppSS0 ss)
   fun ppExp e = ropeToString 0 (pp e)
@@ -343,6 +357,7 @@ structure ILUtil : ILUTIL = struct
   fun assertI s t = if t = Type.Int then () else die ("assertI: " ^ s)
   fun assertD s t = if t = Type.Double then () else die ("assertD: " ^ s)
   fun assertB s t = if t = Type.Bool then () else die ("assertB: " ^ s)
+  fun assertC s t = if t = Type.Char then () else die ("assertC: " ^ s)
 
   fun typeUnop Neg t = (assertIorD "Neg" t; t)
     | typeUnop I2D t = (assertI "I2D" t; Type.Double)
@@ -355,7 +370,9 @@ structure ILUtil : ILUTIL = struct
     | typeUnop Tan t = (assertD "Tan" t; Type.Double)
     | typeUnop Roll t = (assertI "Roll" t; Type.Double)
     | typeUnop B2I t = (assertB "B2I" t; Type.Int)
+    | typeUnop Now t = (assertI "Now" t; Type.Int)
     | typeUnop Not t = (assertB "Not" t; Type.Bool)
+    | typeUnop Strlen t = (assertC "Strlen" (Type.vecElem t); Type.Int)
 
   fun typeExp e =
       case e of
@@ -391,7 +408,7 @@ structure ILUtil : ILUTIL = struct
         end
       | Vect(t,es) =>
         let val ts = List.map typeExp es
-        in if List.all (fn t => t = Type.Int) ts then        t
+        in if List.all (fn t => t = Type.Int) ts then t
            else die "TypeExp.Error.Vect: Expecting expressions of type int"
         end
       | Binop(binop,e1,e2) => typeBinop binop (typeExp e1) (typeExp e2)
