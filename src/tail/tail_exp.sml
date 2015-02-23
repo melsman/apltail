@@ -909,7 +909,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                | ("readFile",[e]) => fileVecReader (eval DE e) (List.map (Word.fromInt o Char.ord) o explode) 0w32 Cb 
                | ("readIntVecFile",[e]) =>
                  let fun scanner s =
-                         let val ints = String.tokens Char.isSpace s
+                         let val ints = String.tokens (fn x => Char.isSpace x orelse x = #",") s
                          in List.map (fn s => case Int.fromString s of
                                                   SOME i => i
                                                 | NONE => raise Fail ("expecting only integers in file - found '" ^ s ^ "'")) ints
@@ -918,7 +918,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                  end
                | ("readDoubleVecFile",[e]) =>
                  let fun scanner s =
-                         let val fields = String.tokens Char.isSpace s
+                         let val fields = String.tokens (fn x => Char.isSpace x orelse x = #",") s
                          in List.map (fn s => case Real.fromString s of
                                                   SOME i => i
                                                 | NONE => raise Fail ("expecting only numbers in file - found '" ^ s ^ "'")) fields
