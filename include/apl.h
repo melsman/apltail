@@ -10,6 +10,9 @@
 #include <unistd.h>
 #include <math.h>
 #include <sys/time.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define ori(x,y) (int)(((unsigned int)(x))|((unsigned int)(y)))
 #define andi(x,y) (int)(((unsigned int)(x))&((unsigned int)(y)))
@@ -139,4 +142,86 @@ static int now (int x) {
 void halt(char *s) {
   printf("Execution halted: %s\n",s);
   exit(1);
+}
+
+
+/* Buffer size in number of bytes */
+#define INIT_BUFFER_SIZE (4*1024)
+
+/* Copy values to a new buffer, double the size, free the old buffer. */
+int double_buffersize(int* bufferSize, void** buffer_ptr) {
+  int newBufferSize = 2*(*bufferSize);
+  //printf("Doubling the buffer, new buffer size: %d bytes\n", newBufferSize);
+  int* buffer = *buffer_ptr;
+  int* newBuffer = malloc (newBufferSize);
+  if (newBuffer != NULL) {
+    memcpy(newBuffer, buffer, *bufferSize);
+    free(buffer);
+    *buffer_ptr = newBuffer;
+    *bufferSize = newBufferSize;
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+int read_csv_ints(FILE* handle, int** buffer_ptr, int* valuesRead) {
+  int bufferSize = INIT_BUFFER_SIZE;
+  //printf("Alloc initial buffer, size: %d bytes\n", bufferSize);
+  *buffer_ptr = (int*) malloc (bufferSize);
+  if (*buffer_ptr == NULL) {
+    return 0;
+  }
+
+  int i = 0;
+	char line[1024];
+  //printf("Reading first line\n");
+  while (fgets(line, 1024, handle)) {
+    const char* tok;
+    tok = strtok(line, " ,\n");
+    while (tok != NULL) {
+      (*buffer_ptr)[i] = atoi(tok);
+      i++;
+      if (sizeof(int)*i >= bufferSize) {
+        //printf("Read %d integers, resize buffer\n", i);        
+        if(!double_buffersize(&bufferSize, (void**)buffer_ptr)) {
+          return 0;
+        }
+      }
+      tok = strtok (NULL, " ,\n");
+    }
+  }
+  *valuesRead = i;
+  return 1;
+}
+
+/* Arg, complete COPY-PASTE of above, just changed to read doubles */
+int read_csv_doubles(FILE* handle, double** buffer_ptr, int* valuesRead) {
+  int bufferSize = INIT_BUFFER_SIZE;
+  // printf("Alloc initial buffer, size: %d bytes\n", bufferSize);
+  *buffer_ptr = (double*) malloc (bufferSize);
+  if (*buffer_ptr == NULL) {
+    return 0;
+  }
+
+  int i = 0;
+	char line[1024];
+  //printf("Reading first line\n");
+  while (fgets(line, 1024, handle)) {
+    const char* tok;
+    tok = strtok(line, " ,\n");
+    while (tok != NULL) {
+      (*buffer_ptr)[i] = atof(tok);
+      i++;
+      if (sizeof(double)*i >= bufferSize) {
+        //printf("Read %d integers, resize buffer\n", i);        
+        if(!double_buffersize(&bufferSize, (void**)buffer_ptr)) {
+          return 0;
+        }
+      }
+      tok = strtok (NULL, " ,\n");
+    }
+  }
+  *valuesRead = i;
+  return 1;
 }
