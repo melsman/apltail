@@ -38,3 +38,5 @@ and ← ⎕INT32AND
 sll ← ⎕INT32SHL
 srl ← ⎕INT32SHR
 testBit ← { 0≠⍵ and 1 sll (⍺-1) }
+
+now ← ⎕NOW
