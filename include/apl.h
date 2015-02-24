@@ -126,11 +126,10 @@ static void initialize() {
 
 // return time since process start in milliseconds
 static int now (int x) {
-  struct timeval tv_check, tv_diff;
+  struct timeval tv_check;
   gettimeofday(&tv_check, NULL);
-  timersub(&tv_check, &tv_init, &tv_diff);
-  long int usec = tv_diff.tv_usec;
-  long int sec = tv_diff.tv_sec;
+  long int usec = tv_check.tv_usec - tv_init.tv_usec;
+  long int sec = tv_check.tv_sec - tv_init.tv_sec;
   long int msec = usec / 1000;
   return (int)(sec*1000+msec);
 }
