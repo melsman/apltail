@@ -32,8 +32,8 @@ datatype value =
        | BoolV of bool
        | CharV of word
        | ArrV of value option ref vector
-datatype Unop = Neg | I2D | D2I | B2I | Not | Floor | Ceil | Ln | Sin | Cos | Tan | Roll | Now | Strlen
-datatype Binop = Add | Sub | Mul | Divv | Modv | Resi | Min | Max | Lt | Lteq | Eq | Andb | Orb | Xorb | Powd | Ori | Andi | Xori | Shli | Shri | Shari
+datatype Unop = Neg | I2D | D2I | B2I | Not | Floor | Ceil | Ln | Sin | Cos | Tan | Roll | Now | Strlen 
+datatype Binop = Add | Sub | Mul | Divv | Modv | Resi | Min | Max | Lt | Lteq | Eq | Andb | Orb | Xorb | Powd | Ori | Andi | Xori | Shli | Shri | Shari | ReadIntVecFile | ReadDoubleVecFile
 datatype Exp =
          Var of Name.t
        | I of Int32.int
@@ -202,6 +202,9 @@ signature PROGRAM = sig
   val powd  : e * e -> e
   val notb  : e -> e
   val roll  : e -> e
+
+  val readIntVecFile : e * e -> e (* [readIntVecFile(file,intAddr)] returns an allocated int vector and stores the number of integers into the intAddr pointer. *)
+  val readDoubleVecFile : e * e -> e
 
   val unI   : e -> int option
   val unB   : e -> bool option
@@ -662,6 +665,10 @@ in
   fun b2i IL.T = I 1
     | b2i IL.F = I 0
     | b2i e = Unop(B2I,e)
+
+  fun readIntVecFile (e1,e2) = IL.Binop(IL.ReadIntVecFile, e1, e2)
+  fun readDoubleVecFile (e1,e2) = IL.Binop(IL.ReadDoubleVecFile, e1, e2)
+
 end
 fun Subs(n,e) = IL.Subs(n,e)
 val Alloc = IL.Alloc
@@ -875,6 +882,8 @@ fun se_e (E:env) (e:e) : e =
     | IL.Binop(IL.Andb,e1,e2) => andb(se_e E e1, se_e E e2)
     | IL.Binop(IL.Orb,e1,e2) => orb(se_e E e1, se_e E e2)
     | IL.Binop(IL.Xorb,e1,e2) => xorb(se_e E e1, se_e E e2)
+    | IL.Binop(IL.ReadIntVecFile, e1, e2) => readIntVecFile(se_e E e1, se_e E e2)
+    | IL.Binop(IL.ReadDoubleVecFile, e1, e2) => readDoubleVecFile(se_e E e1, se_e E e2)
     | IL.Unop(IL.Neg,e1) => ~(se_e E e1)
     | IL.Unop(IL.I2D,e1) => i2d (se_e E e1)
     | IL.Unop(IL.D2I,e1) => d2i (se_e E e1)

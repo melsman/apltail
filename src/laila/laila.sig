@@ -173,4 +173,10 @@ signature LAILA = sig
   val mk_mm      : m -> mm M
   val idxassign  : m -> mm -> t -> unit M
   val mm2m       : mm -> m
+
+  (* Reading files *)
+  val readFile          : m -> m M
+  val readIntVecFile    : m -> m M
+  val readDoubleVecFile : m -> m M
+
 end

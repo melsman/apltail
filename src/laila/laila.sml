@@ -102,15 +102,20 @@ fun assign (n:Name.t) (v:t) : unit M =
     in ((), fn ss => (n := v) :: ss)
     end
 
-fun alloc ty (n:t) : ((t -> t M) * (t * t -> unit M)) M =
+fun alloc0 ty (n:t) : Name.t M =
     let open P
         val tyv = Type.Vec ty
         val name = Name.new tyv
         fun ssT ss = Decl(name, SOME(Alloc(tyv,n))) :: ss
-        fun read i = ret (Subs(name,i))
-        fun write (i,v) = asgnArr (name,i,v)
-    in ((read,write), ssT)
+    in (name, ssT)
     end
+
+fun alloc ty (n:t) : ((t -> t M) * (t * t -> unit M)) M =
+    alloc0 ty n >>= (fn name =>
+    let fun read i = ret (P.Subs(name,i))
+        fun write (i,v) = asgnArr (name,i,v)
+    in ret (read,write)
+    end)
 
 (* Vectors *)
 
@@ -132,9 +137,12 @@ fun materialize (V(ty,n,f)) =
         val name = Name.new tyv
         val name_n = Name.new Int
         val name_i = Name.new Int
+        val (sz, store0) = if ty = Type.Char then 
+                             (addi(n,I 1), fn ss => ((name,Var name_n) ::= C 0w0) :: ss)
+                           else (n, fn ss => ss)
         fun ssT ss = Decl(name_n, SOME n) ::
-                     Decl(name, SOME(Alloc(tyv,n))) ::
-                     (For(Var name_n, name_i, runM0(f(Var name_i))(fn v => (name,Var name_i) ::= v)) ss)
+                     Decl(name, SOME(Alloc(tyv,sz))) ::
+                     (For(Var name_n, name_i, runM0(f(Var name_i))(fn v => (name,Var name_i) ::= v)) (store0 ss))
     in ((name,name_n), ssT)
     end
 
@@ -997,5 +1005,20 @@ fun mm2m (MA(sh,ty,n,name)) = A(sh,V(ty,n,fn i => ret(P.Subs(name,i))))
 
 fun nowi x = P.nowi x
     
+(* Reading files *)
+fun readFile _ = die "readFile not implemented"
+
+fun readVecFile ty reader (A(_,v)) : m M =
+    materialize v >>= (fn (name_file,name_n) =>
+    alloc0 Type.Int (I 1) >>= (fn name_count =>
+    lettWithName (reader(P.Var name_file, P.Var name_count)) >>= (fn (_, name_ivec) =>
+    lett (P.Subs(name_count,I 0)) >>= (fn count =>
+    ret(vec(V(ty,count,fn i => ret(P.Subs(name_ivec,i)))))))))
+
+val readIntVecFile : m -> m M = 
+    readVecFile Type.Int P.readIntVecFile
+
+val readDoubleVecFile : m -> m M = 
+    readVecFile Type.Double P.readDoubleVecFile
 
 end

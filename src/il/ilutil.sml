@@ -35,6 +35,8 @@ structure ILUtil : ILUTIL = struct
     | ppB Shli = "shli"
     | ppB Shri = "shri"
     | ppB Shari = "shari"
+    | ppB ReadIntVecFile = "readIntVecFile"
+    | ppB ReadDoubleVecFile = "readDoubleVecFile"
 
   fun pp_char w =
       "'" ^ (Char.toCString o Char.chr o Word.toInt) w ^ "'"
@@ -331,6 +333,12 @@ structure ILUtil : ILUTIL = struct
       if t1 = t2 andalso t2 = Type.Double then ()
       else die ("assertDD: " ^ s)
 
+  fun assertIorD s t = if t = Type.Int orelse t = Type.Double then () else die ("assertIorD: " ^ s)
+  fun assertI s t = if t = Type.Int then () else die ("assertI: " ^ s)
+  fun assertD s t = if t = Type.Double then () else die ("assertD: " ^ s)
+  fun assertB s t = if t = Type.Bool then () else die ("assertB: " ^ s)
+  fun assertC s t = if t = Type.Char then () else die ("assertC: " ^ s)
+
   fun typeBinop binop t1 t2 =
       case binop of
         Add => (assertIIorDD "Add" t1 t2; t1)
@@ -354,12 +362,14 @@ structure ILUtil : ILUTIL = struct
       | Shli => (assertII "Shli" t1 t2; Type.Int)
       | Shri => (assertII "Shri" t1 t2; Type.Int)
       | Shari => (assertII "Shari" t1 t2; Type.Int)
-
-  fun assertIorD s t = if t = Type.Int orelse t = Type.Double then () else die ("assertIorD: " ^ s)
-  fun assertI s t = if t = Type.Int then () else die ("assertI: " ^ s)
-  fun assertD s t = if t = Type.Double then () else die ("assertD: " ^ s)
-  fun assertB s t = if t = Type.Bool then () else die ("assertB: " ^ s)
-  fun assertC s t = if t = Type.Char then () else die ("assertC: " ^ s)
+      | ReadIntVecFile => 
+        (assertC "ReadIntVecFile" (Type.vecElem t1); 
+         assertI "ReadIntVecFile" (Type.vecElem t2);
+         Type.Vec Type.Int)
+      | ReadDoubleVecFile => 
+        (assertC "ReadDoubleVecFile" (Type.vecElem t1); 
+         assertI "ReadDoubleVecFile" (Type.vecElem t2);
+         Type.Vec Type.Double)
 
   fun typeUnop Neg t = (assertIorD "Neg" t; t)
     | typeUnop I2D t = (assertI "I2D" t; Type.Double)

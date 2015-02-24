@@ -224,3 +224,27 @@ double* read_csv_doubles(FILE* handle, int* valuesRead) {
   *valuesRead = i;
   return buffer_ptr;
 }
+
+int* readIntVecFile(char* filename, int* valuesRead) {
+  FILE* file = fopen(filename, "r");
+  int* res = read_csv_ints(file, valuesRead);
+  if (res == NULL) {
+    printf("readIntVecFile: Error reading file '%s'\n", filename);
+    fclose(file);
+    exit(0);
+  }
+  fclose(file);
+  return res;
+}
+
+double* readDoubleVecFile(char* filename, int* valuesRead) {
+  FILE* file = fopen(filename, "r");
+  double* res = read_csv_doubles(file, valuesRead);
+  if (res == NULL) {
+    printf("readDoubleVecFile: Error reading file '%s'\n", filename);
+    fclose(file);
+    exit(0);
+  }
+  fclose(file);
+  return res;
+}

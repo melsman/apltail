@@ -6,7 +6,7 @@ TESTS=test test1 test2 test3 test4 test5 test6 test7 test9 test10 \
       vec zfunc repl ceilfloormaxmin easter eacheaster else chars shape \
       innerproduct sign ln circ timespi blackscholes pi readfile \
       readintvecfile tax dtransp abcd mean idx tup binaryops fib10 sierpinski \
-      idxassign format
+      idxassign format readdoublevecfile
 
 APLFILES=$(TESTS:%=%.apl)
 TLFILES=$(APLFILES:%.apl=%.tl)
@@ -81,10 +81,10 @@ CTESTS=test test1 test2 test3 test4 test5 test6 test7 test9 test10 \
        vec zfunc ceilfloormaxmin easter eacheaster else \
        innerproduct sign mean powmat life pow fib10 timespi ln \
        chars repl replicate shape tup circ abcd dtransp tax binaryops \
-       pi blackscholes idx idxassign format
+       pi blackscholes idx idxassign format readintvecfile readdoublevecfile
 
 #      sierpinski0 sierpinski readfile \
-#      readintvecfile
+#      
 
 CRESFILES=$(CTESTS:%=%.resc)
 
