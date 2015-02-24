@@ -344,6 +344,7 @@ and peepOp E (opr,es,t) =
       | ("transp2", [Vc([I 2,I 1],_),e]) => Op("transp", [e],t)
       | ("transp2", [Vc([_],_),e]) => e
       | ("catV", [Vc(es1,_),Vc(es2,_)]) => Vc(es1@es2,t)
+      | ("cat", [Vc(es1,_),Vc(es2,_)]) => Vc(es1@es2,t)
       | ("snocV", [Vc(es,_),e]) => Vc(es@[e],t)
       | ("iotaV",[I n]) => 
         let val n = Int32.toInt n
@@ -390,8 +391,9 @@ fun simple e =
         I _ => true
       | D _ => true
       | B _ => true
+      | C _ => true
       | Var _ => true
-      | Vc(es,_) => length es <= 3 andalso List.all simple es
+      | Vc(es,_) => (*length es <= 20 andalso*) List.all simple es
       | _ => false
 
 fun optimize optlevel e =
@@ -431,7 +433,50 @@ fun optimize optlevel e =
         val initE = FM.empty
     in opt initE e
     end
-end
+
+(* Inliner : The inliner inlines simple (i.e., non-side-effecting
+expressions not containing lambdas are considered simple) variable
+definitions for which the bound variables are used at most once. The
+inliner works in two steps. The first step computes a map (buttom-up)
+of the number of uses of a variable (ZERO, ONE, MANY). Variables that
+are used under a lambda are considered to be used MANY times (such
+variables are therefore not inlined). The second step is a top-down
+transformation of the source, which inlines simple variable
+definitions that are inferred in the first step to be used ONE
+time. Simple variable definitions that are never used are eliminated.
+*)
+                         
+datatype mul = ONE | MANY
+
+type IE = mul FM.map
+fun bumpIE (ie:IE):IE = FM.composemap (fn _ => MANY) ie
+fun plusIE (ie1,ie2) : IE = FM.mergeMap (fn _ => MANY) ie1 ie2
+fun oneIE v : IE = FM.singleton(v,ONE)
+val empIE : IE = FM.empty
+
+fun uses e =
+    case e of
+        Var (v,_) => oneIE v
+      | I _ => empIE
+      | D _ => empIE
+      | B _ => empIE
+      | C _ => empIE
+      | Iff (c,e1,e2,_) => usess [c,e1,e2]
+      | Vc(es,_) => usess es
+      | Op(opr,es,_) => usess es
+      | Let (_,_,e1,e2,_) => usess [e1,e2]
+      | Fn (_,_,e,_) => bumpIE(uses e)
+and usess nil = empIE
+  | usess (e::es) = plusIE(uses e,usess es)
+
+(* The inliner needs to be implemented fully one day - for now, we are
+instead more aggressive in inline expressions (even bindings that are
+referenced multiple times.) See definition of "simple" above. *)
+
+
+end (* end of Optimize structure *)
+
+
 
 (* Pretty printing *)
 

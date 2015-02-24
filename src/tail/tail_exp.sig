@@ -23,6 +23,9 @@ signature TAIL_EXP = sig
      val singleton  : dom * 'b -> 'b map
      val lookup     : 'b map -> dom -> 'b option
      val add        : dom * 'b * 'b map -> 'b map
+     val plus       : 'a map * 'a map -> 'a map
+     val mergeMap   : ('a * 'a -> 'a) -> 'a map -> 'a map -> 'a map
+     val composemap : ('a -> 'b) -> 'a map -> 'b map
   end
 
   datatype exp =
