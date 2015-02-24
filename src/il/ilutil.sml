@@ -204,6 +204,8 @@ structure ILUtil : ILUTIL = struct
 
   fun par (e as Par _) = e
     | par e = Par e
+  fun unpar (Par e) = e
+    | unpar e = e
   fun spar e = %"[" %% e %% %"]"
   fun cpar e = %"{" %% e %% %"}"
 
@@ -275,14 +277,14 @@ structure ILUtil : ILUTIL = struct
                           %"} else {" %% 
                              %> (ppSS0 ss2) %% %$ %%
                           %"}"
-      | Assign (n,e) => %(Name.pr n) %% %" = " %% pp e %% %";"
+      | Assign (n,e) => %(Name.pr n) %% %" = " %% unpar(pp e) %% %";"
       | Decl (n,SOME(e as Vect(t,es))) =>
         let val t = Type.vecElem t
-        in pp_t t %% %" " %% %(Name.pr n) %% %"[] = " %% pp e %% %";"
+        in pp_t t %% %" " %% %(Name.pr n) %% %"[] = " %% unpar(pp e) %% %";"
         end
-      | Decl (n,SOME e) => pp_t (Name.typeOf n) %% %" " %% %(Name.pr n) %% %" = " %% pp e %% %";"
+      | Decl (n,SOME e) => pp_t (Name.typeOf n) %% %" " %% %(Name.pr n) %% %" = " %% unpar(pp e) %% %";"
       | Decl (n,NONE) => pp_t (Name.typeOf n) %% %" " %% %(Name.pr n) %% %";"
-      | AssignArr (n,i,e) => %(Name.pr n) %% spar(pp i) %% %" = " %% pp e %% %";"
+      | AssignArr (n,i,e) => %(Name.pr n) %% spar(pp i) %% %" = " %% unpar(pp e) %% %";"
       | Nop => %"/*nop*/"
       | Free n => %("free(" ^ Name.pr n ^ ");")
       | Ret e => %"return " %% pp e %% %";"

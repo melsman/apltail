@@ -492,7 +492,7 @@ fun concat v1 v2 =
               getShape n f >>= (fn sh => 
               let val sh' = List.rev sh
               in toSh sh' i >>= (fn sh'' =>
-                 fromSh sh (List.rev sh'') >>= (fn x => g x))
+                 fromSh sh (List.rev sh'') >>= g)
               end)
       in case P.unI n of
              SOME 0 => ret d   (* known number of dimensions *)
@@ -570,7 +570,7 @@ fun concat v1 v2 =
       end
 
   fun extend n (V(ty,m,f)) =
-      Ifv(eqi(m,I 0), V(ty,n, fn _ => ret (proto ty)), V(ty,n,f o (fn i => P.modi(i, m))))
+      Ifv(eqi(m,I 0), V(ty,n, fn _ => ret (proto ty)), V(ty,n, fn i => lett (P.modi(i,m)) >>= f))
 
   fun outmain outln =
     ( outln "int main() {"
@@ -618,13 +618,20 @@ end = struct
   val empty    = empty Int
   val singlez  = single (I 0)
   val single   = single
-  val product  : t -> INT M = foldl (ret o muli) (I 1)
+  fun product (t:t) : INT M = 
+      (getShapeV "Shape.product" t) >>= (lett o lprod)  (*was: foldl (ret o muli) (I 1)*)
   val length   : t -> INT = length
   val dr       : INT -> t -> t = dr
   val tk       : INT -> t -> t = tk
   val dr_unsafe: INT -> t -> t = dr_unsafe
   val tk_unsafe: INT -> t -> t = tk_unsafe
-  val eq       : t -> t -> BOOL M = eq eqi
+  fun eq_elems nil nil = B true
+    | eq_elems (x::xs) (y::ys) = andb(eqi(x,y),eq_elems xs ys)
+    | eq_elems _ _ = B false
+  fun eq (t1: t) (t2: t) : BOOL M =
+      getShapeV "Shape.eq1" t1 >>= (fn sh1 =>
+      getShapeV "Shape.eq2" t2 >>= (fn sh2 =>
+      ret (eq_elems sh1 sh2)))
 end
 
 datatype m = A of Shape.t * v
@@ -729,7 +736,7 @@ fun take n (a as A(shv,V(ty,sz,f))) =
               V(ty,sz',
                 fn i => ifM ty (andb(negative_n,lti(i,offset)), ret default,
                                 ifM ty (andb(gtei(n,I 0),gtei(i,sz)), ret default,
-                                        f (If(negative_n,subi(i,offset),i)))))))
+                                        lett (If(negative_n,subi(i,offset),i)) >>= f)))))
        )))
     end)))
 
@@ -748,7 +755,7 @@ fun drop i (a as A(shv,V(ty,sz,f))) =
                        | _ :: subsh => maxi(I 0, muli(i,lprod subsh))
     in ret (A(shv',
               V(ty,sz',
-                fn i => f (addi(i,offset)))))
+                fn i => lett (addi(i,offset)) >>= f)))
     end)
   
 fun rotate n (A(f,d)) =
@@ -817,11 +824,11 @@ fun vreverse (a as A(sh,V(ty,sz,f))) =
           ret (A(sh,
                    V(ty,sz,
                      fn i => 
-                        let val y = subi(subi(n,divi(i,subsz)),I 1)
-                            val x = modi(i,subsz)
-                        in f (addi(muli(y,subsz),x))
-                        end)))
-          ))
+                        lett let val y = subi(subi(n,divi(i,subsz)),I 1)
+                                 val x = modi(i,subsz)
+                             in addi(muli(y,subsz),x)
+                             end >>= f))
+              )))
 
 fun vrotate n (a as A(sh, v0 as V(ty,sz,f))) =
     getShapeV "vrotate" sh >>=
