@@ -164,11 +164,11 @@ int double_buffersize(int* bufferSize, void** buffer_ptr) {
   }
 }
 
-int read_csv_ints(FILE* handle, int** buffer_ptr, int* valuesRead) {
+int* read_csv_ints(FILE* handle, int* valuesRead) {
   int bufferSize = INIT_BUFFER_SIZE;
   //printf("Alloc initial buffer, size: %d bytes\n", bufferSize);
-  *buffer_ptr = (int*) malloc (bufferSize);
-  if (*buffer_ptr == NULL) {
+  int* buffer_ptr = (int*) malloc (bufferSize);
+  if (buffer_ptr == NULL) {
     return 0;
   }
 
@@ -179,28 +179,28 @@ int read_csv_ints(FILE* handle, int** buffer_ptr, int* valuesRead) {
     const char* tok;
     tok = strtok(line, " ,\n");
     while (tok != NULL) {
-      (*buffer_ptr)[i] = atoi(tok);
+      buffer_ptr[i] = atoi(tok);
       i++;
       if (sizeof(int)*i >= bufferSize) {
         //printf("Read %d integers, resize buffer\n", i);        
-        if(!double_buffersize(&bufferSize, (void**)buffer_ptr)) {
-          return 0;
+        if(!double_buffersize(&bufferSize, (void**)&buffer_ptr)) {
+          return NULL;
         }
       }
       tok = strtok (NULL, " ,\n");
     }
   }
   *valuesRead = i;
-  return 1;
+  return buffer_ptr;
 }
 
 /* Arg, complete COPY-PASTE of above, just changed to read doubles */
-int read_csv_doubles(FILE* handle, double** buffer_ptr, int* valuesRead) {
+double* read_csv_doubles(FILE* handle, int* valuesRead) {
   int bufferSize = INIT_BUFFER_SIZE;
   // printf("Alloc initial buffer, size: %d bytes\n", bufferSize);
-  *buffer_ptr = (double*) malloc (bufferSize);
-  if (*buffer_ptr == NULL) {
-    return 0;
+  double* buffer_ptr = (double*) malloc (bufferSize);
+  if (buffer_ptr == NULL) {
+    return NULL;
   }
 
   int i = 0;
@@ -210,17 +210,17 @@ int read_csv_doubles(FILE* handle, double** buffer_ptr, int* valuesRead) {
     const char* tok;
     tok = strtok(line, " ,\n");
     while (tok != NULL) {
-      (*buffer_ptr)[i] = atof(tok);
+      buffer_ptr[i] = atof(tok);
       i++;
       if (sizeof(double)*i >= bufferSize) {
         //printf("Read %d integers, resize buffer\n", i);        
-        if(!double_buffersize(&bufferSize, (void**)buffer_ptr)) {
-          return 0;
+        if(!double_buffersize(&bufferSize, (void**)&buffer_ptr)) {
+          return NULL;
         }
       }
       tok = strtok (NULL, " ,\n");
     }
   }
   *valuesRead = i;
-  return 1;
+  return buffer_ptr;
 }
