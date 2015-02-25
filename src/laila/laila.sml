@@ -295,9 +295,9 @@ val Uv       = Iv 0
 val ppV      = ILUtil.ppValue 
 
 fun pr_wrap s f a =
-    let (*val () = print("[starting " ^ s ^ "]\n")*)
+    let (* val () = print("[starting " ^ s ^ "]\n") *)
         val r = f a
-        (*val () = print("[finished " ^ s ^ "]\n")*)
+        (* val () = print("[finished " ^ s ^ "]\n") *)
     in r
     end
 
@@ -308,6 +308,7 @@ fun rm_decls p = pr_wrap "rm_decls" (fn (e,ss) => P.rm_decls e ss) p
 (* Some utility functions *)
 fun opt_ss0 ss =
     let val ss = se_ss ss
+        val ss = se_ss ss
         val ss = se_ss ss
     in rm_decls0 ss
     end

@@ -2,6 +2,9 @@ structure Tail : TAIL = struct
 
 structure Exp = TailExp(TailType)
 
+val optimisationLevel = ref 0
+fun optlevel() = !optimisationLevel
+
 fun die s = raise Fail ("Tail." ^ s)
 
 open TailType
@@ -307,12 +310,6 @@ and peepOp E (opr,es,t) =
       | ("subi", [e,I 0]) => e
       | ("negi", [I i]) => I(Int32.~ i)
       | ("absi", [I i]) => I(Int32.abs i)
-(*
-      | ("powd", [D a, D b]) => D(Math.pow(a,b))
-      | ("muld", [D a, D b]) => D(Real.*(a,b))
-      | ("addd", [D a, D b]) => D(Real.+(a,b))
-      | ("subd", [D a, D b]) => D(Real.-(a,b))
-*)
       | ("i2d", [I i]) => D(Real.fromLargeInt (Int32.toLarge i))
       | ("b2i", [B true]) => I 1
       | ("b2i", [B false]) => I 0
@@ -361,7 +358,15 @@ and peepOp E (opr,es,t) =
         if Int32.toInt n = length es' then Vc(es',t')
         else Op(opr,es,t)
       | ("idxS", [I 1, I i, Vc(xs,_)]) => List.nth(xs,i-1)
-      | _ => Op(opr,es,t)
+      | _ =>
+        if optlevel() > 0 then 
+          case (opr, es) of
+              ("powd", [D a, D b]) => D(Math.pow(a,b))
+            | ("muld", [D a, D b]) => D(Real.*(a,b))
+            | ("addd", [D a, D b]) => D(Real.+(a,b))
+            | ("subd", [D a, D b]) => D(Real.-(a,b))
+            | _ => Op(opr,es,t)
+        else Op(opr,es,t)
                
 and getShape (E:env) (e : Exp.exp) : Exp.exp option =
     let fun tryType() =

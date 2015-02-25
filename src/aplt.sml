@@ -1,6 +1,6 @@
 structure Apl2Tail = Apl2Tail(Tail)
 
-fun prln s = print(s ^ "\n")
+fun die s = raise Fail ("Apl2Tail." ^ s)
 
 fun compileAndRun (flags,files) =
     let val compile_only_p = Flags.flag_p flags "-c"
@@ -8,17 +8,23 @@ fun compileAndRun (flags,files) =
         val stop_after_tail_p = Flags.flag_p flags "-s_tail"
         val print_laila_p = Flags.flag_p flags "-p_laila"
         val silent_p = Flags.flag_p flags "-silent"
+        val () = case Flags.flag flags "-O" of
+                     NONE => ()
+                   | SOME n =>
+                     case Int.fromString n of
+                         SOME n => Tail.optimisationLevel := n
+                       | NONE => die "expecting integer as argument to -O flag"
     in if silent_p andalso verbose_p then
-         print "Inconsistent use of -silent and -v flags - stopping.\n"
+         Util.prln "Inconsistent use of -silent and -v flags"
        else
          case Apl2Tail.compile flags files of
              SOME p =>
              let val () = if compile_only_p then ()
-                          else let val () = if not silent_p then prln("Evaluating")
+                          else let val () = if not silent_p then Util.prln("Evaluating")
                                             else ()
                                    val v = Tail.eval p Tail.Uv
-                               in if silent_p then prln(Tail.ppV v)
-                                  else prln("Result is " ^ Tail.ppV v)
+                               in if silent_p then Util.prln(Tail.ppV v)
+                                  else Util.prln("Result is " ^ Tail.ppV v)
                                end
              in if stop_after_tail_p then ()
                 else let val lp = Tail2Laila.compile flags p 
@@ -50,6 +56,7 @@ fun usage() =
     "   -s_parse : stop after parsing\n" ^
     "   -s_tail  : stop after TAIL generation\n" ^
     "   -silent  : evaluation output only (unless there are errors)\n" ^
-    "   -v       : verbose\n"
+    "   -v       : verbose\n" ^
+    "   -O n     : optimisation level (n>0 optimises double operations aggresively)\n"
 
-val () = Flags.runargs {usage=usage,run=compileAndRun,unaries=["-o","-oc"]}
+val () = Flags.runargs {usage=usage,run=compileAndRun,unaries=["-o","-oc","-O"]}

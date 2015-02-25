@@ -97,7 +97,7 @@ testc: $(CRESFILES)
 	@echo "----------------------------------------------------"
 
 c/%.c: %.apl Makefile
-	$(APLT) -c -oc $@ $(PRELUDE) $<
+	$(APLT) -c -O 2 -oc $@ $(PRELUDE) $<
 
 c/%.exe: c/%.c
 	gcc --std=c99 -O3 -o $@ -lm $<
@@ -139,12 +139,6 @@ bench: $(COMPTIMEFILES)
 	@echo 'Benchmark        Dyalog        Laila'
 	@cat $(COMPTIMEFILES)
 	@echo "--------------------------------------------"
-
-c/%.c: %.apl Makefile
-	$(APLT) -c -oc $@ $(PRELUDE) $<
-
-c/%.exe: c/%.c
-	gcc --std=c99 -O3 -o $@ -lm $<
 
 %.time: c/%.exe
 	$(TIME) -o $@ -f "%Us" $< > $*.outb

@@ -1,5 +1,8 @@
 structure IL = struct
 
+val optimisationLevel = ref 0
+fun optlevel() = !optimisationLevel
+
 fun die s = raise Fail ("IL." ^ s)
 
 datatype Type = Int | Double | Bool | Char | Vec of Type
@@ -534,8 +537,14 @@ in
       if Int32.>=(d,b) andalso Int32.>=(d,c) then y else Binop(Max,x,y)
     | max a b = if eq(a,b) then a else Binop(Max,a,b)
 
-  fun powd (* (IL.D a,IL.D b) = IL.D(Math.pow(a,b))
-    | powd*) (a,b) = Binop(Powd,a,b)
+  fun powd (a,b) = 
+      let fun default() = Binop(Powd,a,b)
+      in if optlevel() > 0 then 
+           case (a,b) of
+               (IL.D a,IL.D b) => IL.D(Math.pow(a,b))
+             | _ => default()
+         else default()
+      end
   fun ceil a = Unop(Ceil,a)
   fun floor a = Unop(Floor,a)
   fun ln a = Unop(Ln,a)
@@ -902,14 +911,14 @@ fun se_e (E:env) (e:e) : e =
 fun se_ss (E:env) (ss:ss) : ss =
     case peep ss of
       nil => nil
-    | s::ss2 =>
+    | s::ss =>
       case s of
-        IL.Nop => se_ss E ss2
+        IL.Nop => se_ss E ss
       | IL.Ret e => Ret(se_e E e)::nil  (* ss2 is dead *)
       | IL.Halt str => Halt str::nil    (* ss2 is dead *)
       | IL.Free n => 
-        let val ss2 = se_ss E ss2
-        in Free n :: ss2
+        let val ss = se_ss E ss
+        in Free n :: ss
         end
       | IL.Decl(n,SOME e) =>
         let val e = se_e E e
@@ -920,27 +929,30 @@ fun se_ss (E:env) (ss:ss) : ss =
                   | (IL.Vec _, _) => E
                   | _ => if simpleExp e then (n,EqI e)::E
                          else E
-            val ss2 = se_ss E2 ss2
-        in Decl(n,SOME e) :: ss2
+            val ss = se_ss E2 ss
+        in Decl(n,SOME e) :: ss
         end
       | IL.Decl(n,NONE) =>
-        let (* val () = assert_name(E,n) *)
- 	    val ss2 = se_ss E ss2
-        in Decl(n,NONE) :: ss2
+        let fun default() = Decl(n,NONE) :: se_ss E ss
+        in case ss of
+               IL.Assign(n',e) :: ss3 =>
+               if n = n' then se_ss E (IL.Decl(n,SOME e) :: ss3)
+               else default()
+             | _ => default()
         end
       | IL.Assign(n,e) =>
         let val e = se_e E e
 	    val E' = env_cut E (N.singleton n)
 	    (* val () = assert_name(E',n) *)
             val E2 = (*(n,EqI e)::*)E'   (* unsafe to add to environment *)
-            val ss2 = se_ss E2 ss2
-        in (n := e) :: ss2
+            val ss = se_ss E2 ss
+        in (n := e) :: ss
         end
       | IL.AssignArr(n,e0,e) =>
         let val e0 = se_e E e0
             val e = se_e E e                    
-            val ss2 = se_ss E ss2
-        in ((n,e0) ::= e) :: ss2
+            val ss = se_ss E ss
+        in ((n,e0) ::= e) :: ss
         end
       | IL.For(e,n,body) =>
         let val defs_body = defs body
@@ -950,7 +962,7 @@ fun se_ss (E:env) (ss:ss) : ss =
 	    val	E2 = (n,LtI e')::E2
             val ss1 = se_ss E2 body
             val ss1 = rm_decls0 ss1
-        in ForOptimize (se_ss E') (e', n, ss1) ss2
+        in ForOptimize (se_ss E') (e', n, ss1) ss
         end
       | IL.Ifs(e,ss0,ss1) =>
         let val e = se_e E e
@@ -960,19 +972,21 @@ fun se_ss (E:env) (ss:ss) : ss =
             val ss0 = rm_decls0 ss0
             val ss1 = rm_decls0 ss1
             val E' = env_cut E defs_branches
-            val ss2 = se_ss E' ss2
-        in Ifs(e,ss0,ss1) ss2
+            val ss = se_ss E' ss
+        in Ifs(e,ss0,ss1) ss
         end
-      | IL.Printf(s,es) => Printf(s, List.map(se_e E)es) :: se_ss E ss2
-      | IL.Sprintf(n,s,es) => Sprintf(n, s, List.map(se_e E)es) :: se_ss E ss2
+      | IL.Printf(s,es) => Printf(s, List.map(se_e E)es) :: se_ss E ss
+      | IL.Sprintf(n,s,es) => Sprintf(n, s, List.map(se_e E)es) :: se_ss E ss
 
 (* Peep hole optimization *)
 and peep ss =
     case ss of
       IL.Decl(n,NONE) :: IL.Assign(n',e') :: ss' =>
+      ((* Util.prln ("peep candidate: " ^ Name.pr n ^ ", " ^ Name.pr n'); *)
        if n = n' then 
-         peep(IL.Decl(n,SOME e') :: ss')
-       else ss
+         ((*Util.prln ("peep: " ^ Name.pr n);*)
+          peep(IL.Decl(n,SOME e') :: ss'))
+       else ss)
     | IL.Decl(n,SOME e) :: IL.Assign(n',e') :: ss' =>
        if n = n' then 
          peep(IL.Decl(n,SOME(se_e [(n,EqI e)] e')) :: ss')
@@ -982,5 +996,6 @@ and peep ss =
          peep((n := (se_e [(n,EqI e)] e')) :: ss')
        else ss
     | s :: IL.Nop :: ss => peep (s::ss)
+    | IL.Nop :: ss => peep ss
     | _ => ss
 end

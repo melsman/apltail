@@ -5,6 +5,8 @@
 
 signature TAIL = sig
 
+  val optimisationLevel : int ref
+
   structure Exp : TAIL_EXP
 
   (* Types *)
