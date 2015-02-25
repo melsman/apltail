@@ -101,14 +101,14 @@ local
         | Fs _ => "a function"
 
   fun lets s = case s of
-                   Bs _ => ret s
-                 | Is _ => ret s
-                 | Ds _ => ret s
-                 | Cs _ => ret s
-                 | Abs mb => letm mb >>= (fn x => ret(Abs x))
-                 | Ais mi => letm mi >>= (fn x => ret(Ais x))
-                 | Ads md => letm md >>= (fn x => ret(Ads x))
-                 | Acs md => letm md >>= (fn x => ret(Acs x))
+                   Bs x => (*ret s*)lett x >>= (ret o Bs)
+                 | Is x => (*ret s*)lett x >>= (ret o Is)
+                 | Ds x => (*ret s*)lett x >>= (ret o Ds)
+                 | Cs x => (*ret s*)lett x >>= (ret o Cs)
+                 | Abs mb => letm mb >>= (ret o Abs)
+                 | Ais mi => letm mi >>= (ret o Ais)
+                 | Ads md => letm md >>= (ret o Ads)
+                 | Acs md => letm md >>= (ret o Acs)
                  | Ts _ => ret s
                  | Fs _ => ret s
 
@@ -597,7 +597,7 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                     noii),
                 emp)
             | LambE((0,2),e,r) =>
-              k(Fs (fn [x,y] => compLam02 G e (x,y)
+              k(Fs (fn [x,y] => M(lets x) >>>= (fn x => M(lets y) >>>= (fn y => compLam02 G e (x,y)))
                      | l => compErr r ("dyadic function expects two arguments; received " ^ Int.toString(List.length l) ^ " arguments"),
                     noii),
                 emp)
@@ -899,30 +899,34 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
               | NONE => NONE
         and compLam11 G e f =
             rett(Fs(fn [x] =>
+                       M(lets x) >>>= (fn x => 
                        let val G' = [(Symb L.Alphaalpha, f),(Symb L.Omega, x)]
                        in comp (G++G') e (fn (s,_) => rett s)
-                       end
+                       end)
                      | _ => raise Fail "compLam11: expecting 1 argument",
                     noii))
         and compLam12 G e f =
             rett(Fs(fn [x,y] =>
+                       M(lets x) >>>= (fn x => M(lets y) >>>= (fn y =>
                        let val G' = [(Symb L.Alphaalpha, f),(Symb L.Omega, y),(Symb L.Alpha, x)]
                        in comp (G++G') e (fn (s,_) => rett s)
-                       end
+                       end))
                      | _ => raise Fail "compLam12: expecting 2 arguments",
                     noii))
         and compLam22 G e (f,g) =
             rett(Fs(fn [x,y] =>
+                       M(lets x) >>>= (fn x => M(lets y) >>>= (fn y =>
                        let val G' = [(Symb L.Alphaalpha, f),(Symb L.Omegaomega, g),(Symb L.Omega, y),(Symb L.Alpha, x)]
                        in comp (G++G') e (fn (s,_) => rett s)
-                       end
+                       end))
                      | _ => raise Fail "compLam22: expecting 2 arguments",
                     noii))
         and compLam21 G e (f,g) =
             rett(Fs(fn [x] =>
+                       M(lets x) >>>= (fn x => 
                        let val G' = [(Symb L.Alphaalpha, f),(Symb L.Omegaomega, g),(Symb L.Omega, x)]
                        in comp (G++G') e (fn (s,_) => rett s)
-                       end
+                       end)
                      | _ => raise Fail "compLam21: expecting 2 arguments",
                     noii))
         and compLam01 G e x =

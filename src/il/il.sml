@@ -35,7 +35,7 @@ datatype value =
        | BoolV of bool
        | CharV of word
        | ArrV of value option ref vector
-datatype Unop = Neg | I2D | D2I | B2I | Not | Floor | Ceil | Ln | Sin | Cos | Tan | Roll | Now | Strlen 
+datatype Unop = Neg | I2D | D2I | B2I | Not | Floor | Ceil | Ln | Sin | Cos | Tan | Sqrt | Roll | Now | Strlen 
 datatype Binop = Add | Sub | Mul | Divv | Modv | Resi | Min | Max | Lt | Lteq | Eq | Andb | Orb | Xorb | Powd | Ori | Andi | Xori | Shli | Shri | Shari | ReadIntVecFile | ReadDoubleVecFile
 datatype Exp =
          Var of Name.t
@@ -200,6 +200,7 @@ signature PROGRAM = sig
   val sin   : e -> e
   val cos   : e -> e
   val tan   : e -> e
+  val sqrt  : e -> e
   val max   : e -> e -> e
   val min   : e -> e -> e
   val powd  : e * e -> e
@@ -537,14 +538,21 @@ in
       if Int32.>=(d,b) andalso Int32.>=(d,c) then y else Binop(Max,x,y)
     | max a b = if eq(a,b) then a else Binop(Max,a,b)
 
-  fun powd (a,b) = 
+  fun sqrt a = Unop(Sqrt,a)
+
+  fun powd (a,b) =
       let fun default() = Binop(Powd,a,b)
-      in if optlevel() > 0 then 
-           case (a,b) of
-               (IL.D a,IL.D b) => IL.D(Math.pow(a,b))
-             | _ => default()
-         else default()
+      in case b of
+             IL.D x => if Real.==(x,0.5) then sqrt a
+                       else default()
+           | _ => 
+             if optlevel() > 0 then 
+               case (a,b) of
+                   (IL.D a,IL.D b) => IL.D(Math.pow(a,b))
+                 | _ => default()
+             else default()
       end
+
   fun ceil a = Unop(Ceil,a)
   fun floor a = Unop(Floor,a)
   fun ln a = Unop(Ln,a)
@@ -593,6 +601,7 @@ in
 
   fun notb IL.T = B false
     | notb IL.F = B true
+    | notb (Unop(Not,a)) = a
     | notb a = Unop(Not,a)
 
   infix ==
@@ -902,6 +911,7 @@ fun se_e (E:env) (e:e) : e =
     | IL.Unop(IL.Sin,e1) => sin (se_e E e1)
     | IL.Unop(IL.Cos,e1) => cos (se_e E e1)
     | IL.Unop(IL.Tan,e1) => tan (se_e E e1)
+    | IL.Unop(IL.Sqrt,e1) => sqrt (se_e E e1)
     | IL.Unop(IL.Roll,e1) => roll (se_e E e1)
     | IL.Unop(IL.B2I,e1) => b2i (se_e E e1)
     | IL.Unop(IL.Not,e1) => notb(se_e E e1)
@@ -927,6 +937,7 @@ fun se_ss (E:env) (ss:ss) : ss =
                 case (IL.Name.typeOf n, e) of
                     (IL.Vec _, IL.Vect _) => (n,EqI e)::E
                   | (IL.Vec _, _) => E
+                  | (IL.Int, IL.Binop(IL.Modv, _, e)) => (n, LtI e)::E
                   | _ => if simpleExp e then (n,EqI e)::E
                          else E
             val ss = se_ss E2 ss
