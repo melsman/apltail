@@ -954,12 +954,18 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
             in
             fn [Ads m] => doPower power "double array" Ads unAds m
              | [Ais m] => doPower power "integer array" Ais unAis m
-             | [Is m] => doPower powerScl "integer scalar" Is unIs m
+             | [Ds m] => doPower powerScl "double scalar" Ds unDs m
+             | [Is m] =>
+               (case classifyPower dummyIntS f of
+                    INT_C => doPower powerScl "integer scalar" Is unIs m
+                  | DOUBLE_C => compPower r f n [Ds(i2d m)]
+                  | _ => compErr r "expecting boolean or integer scalar as result of power")
              | [Bs m] =>
                (case classifyPower dummyBoolS f of
                     INT_C => compPower r f n [Is(b2i m)]
                   | BOOL_C => doPower powerScl "boolean scalar" Bs unBs m
-                  | _ => compErr r "expecting boolean or integer scalar as result of power")
+                  | DOUBLE_C => compPower r f n [Ds(i2d(b2i m))]
+                  | _ => compErr r "expecting boolean, integer, or double scalar as result of power")
              | [Abs m] =>
                (case classifyPower (Abs(zilde())) f of
                     INT_C => compPower r f n [Ais(each (ret o b2i) m)]

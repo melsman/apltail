@@ -159,6 +159,8 @@ tail ← {
   (x appr tail_as) ÷ (x appr tail_bs)
 }
 
+else ← {(⍺⍺⍣⍺)(⍵⍵⍣(~⍺))⍵}
+
 ugaussianEl ← {
    dp ← ⍵ - 0.5
 
