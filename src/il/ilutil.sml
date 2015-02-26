@@ -184,6 +184,7 @@ structure ILUtil : ILUTIL = struct
       | Printf(s,nil) => (print s; E)
       | Printf(s,es) => die "eval.Printf not implemented"
       | Sprintf(n,s,es) => die "eval.Sprintf not implemented"
+      | Comment _ => E
       | Nop => E
 
   and evalSS E ss rn =
@@ -301,6 +302,7 @@ structure ILUtil : ILUTIL = struct
       | Sprintf(n,"%DOUBLE",[e]) => %"formatD" %% par(pp_es "," [Var n,e]) %% %";" 
       | Sprintf(n,s,nil) => %("sprintf(" ^ Name.pr n ^ ",\"" ^ String.toCString s ^ "\"") %% %");" 
       | Sprintf(n,s,es) => %("sprintf(" ^ Name.pr n ^ ",\"" ^ String.toCString s ^ "\",") %% pp_es "," es %% %");" 
+      | Comment s => %("// " ^ s)
 
   fun ppSS n ss = ropeToString n (%$ %% ppSS0 ss)
   fun ppExp e = ropeToString 0 (pp e)

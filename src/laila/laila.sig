@@ -2,6 +2,10 @@ signature LAILA = sig
 
   include TYPE
 
+  val optimisationLevel : int ref
+  val enableComments : bool ref
+  val unsafeAsserts : bool ref
+
   type 'a M    (* monad encapsulating program construction *)
   val >>=      : 'a M * ('a -> 'b M) -> 'b M
   val ret      : 'a -> 'a M

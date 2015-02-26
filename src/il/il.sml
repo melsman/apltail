@@ -61,6 +61,7 @@ datatype Stmt = For of Exp * Name.t * Block  (* name is a binding occurence *)
               | Halt of string
               | Printf of string * Exp list
               | Sprintf of Name.t * string * Exp list
+              | Comment of string
 
 withtype Block = Stmt list
 
@@ -101,6 +102,7 @@ fun eq_s(s1,s2) =
     | (Halt s1, Halt s2) => s1 = s2
     | (Printf(s1,es1), Printf(s2,es2)) => s1 = s2 andalso eqs(es1,es2)
     | (Sprintf(n1,s1,es1), Sprintf(n2,s2,es2)) => n1 = n2 andalso s1 = s2 andalso eqs(es1,es2)
+    | (Comment s1, Comment s2) => s1 = s2
     | _ => false
 and eq_ss (nil,nil) = true
   | eq_ss (s1::ss1,s2::ss2) = eq_s(s1,s2) andalso eq_ss(ss1,ss2)
@@ -224,6 +226,7 @@ signature PROGRAM = sig
   val Halt : string -> s
   val Printf : string * e list -> s
   val Sprintf : Name.t * string * e list -> s
+  val Comment : string -> s
   val emp : s
   val unDecl : s -> (Name.t * e option) option
 
@@ -316,6 +319,7 @@ in
       | IL.Printf(s, e::es) => uses e (uses_s (IL.Printf(s,es)))
       | IL.Sprintf(n, _, nil) => N.singleton n
       | IL.Sprintf(n, s, e::es) => uses e (uses_s (IL.Sprintf(n,s,es)))
+      | IL.Comment _ => N.empty
 
   and uses_ss nil = N.empty
     | uses_ss (s::ss) = N.union (uses_s s, uses_ss ss)
@@ -334,6 +338,7 @@ in
       | IL.For(e,n,body) => N.difference(defs_ss body,N.singleton n)
       | IL.Printf _ => N.empty
       | IL.Sprintf _ => N.empty
+      | IL.Comment _ => N.empty
 
   and defs_ss nil = N.empty
     | defs_ss (s::ss) = N.union (defs_s s, defs_ss ss)
@@ -351,6 +356,7 @@ in
       | IL.For(e,_,_) => N.empty
       | IL.Printf _ => N.empty
       | IL.Sprintf _ => N.empty
+      | IL.Comment _ => N.empty
   and decls_ss nil = N.empty
     | decls_ss (s::ss) = N.union (decls_s s, decls_ss ss)
 
@@ -705,6 +711,7 @@ val Halt = IL.Halt
 val Free = IL.Free
 val Printf = IL.Printf
 val Sprintf = IL.Sprintf
+val Comment = IL.Comment
 fun isEmp ss = List.all (fn IL.Nop => true | _ => false) ss
 fun size ss =
     case ss of
@@ -778,6 +785,7 @@ fun defs ss : N.set =
       | IL.Ifs(e,ss1,ss2) => N.union(N.union(defs ss1,defs ss2),defs ss)
       | IL.Printf _ => defs ss
       | IL.Sprintf _ => defs ss
+      | IL.Comment _ => defs ss
 
 fun rm_declsU U ss =
     let fun rm nil = (nil,U)
@@ -988,6 +996,7 @@ fun se_ss (E:env) (ss:ss) : ss =
         end
       | IL.Printf(s,es) => Printf(s, List.map(se_e E)es) :: se_ss E ss
       | IL.Sprintf(n,s,es) => Sprintf(n, s, List.map(se_e E)es) :: se_ss E ss
+      | IL.Comment s => Comment s :: se_ss E ss
 
 (* Peep hole optimization *)
 and peep ss =

@@ -4,6 +4,10 @@ structure Laila :> LAILA = struct
 
 structure P = Program
 
+val optimisationLevel = IL.optimisationLevel
+val enableComments = ref false
+val unsafeAsserts = ref false
+
 fun die s = raise Fail ("Laila." ^ s)
 
 infixr $
@@ -28,9 +32,15 @@ fun runMss ((e,ssT) : 'a M) (k : 'a -> P.ss) : P.ss =
     ssT (k e)
 
 fun assert s b (m : 'a M) : 'a M  =
-       let val (v, ssT) = m
-       in (v, fn ss => ssT(P.Ifs(b,[],[P.Halt s]) ss))
-       end
+    if !unsafeAsserts then m
+    else let val (v, ssT) = m
+         in (v, fn ss => ssT(P.Ifs(b,[],[P.Halt s]) ss))
+         end
+
+fun comment s : unit M =
+    if !enableComments then
+      ((), fn ss => P.Comment s :: ss)
+    else ((), fn ss => ss)
 
 fun ifM t (b,m1,m2) =
     case P.unB b of
@@ -471,6 +481,35 @@ fun concat v1 v2 =
   fun lprod nil = I 1
     | lprod (x::xs) = muli(x,lprod xs)
   
+  (* reverse mul prescan; rprod [2, 3, 5] = [15,5,1] *)
+  fun rprod [x] = ret [I 1]
+    | rprod xs = 
+      let fun prods nil acc = ret acc
+            | prods [x] acc = ret acc
+            | prods (x::xs) nil = prods xs [x,I 1]
+            | prods (x::xs) (acc as y:: _) =
+              lett (muli(x,y)) >>= (fn m => prods xs (m::acc))
+      in prods (List.rev xs) nil
+      end
+
+  fun toSh sh i =
+      let fun toSh' ps sh i =
+              case (ps, sh) of
+                  (nil, nil) => ret nil
+                | (_, [_]) => ret [i]
+                | (p::ps, _ ::xs) =>
+                  lett (modi(i,p)) >>= (fn imodp =>
+                  lett (divi(i,p)) >>= (fn x' =>
+                  toSh' ps xs imodp >>= (fn xs' =>
+                  ret (x' :: xs'))))
+                | _ => die "toSh"
+      in comment "toSh" >>= (fn () =>
+         lett i >>= (fn i =>
+         rprod sh >>= (fn ps =>
+         toSh' ps sh i)))
+      end
+
+(*
   fun toSh nil i = ret nil
     | toSh (x::xs) i =
       lett (lprod xs) >>= (fn p =>
@@ -478,13 +517,27 @@ fun concat v1 v2 =
       lett (divi(i,p)) >>= (fn x' =>
       toSh xs imodp >>= (fn xs' =>
       ret (x' :: xs')))))
+*)
 
+  fun fromSh sh idx =
+      let fun fromSh' ps nil nil = ret(I 0)
+            | fromSh' (p::ps) (_::sh) (i::idx) = 
+              fromSh' ps sh idx >>= (fn x =>
+              lett (addi(muli(i,p),x)))
+            | fromSh' _ _ _ = die "fromSh: dimension mismatch"
+      in comment "fromSh" >>= (fn () =>
+         rprod sh >>= (fn ps =>
+         fromSh' ps sh idx))
+      end
+
+(*
   fun fromSh nil nil = ret(I 0)
     | fromSh (_::sh) (i::idx) = 
       fromSh sh idx >>= (fn x =>
       lett (addi(muli(i,lprod sh),x)) >>= (fn res =>
       ret res))
     | fromSh _ _ = die "fromSh: dimension mismatch"
+*)
 
   fun getShape 0 f = ret nil
     | getShape n f = 
@@ -501,11 +554,12 @@ fun concat v1 v2 =
       let val V(_,n,f) = v
           val V(ty,m,g) = d
           fun h n i =
+              comment "trans" >>= (fn () =>
               getShape n f >>= (fn sh => 
               let val sh' = List.rev sh
               in toSh sh' i >>= (fn sh'' =>
                  fromSh sh (List.rev sh'') >>= g)
-              end)
+              end))
       in case P.unI n of
              SOME 0 => ret d   (* known number of dimensions *)
            | SOME 1 => ret d
@@ -541,28 +595,31 @@ fun concat v1 v2 =
              (if n <> List.length idxs then
                 die "trans2: wrong index vector length"
               else if n<2 then ret (sh,vs)
-              else getShape n f >>= (fn sh =>
+              else 
+                 comment "trans2" >>= (fn () =>
+                 getShape n f >>= (fn sh =>
                  let val sh' = exchange' idxs sh
                      fun h i =
                          toSh sh' i >>= (fn sh'' =>
                          fromSh sh (exchange idxs sh'') >>= (fn x => g x))
                  in ret (fromList sh',
                          V(ty,m,h))
-                 end))
+                 end)))
            | NONE => die "trans2: unknown number of dimensions not supported"
       end
 
   fun compr bv v =
       let val V(_,n,f) = bv
           val V(ty,m,g) = v
-      in foldl (ret o addi) (I 0) (map Int (ret o b2i) bv) >>= (fn sz =>
+      in comment "compr" >>= (fn () =>
+         foldl (ret o addi) (I 0) (map Int (ret o b2i) bv) >>= (fn sz =>
          alloc ty sz >>= (fn (rd,wr) =>
          lettWithName (I 0) >>= (fn (count,count_name) =>
          for n (fn i => f i >>= (fn b => ifUnit(b, g i >>= (fn v => 
                                                      wr(count,v) >>= (fn () =>
                                                      assign count_name (addi(count,I 1)))),
                                                    ret ()))) >>= (fn () =>
-         ret (V(ty,sz,rd))))))
+         ret (V(ty,sz,rd)))))))
       end
 
   fun absi x = If(lti(x, I 0), negi x, x)
@@ -571,18 +628,19 @@ fun concat v1 v2 =
   fun repl def iv v =
       let val V(_,n,f) = iv
           val V(ty,m,g) = v
-      in foldl (ret o addi) (I 0) (map Int (ret o absi) iv) >>= (fn sz =>
+      in comment "repl" >>= (fn () =>
+         foldl (ret o addi) (I 0) (map Int (ret o absi) iv) >>= (fn sz =>
          alloc ty sz >>= (fn (rd,wr) =>
          lettWithName (I 0) >>= (fn (count,count_name) =>
          for n (fn i => f i >>= (fn r => 
                         g i >>= (fn v =>
                         for r (fn _ => wr(count,v) >>= (fn () =>    (* MEMO: if r < 0 we should output ~r def elements *)
                                        assign count_name (addi(count,I 1))))))) >>= (fn () =>
-         ret (V(ty,sz,rd))))))
+         ret (V(ty,sz,rd)))))))
       end
 
   fun extend n (V(ty,m,f)) =
-      Ifv(eqi(m,I 0), V(ty,n, fn _ => ret (proto ty)), V(ty,n, fn i => lett (P.modi(i,m)) >>= f))
+      Ifv(eqi(m,I 0), V(ty,n, fn _ => ret (proto ty)), V(ty,n, fn i => comment "extend" >>= (fn () => lett (P.modi(i,m)) >>= f)))
 
   fun outmain outln =
     ( outln "int main() {"
@@ -779,8 +837,9 @@ fun rotate n (A(f,d)) =
 
 fun reshape (f: m) (a: m) : m M =
     let val v = snd f
-    in Shape.product v >>= (fn p =>
-       ret(A(v,extend p (snd a))))
+    in comment "reshape" >>= (fn () =>
+       Shape.product v >>= (fn p =>
+       ret(A(v,extend p (snd a)))))
     end
 
 fun transpose (A(s,d)) = trans s d >>= (fn v => ret(A(rev s, v)))

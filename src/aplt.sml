@@ -8,6 +8,8 @@ fun compileAndRun (flags,files) =
         val stop_after_tail_p = Flags.flag_p flags "-s_tail"
         val print_laila_p = Flags.flag_p flags "-p_laila"
         val silent_p = Flags.flag_p flags "-silent"
+        val () = Laila.unsafeAsserts := Flags.flag_p flags "-unsafe"
+        val () = Laila.enableComments := Flags.flag_p flags "-comments"
         val () = case Flags.flag flags "-O" of
                      NONE => ()
                    | SOME n =>
@@ -45,7 +47,7 @@ fun compileAndRun (flags,files) =
 val name = CommandLine.name()
 
 fun usage() =
-    "Usage: " ^ name ^ " [-o ofile] [-c] [-v] [-noopt] [-p_types] file.apl...\n" ^
+    "Usage: " ^ name ^ " [OPTIONS]... file.apl...\n" ^
     "   -o file  : write TAIL program to file\n" ^
     "   -oc file : write LAILA program to file\n" ^
     "   -c       : compile only (no evaluation)\n" ^
@@ -57,6 +59,8 @@ fun usage() =
     "   -s_tail  : stop after TAIL generation\n" ^
     "   -silent  : evaluation output only (unless there are errors)\n" ^
     "   -v       : verbose\n" ^
-    "   -O n     : optimisation level (n>0 optimises double operations aggresively)\n"
+    "   -O n     : optimisation level (n>0 optimises double operations aggresively)\n" ^
+    "   -comments: write comments in generated C code\n" ^
+    "   -unsafe  : don't include assert code in generated C code for array indexing\n"
 
 val () = Flags.runargs {usage=usage,run=compileAndRun,unaries=["-o","-oc","-O"]}
