@@ -36,7 +36,7 @@ datatype value =
        | CharV of word
        | ArrV of value option ref vector
 datatype Unop = Neg | I2D | D2I | B2I | Not | Floor | Ceil | Ln | Sin | Cos | Tan | Sqrt | Roll | Now | Strlen 
-datatype Binop = Add | Sub | Mul | Divv | Modv | Resi | Min | Max | Lt | Lteq | Eq | Andb | Orb | Xorb | Powd | Ori | Andi | Xori | Shli | Shri | Shari | ReadIntVecFile | ReadDoubleVecFile
+datatype Binop = Add | Sub | Mul | Divv | Modv | Resi | Mini | Maxi | Mind | Maxd | Lt | Lteq | Eq | Andb | Orb | Xorb | Powd | Ori | Andi | Xori | Shli | Shri | Shari | ReadIntVecFile | ReadDoubleVecFile
 datatype Exp =
          Var of Name.t
        | I of Int32.int
@@ -201,8 +201,6 @@ signature PROGRAM = sig
   val cos   : e -> e
   val tan   : e -> e
   val sqrt  : e -> e
-  val max   : e -> e -> e
-  val min   : e -> e -> e
   val powd  : e * e -> e
   val notb  : e -> e
   val roll  : e -> e
@@ -524,19 +522,23 @@ in
            | _ => def
       end
 
-  fun min (IL.I a) (IL.I b) = I(if a < b then a else b)
-    | min (IL.D a) (IL.D b) = D(if a < b then a else b)
-    | min (y as IL.I d) (x as IL.If(a,IL.I b,IL.I c)) = 
+  fun mini (IL.I a, IL.I b) = I(if a < b then a else b)
+    | mini (y as IL.I d, x as IL.If(a,IL.I b,IL.I c)) = 
       if Int32.<=(b,d) andalso Int32.<=(c,d) then x else
-      if Int32.<=(d,b) andalso Int32.<=(d,c) then y else Binop(Min,y,x)
-    | min a b = if eq(a,b) then a else Binop(Min,a,b)
+      if Int32.<=(d,b) andalso Int32.<=(d,c) then y else Binop(Mini,y,x)
+    | mini (a, b) = if eq(a,b) then a else Binop(Mini,a,b)
 
-  fun max (IL.I a) (IL.I b) = I(if a > b then a else b)
-    | max (IL.D a) (IL.D b) = D(if a > b then a else b)
-    | max (x as IL.If(a,IL.I b,IL.I c)) (y as IL.I d) = 
+  fun mind (IL.D a, IL.D b) = D(if a < b then a else b)
+    | mind (a, b) = if eq(a,b) then a else Binop(Mind,a,b)
+
+  fun maxi (IL.I a, IL.I b) = I(if a > b then a else b)
+    | maxi (x as IL.If(a,IL.I b,IL.I c), y as IL.I d) = 
       if Int32.>=(b,d) andalso Int32.>=(c,d) then x else
-      if Int32.>=(d,b) andalso Int32.>=(d,c) then y else Binop(Max,x,y)
-    | max a b = if eq(a,b) then a else Binop(Max,a,b)
+      if Int32.>=(d,b) andalso Int32.>=(d,c) then y else Binop(Maxi,x,y)
+    | maxi (a, b) = if eq(a,b) then a else Binop(Maxi,a,b)
+
+  fun maxd (IL.D a, IL.D b) = D(if a > b then a else b)
+    | maxd (a, b) = if eq(a,b) then a else Binop(Maxd,a,b)
 
   fun sqrt a = Unop(Sqrt,a)
 
@@ -651,8 +653,6 @@ in
   val ltei = op <=
   val gti = op >
   val gtei = op >=
-  val mini = fn (x,y) => min x y
-  val maxi = fn (x,y) => max x y
   val negi = ~
   fun nowi x = Unop(Now,x)
   val addd = op +
@@ -666,8 +666,6 @@ in
   val lted = op <=
   val gtd = op >
   val gted = op >=
-  val mind = fn (x,y) => min x y
-  val maxd = fn (x,y) => max x y
   val negd = ~
 
   val eqc = op ==
@@ -884,8 +882,10 @@ fun se_e (E:env) (e:e) : e =
     | IL.Binop(IL.Mul,e1,e2) => (se_e E e1) * (se_e E e2)
     | IL.Binop(IL.Divv,e1,e2) => (se_e E e1) / (se_e E e2)
     | IL.Binop(IL.Modv,e1,e2) => modu E (se_e E e1) (se_e E e2)
-    | IL.Binop(IL.Min,e1,e2) => min (se_e E e1) (se_e E e2)
-    | IL.Binop(IL.Max,e1,e2) => max (se_e E e1) (se_e E e2)
+    | IL.Binop(IL.Mini,e1,e2) => mini (se_e E e1, se_e E e2)
+    | IL.Binop(IL.Maxi,e1,e2) => maxi (se_e E e1, se_e E e2)
+    | IL.Binop(IL.Mind,e1,e2) => mind (se_e E e1, se_e E e2)
+    | IL.Binop(IL.Maxd,e1,e2) => maxd (se_e E e1, se_e E e2)
     | IL.Binop(IL.Powd,e1,e2) => powd (se_e E e1, se_e E e2)
     | IL.Binop(IL.Lt,e1,e2) => lt E (se_e E e1) (se_e E e2)
     | IL.Binop(IL.Lteq,e1,e2) => (se_e E e1) <= (se_e E e2)

@@ -20,8 +20,6 @@
 #define shli(x,y) (int)(((unsigned int)(x))<<((unsigned int)(y)))
 #define shri(x,y) (int)(((unsigned int)(x))>>((unsigned int)(y)))
 #define shari(x,y) (int)(((int)(x))>>((unsigned int)(y)))
-#define max(x,y) (((x) > (y)) ? (x) : (y))
-#define min(x,y) (((x) < (y)) ? (x) : (y))
 #define i2d(x) ((double)x)
 #define d2i(x) ((int)x)
 #define b2i(x) ((x)?1:0)
@@ -29,6 +27,13 @@
 #define true 1
 #define false 0
 #define bool int
+
+inline int maxi(int a, int b) { return (a > b) ? a : b; }
+inline int mini(int a, int b) { return (a < b) ? a : b; }
+
+inline double maxd(double a, double b) { return (a > b) ? a : b; }
+inline double mind(double a, double b) { return (a < b) ? a : b; }
+
 
 // ------------------------------
 // Printing of scalars and arrays

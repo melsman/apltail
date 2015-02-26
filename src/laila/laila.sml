@@ -164,12 +164,14 @@ in
   fun map2unsafe ty f (V(_,n1,f1)) (V(_,n2,f2)) =  (* assumes n1=n2 *)
       V(ty, n1, fn i => f1 i >>= (fn v1 => f2 i >>= (fn v2 => f(v1,v2))))
 
+(*
   fun map2 ty f (V(_,n1,f1)) (V(_,n2,f2)) =
       V(ty, 
-        min n1 n2, fn i => 
+        mini(n1,n2), fn i => 
                       f1 i >>= (fn v1 =>
                       f2 i >>= (fn v2 =>
                       f(v1,v2))))
+*)
 
   fun rev (V(ty,n,g)) = V(ty,n, fn i => g(subi(subi(n,i),I 1)))
 
@@ -455,11 +457,13 @@ fun concat v1 v2 =
       in (V(ty,sz, fn i => ret(Subs(name,i))), ssT)
       end
 
+(*
   fun eq f v1 v2 =
       let val v = map2 Bool (ret o f) v1 v2
           val base = eqi(length v1,length v2)
       in foldl (fn (b,a) => ret(If(a,b,a))) base v
       end
+*)
 
   fun sub_unsafe (V(_,n,g)) i = g i
 
