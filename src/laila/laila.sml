@@ -121,9 +121,9 @@ fun alloc ty (n:t) : ((t -> t M) * (t * t -> unit M)) M =
 
 datatype v = V of IL.Type * t * (t -> t M)
 
-fun simple ty f =
+fun simple f =
     let open P 
-        val v = Name.new ty
+        val v = Name.new Int
         val (e,ssT) = f (Var v)
     in case ssT nil of
            nil => simpleIdx v e
@@ -151,7 +151,7 @@ fun materializeWithName (v as V(ty,n,_)) =
     end
 
 fun memoize (t as V(ty,n,f)) =
-    if simple ty f then ret t
+    if simple f then ret t
     else materializeWithName t >>= (fn (v, _, _) => ret v)
 
 val letm = ret
