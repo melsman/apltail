@@ -193,6 +193,7 @@ signature TAIL = sig
 
   val power     : ('a m -> 'a m M) -> INT -> 'a m -> 'a m
   val powerScl  : ('a t -> 'a t M) -> INT -> 'a t -> 'a t
+  val condScl   : ('a t -> 'a t M) -> BOOL -> 'a t -> 'a t
 
   val transpose : 'a m -> 'a m
   val transpose2 : Int Num v -> 'a m -> 'a m

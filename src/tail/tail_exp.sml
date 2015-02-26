@@ -364,6 +364,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | ("first",[t]) => type_first false t
         | ("firstV",[t]) => type_first true t
         | ("vreverse",[t]) => (unArr' "vreverse" t; t)
+        | ("mem",[t]) => (unArr' "mem" t; t)
         | ("transp",[t]) => (unArr' "transp" t; t)
         | ("transp2",[t1,t2]) =>
           let val (bt,r) = unArr' "transp2" t2
@@ -402,6 +403,17 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
            ; assert opr t1 t2
            ; assert_sub opr tv t2
            ; unScl "powerScl recursive argument" tv
+           ; t2
+          end
+        | ("condScl", [tf,tb,tv]) =>
+          let val (t1,t2) = 
+                  case unFun tf of
+                      SOME(t1,t2) => (t1,t2)
+                    | NONE => raise Fail "expecting function type" 
+          in assert_sub opr tb Bool
+           ; assert opr t1 t2
+           ; assert_sub opr tv t2
+           ; unScl "condScl recursive argument" tv
            ; t2
           end
         | ("reduce", [tf,tn,tv]) =>
@@ -856,6 +868,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                  end
                | ("vreverse", [e]) => Apl.vreverse (eval DE e)
                | ("first", [e]) => Apl.first (eval DE e)
+               | ("mem", [e]) => eval DE e
                | ("transp", [e]) => Apl.transpose (eval DE e)
                | ("transp2", [e1,e2]) =>
                  let val v1 = Apl.map 0 unIb (eval DE e1)
@@ -906,6 +919,11 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                | ("powerScl", [ef,en,a]) =>
                  let val (DE0,v,_,e,_) = unFb(Apl.unScl"eval:powerScl"(eval DE ef))
                      val vn = Apl.map 0 unIb (eval DE en)
+                 in Apl.power (fn y => eval (addDE DE0 v y) e) vn (eval DE a)
+                 end
+               | ("condScl", [ef,en,a]) =>
+                 let val (DE0,v,_,e,_) = unFb(Apl.unScl"eval:condScl"(eval DE ef))
+                     val vn = Apl.map 0 ((fn true => 1 | false => 0) o unBb) (eval DE en)
                  in Apl.power (fn y => eval (addDE DE0 v y) e) vn (eval DE a)
                  end
                | ("each", [e1,e2]) =>

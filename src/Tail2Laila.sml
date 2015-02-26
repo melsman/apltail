@@ -108,6 +108,7 @@ val classifyOp : string -> opOpt =
   | "b2iV" => S_S L.b2i
   | "iotaV" => S_A L.iota
   | "iota" => S_A L.iota
+  | "mem" => A_AM L.mem
   | "transp" => A_AM L.transpose
   | "transp2" => VA_AM (fn (v,a) => L.transpose2 v a)
   | "vrotateV" => SA_A (fn (i,a) => L.rotate i a)
@@ -213,6 +214,13 @@ fun comp (E:env) (e : E.exp) (k: lexp -> lexp L.M) : lexp L.M =
             compS E a (fn a =>
             let val f = fn x => f [S x] >>= (L.ret o unS "powerScl")
             in L.powerScl f n a >>= kS
+            end))))                                 
+         | E.Op("condScl", [f,n,a], _) => 
+           (compFN E f (fn f =>
+            compS E n (fn n =>
+            compS E a (fn a =>
+            let val f = fn x => f [S x] >>= (L.ret o unS "condScl")
+            in L.condScl f n a >>= kS
             end))))                                 
          | E.Op("power", [f,n,a], _) => 
            (compFN E f (fn f =>

@@ -6,7 +6,7 @@ TESTS=test test1 test2 test3 test4 test5 test6 test7 test9 test10 \
       vec zfunc repl ceilfloormaxmin easter eacheaster else chars shape \
       innerproduct sign ln circ timespi blackscholes pi readfile \
       readintvecfile tax dtransp abcd mean idx tup binaryops fib10 sierpinski \
-      idxassign format readdoublevecfile
+      idxassign format readdoublevecfile squad
 
 APLFILES=$(TESTS:%=%.apl)
 TLFILES=$(APLFILES:%.apl=%.tl)
@@ -81,7 +81,7 @@ CTESTS=test test1 test2 test3 test4 test5 test6 test7 test9 test10 \
        vec zfunc ceilfloormaxmin easter eacheaster else \
        innerproduct sign mean powmat life pow fib10 timespi ln \
        chars repl replicate shape tup circ abcd dtransp tax binaryops \
-       pi blackscholes idx idxassign format readintvecfile readdoublevecfile
+       pi blackscholes idx idxassign format readintvecfile readdoublevecfile squad
 
 #      sierpinski0 sierpinski readfile \
 #      
@@ -100,7 +100,7 @@ c/%.c: %.apl Makefile
 	$(APLT) -c -O 2 -oc $@ $(PRELUDE) $<
 
 c/%.exe: c/%.c
-	gcc --std=c99 -O3 -o $@ -lm $<
+	gcc -I ../include --std=c99 -O3 -o $@ -lm $<
 
 %.outc: c/%.exe
 	$< > $@

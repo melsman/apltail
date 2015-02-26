@@ -156,6 +156,7 @@ signature LAILA = sig
 
   val power      : (m -> m M) -> INT -> m -> m M
   val powerScl   : (t -> t M) -> INT -> t -> t M
+  val condScl    : (t -> t M) -> BOOL -> t -> t M
 
   (* Indexing *)
   val idxS       : INT -> INT -> m -> (t -> 'b) -> (m -> 'b) -> 'b M

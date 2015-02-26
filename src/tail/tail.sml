@@ -244,6 +244,7 @@ fun compress b a = Op_e("compress",[b,a])
 fun replicate v b a = Op_e("replicate",[v,b,a])
 fun power f e1 e2 = Op_e("power",[mkFn1m f,e1,e2])
 fun powerScl f e1 e2 = Op_e("powerScl",[mkFn1m f,e1,e2])
+fun condScl f e1 e2 = Op_e("condScl",[mkFn1m f,e1,e2])
 
 fun transpose e = Op_e("transp", [e])
 fun transpose2 e1 e2 = Op_e("transp2", [e1,e2])

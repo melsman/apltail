@@ -662,12 +662,7 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                                         Fs (f,_) => f [s1,s2] >>>= (fn s => k(s,G2++G1++G0))
                                       | s => compErrS r s "expects dyadic operator")))
             | IdE(Symb L.StarDia,r) => 
-              k(Fs (fn [Fs (f,ii),n] =>
-                       let val n = case n of Is n => n
-                                           | Bs b => b2i b
-                                           | _ => compErr r "power operation expects an integer or a boolean as its second argument"
-                       in rett(Fs (compPower r f n, noii))
-                       end
+              k(Fs (fn [Fs (f,ii),n] => rett(Fs (compPower r f n, noii))
                      | _ => compErr r "power operation expects a function as its first argument",
                     noii), 
                 emp)
@@ -792,6 +787,20 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                         | Bs a => S(Acs(formatI (b2i a)))
                         | s => compErrS r s "expects a numeric scalar as right argument to format operation"
               in compPrimFunM k r comp_format
+              end
+            | IdE(Symb L.Squad,r) =>
+              let fun comp_squad r s =
+                      case s of
+                          Is _ => S s
+                        | Ds _ => S s
+                        | Bs _ => S s
+                        | Cs _ => S s
+                        | Ais a => S(Ais(mem a))
+                        | Ads a => S(Ads(mem a))
+                        | Abs a => S(Abs(mem a))
+                        | Acs a => S(Acs(mem a))
+                        | s => compErrS r s "expects a scalar or an array as right argument to squad (i.e., materialize) operation"
+              in compPrimFunM k r comp_squad
               end
             | IdE(Symb L.Take,r) => compPrimFunD k r (compOpr2_i8a2a_td e take take take take) noii
             | IdE(Symb L.Drop,r) => compPrimFunD k r (compOpr2_i8a2a_td e drop drop drop drop) noii
@@ -941,6 +950,7 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
             let fun unAis (Ais a) = SOME a
                   | unAis _ = NONE
                 fun unIs (Is i) = SOME i
+                  | unIs (Bs b) = SOME(b2i b)
                   | unIs _ = NONE
                 fun unAbs (Abs a) = SOME a
                   | unAbs _ = NONE
@@ -950,30 +960,34 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                   | unAds _ = NONE
                 fun unDs (Ds d) = SOME d
                   | unDs _ = NONE
-                fun doPower p ty g ung m =
-                    S(g(p (fn x =>
-                              subM(f[g x] >>>= (fn s => case ung s of SOME z => rett z
-                                                                    | NONE => compErrS r s ("expects " ^ ty ^ " as result of power"))))
-                          n m))
+                fun doPower power cond ty g ung m =
+                    let fun h x = subM(f[g x] >>>= (fn s => case ung s of SOME z => rett z
+                                                                        | NONE => compErrS r s ("expects " ^ ty ^ " as result of power")))
+                    in case n of
+                           Is n => S(g(power h n m))
+                         | Bs b => S(g(cond h b m))
+                         | _ => compErrS r n "expects integer or boolean as right argument to power operator"
+                    end
+                fun cond f b a = power f (b2i b) a
             in
-            fn [Ads m] => doPower power "double array" Ads unAds m
-             | [Ais m] => doPower power "integer array" Ais unAis m
-             | [Ds m] => doPower powerScl "double scalar" Ds unDs m
+            fn [Ads m] => doPower power cond "double array" Ads unAds m
+             | [Ais m] => doPower power cond "integer array" Ais unAis m
+             | [Ds m] => doPower powerScl condScl "double scalar" Ds unDs m
              | [Is m] =>
                (case classifyPower dummyIntS f of
-                    INT_C => doPower powerScl "integer scalar" Is unIs m
+                    INT_C => doPower powerScl condScl "integer scalar" Is unIs m
                   | DOUBLE_C => compPower r f n [Ds(i2d m)]
                   | _ => compErr r "expecting boolean or integer scalar as result of power")
              | [Bs m] =>
                (case classifyPower dummyBoolS f of
                     INT_C => compPower r f n [Is(b2i m)]
-                  | BOOL_C => doPower powerScl "boolean scalar" Bs unBs m
+                  | BOOL_C => doPower powerScl condScl "boolean scalar" Bs unBs m
                   | DOUBLE_C => compPower r f n [Ds(i2d(b2i m))]
                   | _ => compErr r "expecting boolean, integer, or double scalar as result of power")
              | [Abs m] =>
                (case classifyPower (Abs(zilde())) f of
                     INT_C => compPower r f n [Ais(each (ret o b2i) m)]
-                  | BOOL_C => doPower power "boolean array" Abs unAbs m
+                  | BOOL_C => doPower power cond "boolean array" Abs unAbs m
                   | _ => compErr r "expecting boolean or integer array as result of power")
              | _ => compErr r "expecting scalar or array (boolean, integer, or double) as argument to power"
             end

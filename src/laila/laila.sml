@@ -121,10 +121,9 @@ fun alloc ty (n:t) : ((t -> t M) * (t * t -> unit M)) M =
 
 datatype v = V of IL.Type * t * (t -> t M)
 
-fun simple f =
+fun simple ty f =
     let open P 
-        val tyv = Type.Vec Int
-        val v = Name.new tyv
+        val v = Name.new ty
         val (e,ssT) = f (Var v)
     in case ssT nil of
            nil => simpleIdx v e
@@ -152,7 +151,7 @@ fun materializeWithName (v as V(ty,n,_)) =
     end
 
 fun memoize (t as V(ty,n,f)) =
-    if simple f then ret t
+    if simple ty f then ret t
     else materializeWithName t >>= (fn (v, _, _) => ret v)
 
 val letm = ret
@@ -601,7 +600,7 @@ fun concat v1 v2 =
      ; outln "#include <stdlib.h>"
      ; outln "#include <math.h>"
      ; outln "#include <string.h>"
-     ; outln "#include \"../../include/apl.h\""
+     ; outln "#include <apl.h>"
      ; outln body
      ; outmain outln
      ; TextIO.closeOut os
@@ -885,6 +884,11 @@ fun power (f: m -> m M) (n: INT) (A(sh,vs)) : m M =
 fun powerScl (f: t -> t M) (n: INT) (a: t) : t M =
     lettWithName a >>= (fn (a,name) =>
     for n (fn _ => f a >>= (assign name)) >>= (fn () => ret a))
+
+fun condScl (f: t -> t M) (b: BOOL) (a: t) : t M =
+    lettWithName a >>= (fn (a,name) =>
+    ifUnit(b, f a >>= (assign name), ret ()) >>= (fn () =>
+    ret a))
 
 (* Indexing *)
 
