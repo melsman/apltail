@@ -1,6 +1,6 @@
 (* Pull vectors *)
 
-structure Laila :> LAILA = struct
+structure LailaFlatPullArrays :> LAILA = struct
 
 structure P = Program
 
@@ -116,10 +116,7 @@ fun alloc0 ty (n:t) : Name.t M =
     let open P
         val tyv = Type.Vec ty
         val name = Name.new tyv
-        val (sz, store0) = if ty = Type.Char then 
-                             (addi(n,I 1), fn ss => ((name,n) ::= C 0w0) :: ss)
-                           else (n, fn ss => ss)
-        fun ssT ss = Decl(name, SOME(Alloc(tyv,sz))) :: store0 ss
+        fun ssT ss = Decl(name, SOME(Alloc(tyv,n))) :: ss
     in (name, ssT)
     end
 
@@ -553,7 +550,7 @@ fun concat v1 v2 =
       case P.unI n of
           SOME n => getShape n f
         | NONE => die ("getShapeV: " ^ s ^ ". Expecting static shape")
-(*
+
   fun trans v d =
       let val V(_,n,f) = v
           val V(ty,m,g) = d
@@ -571,7 +568,6 @@ fun concat v1 v2 =
            | NONE => (*ret(If(E n < I 2, d, V(ty,m,g')))*)
              die "trans: unknown number of dimensions not supported"
       end
-*)
 
   fun exchange nil xs = nil
     | exchange (i::rest) xs = List.nth (xs,i-1) :: exchange rest xs
@@ -585,7 +581,7 @@ fun concat v1 v2 =
       in appi0 0 (fn (c,i) => Array.update(a,c-1,List.nth(xs,i))) ctrl
        ; Array.foldr(op::) nil a
       end
-(*          
+          
   fun trans2 idxs sh vs =
       let fun check n =
               if n = 0 then ()
@@ -612,7 +608,6 @@ fun concat v1 v2 =
                  end)))
            | NONE => die "trans2: unknown number of dimensions not supported"
       end
-*)
 
   fun compr bv v =
       let val V(_,n,f) = bv
@@ -688,7 +683,6 @@ structure Shape : sig
   val dr_unsafe: INT -> t -> t
   val tk_unsafe: INT -> t -> t
   val eq       : t -> t -> BOOL M
-  val fromShList : INT list -> t
 end = struct
   type t = v
   val concat   = concat
@@ -709,107 +703,53 @@ end = struct
       getShapeV "Shape.eq1" t1 >>= (fn sh1 =>
       getShapeV "Shape.eq2" t2 >>= (fn sh2 =>
       ret (eq_elems sh1 sh2)))
-  fun fromShList sh = List.foldr (fn (x,a) => concat (single x) a) empty sh
 end
 
-type sh = INT list                     (* Shapes are lists at the meta level*)
-datatype idx = N of sh -> t M          (* Nested representation *)
-             | F of INT -> t M         (* Flat representation *)
-datatype m = Arr of Type.T * sh * idx
+datatype m = A of Shape.t * v
 
-fun ArrF(ty,sh,f) = Arr(ty,sh,F f)
-fun ArrN(ty,sh,f) = Arr(ty,sh,N f)
+(* invariant: A(s,d) ==> product s = length d *) 
 
-fun toF0(Arr(ty,sh,F f)) = (ty,sh,f)
-  | toF0(Arr(ty,sh,N f)) = (ty,sh, fn i => toSh sh i >>= f)
-fun toN0 (Arr(ty,sh,N f)) = (ty,sh,f)
-  | toN0 (Arr(ty,sh,F f)) = (ty,sh, fn is => fromSh sh is >>= f)
-
-val toF = ArrF o toF0
-val toN = ArrN o toN0
-
-fun toV a =
-    let val (ty,sh,f) = toF0 a
-    in lett (lprod sh) >>= (fn sz =>
-       ret (V(ty,sz,f)))
-    end
-
-fun vec (V(ty,n,f)) = ArrF(ty,[n],f)
+fun vec c = A(Shape.single (length c), c)
 fun fromListM ty l = fromListMV ty l >>= (ret o vec)
 fun enclose t = vec (single t)
-fun scl ty t = ArrF(ty,[], fn _ => ret t)
-fun first a =    
-    toV a >>= (fn v =>
+fun scl ty t = A(Shape.empty, single t)
+fun first (A(_,v)) =
     let fun first_unsafe (V(_,_,f)) = f (I 0)
         fun maybe_pad (v as V(ty,n,f)) =
             Ifv(gti(n,I 0), v, V(ty,I 1, fn _ => ret(proto ty)))
     in first_unsafe(maybe_pad v)
-    end)
-fun zilde ty = vec (empty ty)
+    end
+fun zilde ty = A(Shape.singlez, empty ty)
 fun iota0 n = tabulate Int n (fn x => ret(addi(x,I 1)))
 fun iota n = vec (iota0 n)
-fun shapeV (Arr(_,sh,_)) = Shape.fromShList sh
-fun shape a = vec (shapeV a)
-fun rank (Arr(_,sh,_)) = I(List.length sh)
+fun iota' _ = die "iota' not implemented"
+fun shapeV (A(f,_)) = f
+fun shape (A(f,_)) = vec f
+fun snd (A(_,c)) = c
+fun siz (A(_,c)) = length c
+fun rank (A(f,_)) = Shape.length f
 
-fun dimincr (Arr(ty,sh,F f)) = ArrF(ty,sh @ [I 1], f)
-  | dimincr (Arr(ty,sh,N f)) = ArrN(ty,sh @ [I 1], fn ix => case List.rev ix of
-                                                                nil => die "dimincr error"
-                                                              | _ :: rix => f(List.rev rix))
+fun dimincr (A(f,v)) = A(Shape.concat f (Shape.single (I 1)),v)
 
-fun mem (a as Arr(ty,sh,_)) =
-    toV a >>= (fn v =>
-    memoize v >>= (fn V(_,_,f) => ret (ArrF(ty,sh,f))))
-
-fun materializeN (ty,sh,f) =
-    lett (lprod sh) >>= (fn sz =>
-    alloc0 ty sz >>= (fn name =>                     
-    lettWithName (I 0) >>= (fn (n,name_n) =>
-    let fun mat sh k =
-            case sh of
-                nil => k nil
-              | s::sh => for s (fn i => mat sh (fn ix => k(i::ix)))
-    in mat sh (fn ix => f ix >>= (fn v => 
-                        asgnArr(name,n,v) >>= (fn () =>
-                        assign name_n (addi(n,I 1))))) >>= (fn () => 
-       ret name)
-    end)))
-
-fun materializeWithNameN (ty,sh,f) =
-    materializeN (ty,sh,f) >>= (fn name =>
-    let fun read i = ret(P.Subs(name,i))
-        val (_,_,g) = toN0 (ArrF(ty,sh,read))
-    in ret (g, name)
-    end)
-      
+fun mem (A(f,d)) = memoize d >>= (fn d => ret (A(f,d)))
+              
 (* Restructuring *)
-fun rav a = toV a >>= (ret o vec)
+fun rav (A(_,c)) = ret(vec c)
 
-fun zildeOf (Arr(ty,sh,idx)) = Arr(ty,[I 0],idx)
+fun mif (x, A(f1,v1), A(f2,v2)) = A(Ifv(x,f1,f2), Ifv(x,v1,v2))
 
-fun each ty g (Arr(_,sh,F f)) = ArrF(ty,sh, fn i => f i >>= g)
-  | each ty g (Arr(_,sh,N f)) = ArrN(ty,sh, fn i => f i >>= g)
+fun zildeOf (A(f,v)) = A(Shape.singlez, emptyOf v)
 
-fun shEq nil nil = B true
-  | shEq (x::xs) (y::ys) = andb(eqi(x,y),shEq xs ys)
-  | shEq _ _ = B false
+fun each ty g (A(f,cs)) = A(f, map ty g cs)
       
-fun zipWith ty g (a as Arr(_,sha,idxa)) (b as Arr(_,shb,idxb)) =
-    case (idxa, idxb) of
-        (F fa, F fb) =>
-        let fun fr i = fa i >>= (fn va => fb i >>= (fn vb => g(va,vb)))
-        in lett (shEq sha shb) >>= (fn shapeeq =>      
-           assert "arguments to zipWith have different shape" shapeeq
-           (ret(ArrF(ty,sha,fr))))
-        end
-     | (N fa, N fb) =>
-        let fun fr i = fa i >>= (fn va => fb i >>= (fn vb => g(va,vb)))
-        in lett (shEq sha shb) >>= (fn shapeeq =>      
-           assert "arguments to zipWith have different shape" shapeeq
-           (ret(ArrN(ty,sha,fr))))
-        end
-     | (N _, _) => zipWith ty g (toF a) b
-     | (_, N _) => zipWith ty g a (toF b)
+fun zipWith ty g a b =
+    let val sha = shapeV a
+	val shb = shapeV b
+        val mv = A(sha,map2unsafe ty g (snd a) (snd b))
+    in Shape.eq sha shb >>= (fn shapeeq =>      
+       assert "arguments to zipWith have different shape" shapeeq
+       (ret mv))
+    end
 
 fun scanChunked ty sz n m g f = 
     alloc ty sz >>= (fn (read,write) =>
@@ -823,208 +763,158 @@ fun scanChunked ty sz n m g f =
                read (subi(idx, I 1)) >>= (fn p => 
                f(p,v) >>= (fn res =>             
                write (idx,res))))))))) >>= (fn () =>
-    ret read))
+    ret(V(ty,sz,read))))
 
-fun scan f a =
-    let val (ty,sh,g) = toF0 a
-    in case List.rev sh of
-           nil => ret a
-         | m::rsh =>
-           lett (lprod sh) >>= (fn sz =>
-           lett (lprod rsh) >>= (fn n =>   (* n times m chunks should be scanned *)
-           scanChunked ty sz n m g f >>= (fn rd =>
-           ret (ArrF(ty,sh,rd)))))
-    end
+fun scan f (a as A(sh,V(ty,sz,g))) =
+    getShapeV "scan" sh >>= (fn shl =>
+    case List.rev shl of
+        nil => ret a
+      | m::rsh =>
+        lett (lprod rsh) >>= (fn n =>   (* n times m chunks should be scanned *)
+        scanChunked ty sz n m g f >>= (fn vs' =>
+        ret (A(sh,vs')))))
 
-fun catenate_first (a1:m) (a2:m) : m M =
-      let val (ty1,sh1,f1) = toF0 a1
-          val (ty2,sh2,f2) = toF0 a2
-          val (v1,s1) = case sh1 of nil => (I 1, nil)
-                                   | x::xs => (x, xs)
-          val (v2,s2) = case sh2 of nil => (I 1, nil)
-                                   | x::xs => (x, xs)
-          val x = addi(v1,v2)
-      in lett (shEq s1 s2) >>= (fn shapeeq =>
+fun pad1 s = Ifv(eqi(length s,I 0), single (I 1), s) 
+
+fun catenate_first (A(s1,d1) : m) (A(s2,d2): m) : m M =
+      let val s1 = pad1 s1
+          val s2 = pad1 s2                   
+          val s1' = Shape.dr_unsafe (I 1) s1
+          val s2' = Shape.dr_unsafe (I 1) s2
+          val v1 = Shape.tk_unsafe (I 1) s1
+          val v2 = Shape.tk_unsafe (I 1) s2
+          val x = map2unsafe Int (ret o addi) v1 v2
+          val mv = A(Shape.concat x s1',
+                     concat d1 d2)
+      in Shape.eq s1' s2' >>= (fn shapeeq =>
          assert "arguments to catenate_first have incompatible shapes" shapeeq
-         (lett (lprod sh1) >>= (fn boundary => 
-          ret(ArrF(ty1,x::s1, fn i => If0(lti(i,boundary), f1 i, f2 (subi(i,boundary))))))))
+         (ret mv))
       end
 
-fun take n (Arr(ty,sh,idx)) =
+fun take n (a as A(shv,V(ty,sz,f))) =
+    getShapeV "take" shv >>= (fn sh =>
     lett n >>= (fn n =>
     lett (absi n) >>= (fn absn =>
-    lett (lti(n,I 0)) >>= (fn negative_n =>
     let val default = proto ty
-        val sh' = case sh of nil => [absn]
-                           | _ :: sh => absn :: sh
-    in case idx of
-           F f =>
-           (lett (lprod sh) >>= (fn sz =>
-            lett (lprod sh') >>= (fn sz' =>
-            lett (subi(sz',sz)) >>= (fn offset =>
-            ret (ArrF(ty,sh',
-                      fn i => ifM ty (andb(negative_n,lti(i,offset)), ret default,
-                                    ifM ty (andb(gtei(n,I 0),gtei(i,sz)), ret default,
-                                            lett (If(negative_n,subi(i,offset),i)) >>= f))))))))
-         | N f =>
-           (case (sh, sh') of
-                (s::sh1,s'::sh1') =>
-                lett (subi(s',s)) >>= (fn offset =>
-                ret(ArrN(ty,sh',fn i::ix => ifM ty (andb(negative_n,lti(i,offset)), ret default,
-                                                    ifM ty (andb(gtei(n,I 0),gtei(i,s)), ret default,
-                                                            lett (If(negative_n,subi(i,offset),i)) >>= (fn i => f(i::ix))))
-                                 | _ => die "expecting index vector in take.N")))
-              | _ => die "take")
+        val (sh', shv') = case sh of
+                              nil => ([absn],Shape.single absn)
+                            | _ :: sh => (absn :: sh,
+                                          Shape.concat (Shape.single absn) (Shape.dr_unsafe (I 1) shv))
+    in lett (lprod sh') >>= (fn sz' =>
+       lett (subi(sz',sz)) >>= (fn offset =>
+       lett (lti(n,I 0)) >>= (fn negative_n =>
+       ret (A(shv',
+              V(ty,sz',
+                fn i => ifM ty (andb(negative_n,lti(i,offset)), ret default,
+                                ifM ty (andb(gtei(n,I 0),gtei(i,sz)), ret default,
+                                        lett (If(negative_n,subi(i,offset),i)) >>= f)))))
+       )))
     end)))
 
-fun drop i a =
-    let val (ty,sh,f) = toF0 a
-        val x = absi i
-        val sh' = case sh of
-                      nil => nil
-                    | n :: subsh => let val y = maxi(I 0, subi(n,x))
-                                    in y::subsh
-                                    end
+fun drop i (a as A(shv,V(ty,sz,f))) =
+    getShapeV "drop" shv >>= (fn sh =>
+    let val x = absi i
+        val (sh',shv') = case sh of
+                             nil => (nil,Shape.empty)
+                           | n :: subsh => let val y = maxi(I 0, subi(n,x))
+                                           in (y::subsh,
+                                               Shape.concat (Shape.single y) (Shape.dr (I 1) shv))
+                                           end
+        val sz' = lprod sh'
         val offset = case sh of
                          nil => I 0
                        | _ :: subsh => maxi(I 0, muli(i,lprod subsh))
-    in ret (ArrF(ty,sh',
-                 fn i => lett (addi(i,offset)) >>= f))
-    end
+    in ret (A(shv',
+              V(ty,sz',
+                fn i => lett (addi(i,offset)) >>= f)))
+    end)
   
-fun rotate n a =
-    let val (ty,sh,f) = toF0 a
-    in case sh of
-           [sz] => 
-           let val d = V(ty,sz,f)
-           in vec(Ifv(lti(n,I 0), concat (dr (addi(sz,n)) d) (tk (addi(sz,n)) d),
-                      concat (dr n d) (tk n d)))
-           end
-         | _ => die "rotate works only for vectors"
+fun rotate n (A(f,d)) =
+    let val sz = length d
+    in mif(lti(n,I 0),
+           A(f,concat (dr (addi(sz,n)) d) (tk (addi(sz,n)) d)),
+           A(f,concat (dr n d) (tk n d)))
     end
 
-fun reshape (f: m) a : m M =
-    let val (ty,sh,g) = toF0 a
+fun reshape (f: m) (a: m) : m M =
+    let val v = snd f
     in comment "reshape" >>= (fn () =>
-       toV f >>= (fn v =>
-       getShapeV "reshape" v >>= (fn sh' =>
-       lett (lprod sh) >>= (fn sz =>
-       lett (lprod sh') >>= (fn sz' =>
-       let val V(_,_,g') = extend sz' (V(ty,sz,g))
-       in ret(ArrF(ty,sh',g'))
-       end)))))
+       Shape.product v >>= (fn p =>
+       ret(A(v,extend p (snd a)))))
     end
 
-fun transpose a =
-    let val (ty,sh,f) = toN0 a
-    in ret(ArrN(ty,List.rev sh, f o List.rev))
-    end
+fun transpose (A(s,d)) = trans s d >>= (fn v => ret(A(rev s, v)))
 
-fun transpose2 idxs a =
-    let val (ty,sh,f) = toF0 a
-        fun check n =
-            if n = 0 then ()
-            else if List.exists (fn x => x = n) idxs then
-              check (n-1)
-            else die "transpose2: index vector not a permutation"
-        val r = List.length sh
-        val sz_idxs = List.length idxs
-    in check sz_idxs
-     ; if r <> sz_idxs then die "transpose2: wrong index vector length"
-       else if r < 2 then ret a
-       else
-         comment "transpose2" >>= (fn () =>
-         let val sh' = exchange' idxs sh
-         in ret (ArrN(ty,sh',fn ix => fromSh sh (exchange idxs ix) >>= f))
-         end)
-    end
+fun transpose2 v (A(s,d)) = trans2 v s d >>= (fn p => ret(A p))
 
-fun catenate (t1:m) (t2:m) : m M = 
+fun catenate t1 t2 = 
     transpose t1 >>= (fn a1 =>
     transpose t2 >>= (fn a2 =>
     catenate_first a1 a2 >>= transpose))
 
-fun reduce f e (Arr(ty,sh,idx)) scalar array =
-    case idx of
-        N g =>
-        (case List.rev sh of
-             nil => ret (scalar e)
-           | [sz] => foldl f e (V(ty,sz,fn i => g [i])) >>= (ret o scalar)
-           | s::rsh =>
-             let val sh' = List.rev rsh
-             in ret(array(ArrN(ty,sh',
-                               fn ix => foldl f e (V(ty,s,fn j => g(ix@[j]))))))
-             end)
-      | F g =>
-        let val r = List.length sh
-        in case List.rev sh of
-               nil => ret (scalar e)
-             | [sz] => foldl f e (V(ty,sz,g)) >>= (ret o scalar)
-             | s::rsh =>
-               let val sh' = List.rev rsh
-               in ret(array(ArrF(ty,sh',
-                                 fn i => foldl f e (V(ty,s, fn j => lett (addi(j,muli(i,s))) >>= g)))))
-               end
-    end
+fun reduce f e (A(s,d)) scalar vector =
+      let val r = length s
+      in case P.unI r of
+              SOME 1 => foldl f e d >>= (ret o scalar)
+            | SOME n =>
+              sub_unsafe s (I(n-1)) >>= (fn N =>
+              let val sh' = Shape.tk_unsafe (I(n-1)) s
+              in Shape.product sh' >>= (fn M =>
+                 ret (vector (
+                   A(sh',
+                     V(tyOfV d, M,
+                        fn i => foldl f e (tk_unsafe N (dr_unsafe (muli(i,N)) d)))))))
+              end)
+            | NONE => die "reduce: unknown rank not supported"
+      end
 
 fun assert_length s n v =
-    if List.length v = n then ()
-    else die ("assert_length: " ^ s)
-
-fun compress (is,vs) =
-    let val (ty_is,sh_is,vs_is) = toF0 is
-        val (ty_vs,sh_vs,vs_vs) = toF0 vs
-    in case (sh_is, sh_vs) of
-           ([s_is],[s_vs]) =>
-           compr (V(ty_is,s_is,vs_is)) (V(ty_vs,s_vs,vs_vs)) >>= (fn V(ty,s,vs) =>
-           ret (ArrF(ty_vs,[s],vs)))
-         | _ => die "rank of bool array argument and source array argument to compress must be 1"
+    let val r = length v
+    in case P.unI r of
+           SOME i => if i = n then ()
+                     else die ("assert_length: " ^ s)
+         | NONE => die ("assert_length: unknown length: " ^ s)
     end
 
-fun replicate (def,is,vs) =
-    let val (ty_is,sh_is,vs_is) = toF0 is
-        val (ty_vs,sh_vs,vs_vs) = toF0 vs
-    in case (sh_is, sh_vs) of
-           ([s_is],[s_vs]) =>
-           repl def (V(ty_is,s_is,vs_is)) (V(ty_vs,s_vs,vs_vs)) >>= (fn V(ty,s,vs) =>
-           ret (ArrF(ty_vs,[s],vs)))
-         | _ => die "rank of integer array argument and source array argument to replicate must be 1"
-    end
+fun compress (A(sh_is,vs_is), A(sh_vs,vs_vs)) =
+    (assert_length "rank of bool array argument to compress must be 1" 1 sh_is;
+     assert_length "rank of source array argument to compress must be 1" 1 sh_vs;
+     compr vs_is vs_vs >>= (fn vs =>
+     ret (A (Shape.single(length vs),vs))))
 
-fun vreverse a =
-    let val (ty,sh,f) = toF0 a
-    in case sh of
-           [] => ret a
-         | n :: subsh =>
+fun replicate (def,A(sh_is,vs_is), A(sh_vs,vs_vs)) =
+    (assert_length "rank of integer array argument to replicate must be 1" 1 sh_is;
+     assert_length "rank of source array argument to replicate must be 1" 1 sh_vs;
+     repl def vs_is vs_vs >>= (fn vs =>
+     ret (A (Shape.single(length vs),vs))))
+
+fun vreverse (a as A(sh,V(ty,sz,f))) =
+    getShapeV "vreverse" sh >>= 
+      (fn [] => ret a
+        | n :: subsh =>
           lett (lprod subsh) >>= (fn subsz =>
-          ret (ArrF(ty,sh,
-                    fn i => 
-                       lett let val y = subi(subi(n,divi(i,subsz)),I 1)
-                                val x = modi(i,subsz)
-                            in addi(muli(y,subsz),x)
-                            end >>= f))
-              )
-    end
+          ret (A(sh,
+                   V(ty,sz,
+                     fn i => 
+                        lett let val y = subi(subi(n,divi(i,subsz)),I 1)
+                                 val x = modi(i,subsz)
+                             in addi(muli(y,subsz),x)
+                             end >>= f))
+              )))
 
-fun vrotate n (a as Arr(ty,sh,idx)) =
-    case sh of
-        [] => ret a
-      | s :: sh' =>
+fun vrotate n (a as A(sh, v0 as V(ty,sz,f))) =
+    getShapeV "vrotate" sh >>=
+      (fn [] => ret a
+        | s :: sh' =>
+          lett (lprod sh') >>= (fn sz' =>
+          lett (muli(s,sz')) >>= (fn sz =>
           let val n = If(gti(n,I 0),modi(n,s),subi(s,modi(negi n,s)))
-          in case idx of
-                 F f => 
-                  (lett (lprod sh') >>= (fn sz' =>
-                   lett (muli(s,sz')) >>= (fn sz =>
-                   lett (muli(n,sz')) >>= (fn offset =>
-                   let val v = V(ty,sz, fn i => f(modi(addi(i,offset),sz)))
-                       val v0 = V(ty,sz,f)
-                       val V(_,_,f) = Ifv(eqi(s,I 0),v0,v)
-                   in ret(ArrF(ty,sh,f))
-                   end))))
-               | N f => 
-                 ret(ArrN(ty,sh,fn i::ix => If0(eqi(s,I 0), f(i::ix), f(modi(addi(i,n),s)::ix))
-                                 | _ => die "rotatev.N"))
-          end
+          in lett (muli(n,sz')) >>= (fn offset =>
+             let val v = V(ty,sz, fn i => f(modi(addi(i,offset),sz)))
+                 val v = Ifv(eqi(s,I 0),v0,v)
+             in ret(A(sh,v))
+             end)
+          end)))
 
 fun letts nil = ret (nil,nil)
   | letts (x::xs) = lettWithName x >>= (fn (e,n) => letts xs >>= (fn (es,ns) => ret (e::es,n::ns)))
@@ -1032,41 +922,24 @@ fun letts nil = ret (nil,nil)
 fun letts0 nil = ret nil
   | letts0 (x::xs) = lett x >>= (fn e => letts0 xs >>= (fn es => ret (e::es)))
 
-fun power (f: m -> m M) (n: INT) (Arr(ty,sh,idx)) : m M =
-    letts sh >>= (fn (sh,names_sh) =>
-    let fun multi_assign [] [] = []
-          | multi_assign (n::ns) (x::xs) = (n := x) :: multi_assign ns xs
-          | multi_assign _ _ = die "power - type mismatch"
-        val sh = List.map Var names_sh
-    in case idx of
-           F g =>
-           (lett (lprod sh) >>= (fn sz =>
-            materializeWithName (V(ty,sz,g)) >>= (fn (V(_,_,g),name_vs,name_n) =>
-            let open P
-                val body = f (ArrF(ty,sh,g)) >>= (fn a' =>
-                           let val (ty',sh',g') = toF0 a'
-                           in lett (lprod sh') >>= (fn sz' =>
-                              materializeWithName (V(ty',sz',g')) >>= (fn (V(_,_,g'), name_vs', name_n') =>
-                              letts0 sh' >>= (fn sh' =>
-                              ((), fn ss => [Free name_vs,
-                                             name_vs := Var name_vs',
-                                             name_n := Var name_n'] @ multi_assign names_sh sh' @ ss))))
-                           end)
-            in for n (fn _ => body) >>= (fn () => ret(ArrF(ty,sh,g)))
-            end)))
-         | N g =>
-           (materializeWithNameN (ty,sh,g) >>= (fn (g,name_vs) =>
-            let open P
-                val body = f (ArrN(ty,sh,g)) >>= (fn a' =>
-                           let val (ty',sh',g') = toN0 a'
-                           in materializeWithNameN (ty',sh',g') >>= (fn (g', name_vs') =>
-                              letts0 sh' >>= (fn sh' =>
-                              ((), fn ss => [Free name_vs,
-                                             name_vs := Var name_vs'] @ multi_assign names_sh sh' @ ss)))
-                           end)
-            in for n (fn _ => body) >>= (fn () => ret(ArrN(ty,sh,g)))
-            end))
-  end)
+fun power (f: m -> m M) (n: INT) (A(sh,vs)) : m M =
+  getShapeV "power" sh >>= (fn sh =>
+  letts sh >>= (fn (sh,names_sh) =>
+  materializeWithName vs >>= (fn (vs,name_vs,name_n) =>
+  fromListMV Int (List.map Var names_sh) >>= (fn sh =>
+  let open P
+      fun multi_assign [] [] = []
+        | multi_assign (n::ns) (x::xs) = (n := x) :: multi_assign ns xs
+        | multi_assign _ _ = die "power - type mismatch"
+      val body = f (A(sh,vs)) >>= (fn A(sh',vs') =>
+                 materializeWithName vs' >>= (fn (vs', name_vs', name_n') =>
+                 getShapeV "power" sh' >>= (fn sh' =>
+                 letts0 sh' >>= (fn sh' =>
+                 ((), fn ss => [Free name_vs,
+                                name_vs := Var name_vs',
+                                name_n := Var name_n'] @ multi_assign names_sh sh' @ ss)))))
+  in for n (fn _ => body) >>= (fn () => ret(A(sh,vs)))
+  end))))
 
 fun powerScl (f: t -> t M) (n: INT) (a: t) : t M =
     lettWithName a >>= (fn (a,name) =>
@@ -1079,41 +952,41 @@ fun condScl (f: t -> t M) (b: BOOL) (a: t) : t M =
 
 (* Indexing *)
 
-fun indexFirst (n:INT) a (scalar: t -> 'b) (array: m -> 'b) : 'b M =
-    let val (ty,sh,f) = toF0 a
-    in lett (lprod sh) >>= (fn sz =>
-       lett (subi(n,I 1)) >>= (fn nminus1 =>
-       case sh of
-           nil => die "indexFirst expect non-scalar array"
-         | [s] => assert "VECTOR INDEX OUT OF BOUNDS" (ltei(n,s))
-                         (f nminus1 >>= (ret o scalar))
-         | s::sh' => assert "ARRAY INDEX OUT OF BOUNDS" (ltei(n,s))
-                            (lett (lprod sh') >>= (fn bulksz =>
-                             lett (muli(nminus1,bulksz)) >>= (fn offset =>
-                             ret $ array $ ArrF(ty,sh',fn i => f(addi(i,offset))))))))
-    end
+fun indexFirst (n:INT) (A(sh,vs as V(_,_,f))) (scalar: t -> 'b) (array: m -> 'b) : 'b M =
+    lett (subi(n,I 1)) >>= (fn nminus1 =>
+    getShapeV "indexFirst" sh >>= 
+    (fn nil => die "indexFirst expect non-scalar array"
+      | [s] => assert "VECTOR INDEX OUT OF BOUNDS" (ltei(n,s))
+               (f nminus1 >>= (ret o scalar))
+      | s::sh' => assert "ARRAY INDEX OUT OF BOUNDS" (ltei(n,s))
+                  (lett (lprod sh') >>= (fn bulksz =>
+                   lett (muli(nminus1,bulksz)) >>= (fn offset =>
+                   let val sh' = Shape.dr_unsafe (I 1) sh
+                       val vs' = tk_unsafe bulksz (dr_unsafe offset vs)
+                   in ret $ array $ A(sh',vs')
+                   end)))))
+
 (*
   d: dimension, n: index in dimension, a: array being indexed.
   The result may be a scalar (if a is of rank 1, i.e., a vector) or an
   array (if a is of rank > 1). The scalar and array functions provide
   embedding functions for both cases.
 *)
-fun idxS (d:INT) (n:INT) (a as Arr(_,sh,_)) (scalar: t -> 'b) (array: m -> 'b) : 'b M =
-    let val r = List.length sh
-    in case P.unI d of
-           SOME d =>
-           let fun tk n l = List.take(l,n)
-               fun dr n l = List.drop(l,n)
-               val () = if d < 1 orelse d > r then die "idxS.dimension index error"
-                        else ()
-               val iotar = List.tabulate (r, fn i => i+1)
-               val iotar = dr 1 iotar
-               val I = tk (d-1) iotar @ [1] @ dr (d-1) iotar  (* squeze in a 1 in position d *)
-           in transpose2 I a >>= (fn a2 =>
-              indexFirst n a2 scalar array)
-           end
-         | NONE => die "idxS.expecting statically known dimension specification"
-    end
+fun idxS (d:INT) (n:INT) (a as A(V(_,r,_),_)) (scalar: t -> 'b) (array: m -> 'b) : 'b M =
+    case (P.unI d, P.unI r) of
+        (SOME d, SOME r) =>
+        let fun tk n l = List.take(l,n)
+            fun dr n l = List.drop(l,n)
+            val () = if d < 1 orelse d > r then die "idxS.dimension index error"
+                     else ()
+            val iotar = List.tabulate (r, fn i => i+1)
+            val iotar = dr 1 iotar
+            val I = tk (d-1) iotar @ [1] @ dr (d-1) iotar  (* squeze in a 1 in position d *)
+        in transpose2 I a >>= (fn a2 =>
+           indexFirst n a2 scalar array)
+        end
+     | (_,NONE) => die "idxS.expecting statically known rank of argument array"
+     | (NONE,_) => die "idxS.expecting statically known dimension specification"
 
 (* Printing *)
 
@@ -1146,12 +1019,12 @@ fun prVec thestart theend v =
    prSeq "," v >>= (fn () =>
    printf(theend,[])))
 
-fun prAr ty sh vs =
-    let val r = List.length sh
-        val sh = Shape.fromShList sh
-        fun def() = prVec "[" "]" sh >>= (fn () => prVec "(" ")" vs)
-    in if r = 1 andalso ty = Char then prSeq "" vs
-       else def()
+fun prAr (sh as V(_,rank,_)) (vs as V dat) =
+    let fun def() = prVec "[" "]" sh >>= (fn () => prVec "(" ")" vs)
+    in case P.unI rank of
+           SOME 1 => if #1 dat = Char then prSeq "" vs
+                     else def()
+         | _ => def()
     end
 
 fun sprintf (s,es) = sprintfV(s,es) >>= (ret o vec)
@@ -1159,47 +1032,43 @@ fun sprintf (s,es) = sprintfV(s,es) >>= (ret o vec)
 fun sepOfTy ty =
     if ty = Char then "" else " "
 
-fun prMat n m (V(ty,_,f)) =
-    let fun prRow m j =
-            lett (muli(j,m)) >>= (fn k =>
-            let val vec = V(ty,m,fn x => f(addi(x,k)))
+fun prMat N M (V(ty,_,f)) =
+    let fun prRow M j =
+            lett (muli(j,M)) >>= (fn k =>
+            let val vec = V(ty,M,fn x => f(addi(x,k)))
             in printf(" ",[]) >>= (fn () =>
                prSeq (sepOfTy ty) vec >>= (fn () =>
                printf("\n",[])))
             end)
     in printf("\n",[]) >>= (fn () => 
-       lett m >>= (fn m => 
-       for n (prRow m)))
+       lett M >>= (fn M => 
+       for N (prRow M)))
     end
 
-fun prArr a =
-    let val (ty,sh,f) = toF0 a
-        val r = List.length sh
-    in lett (lprod sh) >>= (fn sz =>
-       let val vs = V(ty,sz,f)
-       in case sh of
-              [fst,snd] => ifUnit (gti(sz,I 0),
-                                   prMat fst snd vs,
-                                   prAr ty sh vs)
-            | _ => prAr ty sh vs
-       end >>= (fn () =>
-       printf("\n",[])))
+fun fst (V(ty,n,f)) = f (I 0)
+fun snd (V(ty,n,f)) = f (I 1)
+
+fun prArr (a as A(sh,vs)) =
+    let val len = Shape.length sh
+    in ifUnit (andb(eqi(len,I 2),gti(length vs,I 0)),
+               fst sh >>= (fn N =>
+                 snd sh >>= (fn M =>
+                 prMat N M vs)),
+               prAr sh vs) >>= (fn () =>
+       printf("\n",[]))
     end
 
-datatype mm = MA of sh * IL.Type * t * Name.t
-fun mk_mm a =
-    let val (ty,sh,f) = toF0 a
-    in lett (lprod sh) >>= (fn sz =>
-       materialize (V(ty,sz,f)) >>= (fn (name,name_n) =>
-       ret(MA(sh,ty,P.Var name_n, name))))
-    end
+datatype mm = MA of Shape.t * IL.Type * t * Name.t
+fun mk_mm (A(sh, v as V(ty,_,_))) =
+    materialize v >>= (fn (name,name_n) =>
+    ret(MA(sh,ty,P.Var name_n, name)))
     
-fun idxassign a (MA(sh,ty,_,name)) v : unit M =
-    toV a >>= (fn is =>
+fun idxassign (A(_,is)) (MA(sh,ty,_,name)) v : unit M =
+    getShapeV "idxassign.sh" sh >>= (fn sh =>
     getShapeV "idxassign.is" is >>= (fn is =>
     fromSh sh (List.map (fn i => subi(i,I 1)) is) >>= (fn i => asgnArr(name,i,v))))
 
-fun mm2m (MA(sh,ty,n,name)) = ArrF(ty,sh,fn i => ret(P.Subs(name,i)))
+fun mm2m (MA(sh,ty,n,name)) = A(sh,V(ty,n,fn i => ret(P.Subs(name,i))))
 
 (* Time.now *)
 
@@ -1208,13 +1077,12 @@ fun nowi x = P.nowi x
 (* Reading files *)
 fun readFile _ = die "readFile not implemented"
 
-fun readVecFile ty reader a : m M =
-    toV a >>= (fn v =>
+fun readVecFile ty reader (A(_,v)) : m M =
     materialize v >>= (fn (name_file,name_n) =>
     alloc0 Type.Int (I 1) >>= (fn name_count =>
     lettWithName (reader(P.Var name_file, P.Var name_count)) >>= (fn (_, name_ivec) =>
     lett (P.Subs(name_count,I 0)) >>= (fn count =>
-    ret(vec(V(ty,count,fn i => ret(P.Subs(name_ivec,i))))))))))
+    ret(vec(V(ty,count,fn i => ret(P.Subs(name_ivec,i)))))))))
 
 val readIntVecFile : m -> m M = 
     readVecFile Type.Int P.readIntVecFile

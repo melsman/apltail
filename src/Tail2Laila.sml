@@ -93,6 +93,7 @@ val classifyOp : string -> opOpt =
   | "sin" => S_S L.sin
   | "cos" => S_S L.cos
   | "tan" => S_S L.tan
+  | "expd" => S_S L.expd
   | "roll" => S_S L.roll
   | "eqc" => SS_S L.eqc
   | "eqb" => SS_S L.eqb

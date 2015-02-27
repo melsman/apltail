@@ -93,6 +93,7 @@ signature LAILA = sig
   val neqd    : DOUBLE * DOUBLE -> BOOL
   val negd    : DOUBLE -> DOUBLE
   val absd    : DOUBLE -> DOUBLE
+  val expd    : DOUBLE -> DOUBLE
   val ln      : DOUBLE -> DOUBLE
   val sin     : DOUBLE -> DOUBLE
   val cos     : DOUBLE -> DOUBLE

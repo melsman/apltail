@@ -842,7 +842,7 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                                                         compOpr2 muli muld) (LRii 1,LRii 1.0,NOii)
             | IdE(Symb L.Div,r) => compPrimFunMD k r (compOpr1d (fn x => divd(D 1.0,x)),
                                                       compOpr2d divd) (Rii 1,Rii 1.0,NOii)
-            | IdE(Symb L.Pow,r) => compPrimFunMD k r (compOpr1d (fn x => powd(D Math.e,x)),
+            | IdE(Symb L.Pow,r) => compPrimFunMD k r (compOpr1d (fn x => expd x),
                                                       compOpr2d powd) (Rii 1, Rii 1.0, NOii)
             | IdE(Symb L.Pipe,r) => compPrimFunMD k r (compOpr1 absi absd,
                                                        compOpr2 resi resd) (Lii 0,Lii 0.0,NOii)

@@ -78,6 +78,7 @@ val maxd = binOp' "maxd"
 val mind = binOp' "mind"
 fun negd x = Op_e("negd",[x])
 fun absd x = Op_e("absd",[x])
+fun expd x = Op_e("expd",[x])
 fun signd x = Op_e("signd",[x])
 
 val andb  = binOp "andb"

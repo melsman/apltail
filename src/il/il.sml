@@ -35,7 +35,7 @@ datatype value =
        | BoolV of bool
        | CharV of word
        | ArrV of value option ref vector
-datatype Unop = Neg | I2D | D2I | B2I | Not | Floor | Ceil | Ln | Sin | Cos | Tan | Sqrt | Roll | Now | Strlen 
+datatype Unop = Neg | I2D | D2I | B2I | Not | Floor | Ceil | Ln | Sin | Cos | Tan | Expd | Sqrt | Roll | Now | Strlen 
 datatype Binop = Add | Sub | Mul | Divv | Modv | Resi | Mini | Maxi | Mind | Maxd | Lt | Lteq | Eq | Andb | Orb | Xorb | Powd | Ori | Andi | Xori | Shli | Shri | Shari | ReadIntVecFile | ReadDoubleVecFile
 datatype Exp =
          Var of Name.t
@@ -202,6 +202,7 @@ signature PROGRAM = sig
   val sin   : e -> e
   val cos   : e -> e
   val tan   : e -> e
+  val expd  : e -> e
   val sqrt  : e -> e
   val powd  : e * e -> e
   val notb  : e -> e
@@ -567,6 +568,7 @@ in
   fun sin a = Unop(Sin,a)
   fun cos a = Unop(Cos,a)
   fun tan a = Unop(Tan,a)
+  fun expd a = Unop(Expd,a)
   fun roll a = Unop(Roll,a)
 
   fun andb (a,b) =
@@ -919,6 +921,7 @@ fun se_e (E:env) (e:e) : e =
     | IL.Unop(IL.Sin,e1) => sin (se_e E e1)
     | IL.Unop(IL.Cos,e1) => cos (se_e E e1)
     | IL.Unop(IL.Tan,e1) => tan (se_e E e1)
+    | IL.Unop(IL.Expd,e1) => expd (se_e E e1)
     | IL.Unop(IL.Sqrt,e1) => sqrt (se_e E e1)
     | IL.Unop(IL.Roll,e1) => roll (se_e E e1)
     | IL.Unop(IL.B2I,e1) => b2i (se_e E e1)

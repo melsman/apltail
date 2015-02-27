@@ -124,6 +124,7 @@ signature TAIL = sig
   val mind      : DOUBLE -> DOUBLE -> DOUBLE
   val negd      : DOUBLE -> DOUBLE
   val absd      : DOUBLE -> DOUBLE
+  val expd      : DOUBLE -> DOUBLE
   val signd     : DOUBLE -> INT
 
   val andb      : BOOL * BOOL -> BOOL
