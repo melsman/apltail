@@ -138,7 +138,7 @@ val classifyOp : string -> opOpt =
   | "prArrC" => A_AM (fn a => L.prArr a >>= (fn () => ret a))
   | "formatI" => S_AM (fn t => L.sprintf("%d",[t]))
   | "formatD" => S_AM (fn t => L.sprintf("%DOUBLE",[t]))
-  | "rav" => A_A L.rav
+  | "rav" => A_AM L.rav
   | "readIntVecFile" => A_AM L.readIntVecFile
   | "readDoubleVecFile" => A_AM L.readDoubleVecFile
   | _ => NOTOP

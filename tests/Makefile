@@ -97,7 +97,7 @@ testc: $(CRESFILES)
 	@echo "----------------------------------------------------"
 
 c/%.c: %.apl Makefile
-	$(APLT) -c -O 2 -oc $@ $(PRELUDE) $<
+	$(APLT) -comments -c -O 2 -oc $@ $(PRELUDE) $<
 
 c/%.exe: c/%.c
 	gcc -I ../include --std=c99 -O3 -o $@ -lm $<

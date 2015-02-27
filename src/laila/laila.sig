@@ -115,12 +115,10 @@ signature LAILA = sig
   val scl     : T -> t -> m  (* scalar value *) 
   val enclose : t -> m       (* one dimensional vector with one element *)
   val iota    : INT -> m
-  val iota'   : m -> m
 
-  val siz     : m -> INT
   val rank    : m -> INT
 
-  val rav     : m -> m
+  val rav     : m -> m M
 
   val dimincr : m -> m (* shape(dimincr(m)) = shape(m)@[1] *)
 
