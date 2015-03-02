@@ -888,17 +888,16 @@ fun reduce f e (Arr(ty,sh,idx)) scalar array =
                                fn ix => foldl f e (V(ty,s,fn j => g(ix@[j]))))))
              end)
       | F g =>
-        let val r = List.length sh
-        in Stat.incr "reduce(F)";
-           case List.rev sh of
-               nil => ret (scalar e)
-             | [sz] => foldl f e (V(ty,sz,g)) >>= (ret o scalar)
-             | s::rsh =>
-               let val sh' = List.rev rsh
-               in ret(array(ArrF(ty,sh',
-                                 fn i => foldl f e (V(ty,s, fn j => lett (addi(j,muli(i,s))) >>= g)))))
-               end
-    end
+        (Stat.incr "reduce(F)";
+         case List.rev sh of
+             nil => ret (scalar e)
+           | [sz] => foldl f e (V(ty,sz,g)) >>= (ret o scalar)
+           | s::rsh =>
+             let val sh' = List.rev rsh
+             in ret(array(ArrF(ty,sh',
+                               fn i => lett (muli(i,s)) >>= (fn x => 
+                                       foldl f e (V(ty,s, fn j => lett (addi(j,x)) >>= g))))))
+             end)
 
 fun assert_length s n v =
     if List.length v = n then ()

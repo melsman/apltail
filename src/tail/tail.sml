@@ -529,6 +529,7 @@ fun prInstanceLists opr es t =
          | ("snocV", [t1,t2]) => wrap [bt t1] [len t1]
          | ("consV", [t1,t2]) => wrap [bt t1] [len t2]
          | ("vrotate", [_,t2]) => wrap [bt t2] [rnk t2]
+         | ("vrotateV", [_,t2]) => wrap [bt t2] [len t2]
          | ("vreverse", [t1]) => wrap [bt t1] [rnk t1]
          | ("vreverseV", [t1]) => wrap [bt t1] [len t1]
          | ("first", [ta]) => wrap [bt ta] [rnk ta]
