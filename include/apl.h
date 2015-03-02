@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #define ori(x,y) (int)(((unsigned int)(x))|((unsigned int)(y)))
 #define andi(x,y) (int)(((unsigned int)(x))&((unsigned int)(y)))
@@ -232,6 +233,11 @@ double* read_csv_doubles(FILE* handle, int* valuesRead) {
 
 int* readIntVecFile(char* filename, int* valuesRead) {
   FILE* file = fopen(filename, "r");
+  if (file == NULL) {
+    fprintf(stderr, "Error reading %s: %d (%s)\n", filename, errno, strerror(errno));
+    exit(0);
+  }
+
   int* res = read_csv_ints(file, valuesRead);
   if (res == NULL) {
     printf("readIntVecFile: Error reading file '%s'\n", filename);
@@ -244,6 +250,11 @@ int* readIntVecFile(char* filename, int* valuesRead) {
 
 double* readDoubleVecFile(char* filename, int* valuesRead) {
   FILE* file = fopen(filename, "r");
+  if (file == NULL) {
+    fprintf(stderr, "Error reading %s: %d (%s)\n", filename, errno, strerror(errno));
+    exit(0);
+  }
+
   double* res = read_csv_doubles(file, valuesRead);
   if (res == NULL) {
     printf("readDoubleVecFile: Error reading file '%s'\n", filename);
