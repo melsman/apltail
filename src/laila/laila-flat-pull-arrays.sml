@@ -7,6 +7,7 @@ structure P = Program
 val optimisationLevel = IL.optimisationLevel
 val enableComments = ref false
 val unsafeAsserts = ref false
+val statistics = ref false
 
 fun die s = raise Fail ("Laila." ^ s)
 

@@ -82,9 +82,9 @@ CTESTS=test test1 test2 test3 test4 test5 test6 test7 test9 test10 \
        innerproduct sign mean powmat life pow fib10 timespi ln \
        chars repl replicate shape tup circ abcd dtransp tax binaryops \
        pi blackscholes idx idxassign format readintvecfile \
-       readdoublevecfile squad expd reduce transpose
+       readdoublevecfile squad expd reduce transpose sierpinski sierpinski0
 
-#      sierpinski0 sierpinski readfile \
+#      readfile \
 #      
 
 CRESFILES=$(CTESTS:%=%.resc)
