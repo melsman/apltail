@@ -853,7 +853,7 @@ fun transpose a =
     end
 
 fun transpose2 idxs a =
-    let val (a as Arr(ty,sh,idx)) = toN a
+    let val (ty,sh,f) = toN0 a
         fun check n =
             if n = 0 then ()
             else if List.exists (fn x => x = n) idxs then
@@ -865,13 +865,9 @@ fun transpose2 idxs a =
         val () = if r <> sz_idxs then die "transpose2: wrong index vector length" else ()
         val sh' = exchange' idxs sh
     in if r < 2 then ret a
-       else case idx of
-                F f => (Stat.incr "transpose2(F)";
-                        comment "transpose2(F)" >>= (fn () =>
-                        ret (ArrN(ty,sh',fn ix => fromSh sh (exchange idxs ix) >>= f))))
-              | N f => (Stat.incr "transpose2(N)";
-                        comment "transpose2(N)" >>= (fn () =>
-                        ret (ArrN(ty,sh',f o exchange idxs))))
+       else (Stat.incr "transpose2(N)";
+             comment "transpose2(N)" >>= (fn () =>
+             ret (ArrN(ty,sh',f o exchange idxs))))
     end
 
 fun catenate (t1:m) (t2:m) : m M = 
