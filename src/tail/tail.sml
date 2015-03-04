@@ -538,6 +538,7 @@ fun prInstanceLists opr es t =
          | ("transp2", [_,ta]) => wrap [bt ta] [rnk ta]
          | ("reshape", [_,ta]) => wrap [bt t] [rnk ta,rnk t]
          | ("zipWith", [ft,t1,t2]) => wrap [bt t1,bt t2,bt t] [rnk t1]
+         | ("power", [ft,_,t2]) => wrap [bt t2] [rnk t2]
          | _ => none
     end
 
