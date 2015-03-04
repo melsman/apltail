@@ -7,7 +7,8 @@ structure P = Program
 val optimisationLevel = IL.optimisationLevel
 val enableComments = ref false
 val unsafeAsserts = ref false
-val statistics = ref false
+val statistics_p = ref false   (* Not used *)
+val hoist_p = ref false        (* Not used *)
 
 fun die s = raise Fail ("Laila." ^ s)
 
@@ -1078,17 +1079,25 @@ fun nowi x = P.nowi x
 (* Reading files *)
 fun readFile _ = die "readFile not implemented"
 
-fun readVecFile ty reader (A(_,v)) : m M =
-    materialize v >>= (fn (name_file,name_n) =>
-    alloc0 Type.Int (I 1) >>= (fn name_count =>
-    lettWithName (reader(P.Var name_file, P.Var name_count)) >>= (fn (_, name_ivec) =>
-    lett (P.Subs(name_count,I 0)) >>= (fn count =>
-    ret(vec(V(ty,count,fn i => ret(P.Subs(name_ivec,i)))))))))
+fun decl ty =
+    let val n = Name.new ty
+    in (n, fn ss => IL.Decl(n,NONE) :: ss)
+    end
+
+fun readVecFile ty read (A(_,v)) : m M =
+    let fun reader t = ((), fn ss => read t::ss)
+    in materialize v >>= (fn (name_file,name_n) =>
+       alloc0 Type.Int (I 1) >>= (fn name_count =>
+       decl (Type.Vec ty) >>= (fn name_ivec =>
+       reader(name_ivec,name_count,P.Var name_file) >>= (fn () =>
+       lett (P.Subs(name_count,I 0)) >>= (fn count =>
+       ret(vec(V(ty,count,fn i => ret(P.Subs(name_ivec,i))))))))))
+    end
 
 val readIntVecFile : m -> m M = 
-    readVecFile Type.Int P.readIntVecFile
+    readVecFile Type.Int P.ReadIntVecFile
 
 val readDoubleVecFile : m -> m M = 
-    readVecFile Type.Double P.readDoubleVecFile
+    readVecFile Type.Double P.ReadDoubleVecFile
 
 end

@@ -37,8 +37,6 @@ structure ILUtil : ILUTIL = struct
     | ppB Shli = "shli"
     | ppB Shri = "shri"
     | ppB Shari = "shari"
-    | ppB ReadIntVecFile = "readIntVecFile"
-    | ppB ReadDoubleVecFile = "readDoubleVecFile"
 
   fun pp_char w =
       "'" ^ (Char.toCString o Char.chr o Word.toInt) w ^ "'"
@@ -185,6 +183,8 @@ structure ILUtil : ILUTIL = struct
       | Printf(s,nil) => (print s; E)
       | Printf(s,es) => die "eval.Printf not implemented"
       | Sprintf(n,s,es) => die "eval.Sprintf not implemented"
+      | ReadIntVecFile(n1,n2,e) => die "eval.ReadIntVecFile not implemented"
+      | ReadDoubleVecFile(n1,n2,e) => die "eval.ReadDoubleVecFile not implemented"
       | Comment _ => E
       | Nop => E
 
@@ -304,6 +304,8 @@ structure ILUtil : ILUTIL = struct
       | Sprintf(n,"%DOUBLE",[e]) => %"formatD" %% par(pp_es "," [Var n,e]) %% %";" 
       | Sprintf(n,s,nil) => %("sprintf(" ^ Name.pr n ^ ",\"" ^ String.toCString s ^ "\"") %% %");" 
       | Sprintf(n,s,es) => %("sprintf(" ^ Name.pr n ^ ",\"" ^ String.toCString s ^ "\",") %% pp_es "," es %% %");" 
+      | ReadIntVecFile(n1,n2,e) => %(Name.pr n1 ^ " = readIntVecFile(" ^ Name.pr n2 ^ ",") %% pp e %% %");"
+      | ReadDoubleVecFile(n1,n2,e) => %(Name.pr n1 ^ " = readDoubleVecFile(" ^ Name.pr n2 ^ ",") %% pp e %% %");"
       | Comment s => %("// " ^ s)
 
   fun ppSS n ss = ropeToString n (%$ %% ppSS0 ss)
@@ -372,14 +374,6 @@ structure ILUtil : ILUTIL = struct
       | Shli => (assertII "Shli" t1 t2; Type.Int)
       | Shri => (assertII "Shri" t1 t2; Type.Int)
       | Shari => (assertII "Shari" t1 t2; Type.Int)
-      | ReadIntVecFile => 
-        (assertC "ReadIntVecFile" (Type.vecElem t1); 
-         assertI "ReadIntVecFile" (Type.vecElem t2);
-         Type.Vec Type.Int)
-      | ReadDoubleVecFile => 
-        (assertC "ReadDoubleVecFile" (Type.vecElem t1); 
-         assertI "ReadDoubleVecFile" (Type.vecElem t2);
-         Type.Vec Type.Double)
 
   fun typeUnop Neg t = (assertIorD "Neg" t; t)
     | typeUnop I2D t = (assertI "I2D" t; Type.Double)
@@ -437,4 +431,120 @@ structure ILUtil : ILUTIL = struct
         end
       | Binop(binop,e1,e2) => typeBinop binop (typeExp e1) (typeExp e2)
       | Unop(unop,e) => typeUnop unop (typeExp e)
+
+  (* Common Subexpression Elimination *)
+
+  (* [E : exp -> var * var list] maps each side-effect-free expression e to the pair of
+   * the variable that defines e and the variable uses in e. *)
+
+  structure FM = StringFinMap
+  structure N = NameSet
+
+  fun disjoint (s1,s2) = N.isEmpty(N.intersect(s1,s2))
+
+  type cse_env = (Name.t * N.set) FM.map
+
+  fun cuts (E:cse_env) ns : cse_env = FM.filter (fn (e,(n',ns')) => disjoint(ns,N.insert(ns',n'))) E
+  fun cut (E:cse_env) n : cse_env = cuts E (N.singleton n)
+
+  fun isPtrName n =
+      case Name.typeOf n of
+          Vec _ => true
+        | _ => false
+
+  val uses = Program.uses
+  val uses_s = Program.uses_s
+  val defs_s = Program.defs_s
+  val defs_ss = Program.defs_ss
+
+  fun cse (E: cse_env) ss =
+      case ss of
+          nil => nil
+        | (s as Decl(n,SOME e)) :: ss =>
+          if Program.side_effects e orelse isPtrName n orelse Program.simpleExp e then s :: cse E ss
+          else let val eS = ppExp e
+               in case FM.lookup E eS of
+                      SOME(n',_) => Decl(n, SOME(Var n')) :: cse E ss
+                    | NONE => let val E' = FM.add(eS,(n,uses e N.empty),E)
+                              in s :: cse E' ss
+                              end
+               end
+        | (s as Decl(_,NONE)) :: ss => s :: cse E ss
+        | Assign(n,e) :: ss => Assign(n,repl E e) :: cse (cut E n) ss
+        | (s as Halt _) :: _ => [s]
+        | Nop :: ss => cse E ss
+        | (s as Free n) :: ss => s :: cse E ss
+        | Ret e :: _ => [Ret (repl E e)]
+        | Printf(s,es) :: ss => Printf(s,List.map (repl E) es) :: cse E ss
+        | Sprintf(n,s,es) :: ss => Sprintf(n,s,List.map (repl E) es) :: cse (cut E n) ss
+        | ReadIntVecFile(n1,n2,e) :: ss => ReadIntVecFile(n1,n2,repl E e) :: cse (cuts E (N.fromList[n1,n2])) ss
+        | ReadDoubleVecFile(n1,n2,e) :: ss => ReadDoubleVecFile(n1,n2,repl E e) :: cse (cuts E (N.fromList[n1,n2])) ss
+        | (s as Comment _) :: ss => s :: cse E ss
+        | AssignArr (n,e1,e2) :: ss => AssignArr (n,repl E e1,repl E e2) :: cse (cut E n) ss
+        | Ifs(e,ss1,ss2) :: ss => 
+          let val ns1 = defs_ss ss1
+              val ns2 = defs_ss ss2
+              val ns = N.union (ns1, ns2)
+          in Ifs(repl E e, cse E ss1, cse E ss2) :: cse (cuts E ns) ss
+          end
+        | For (e,n,ss0) :: ss =>
+          let val E' = cuts E (defs_ss ss0)
+          in For (repl E e,n,cse E' ss0) :: cse E' ss
+          end
+
+  and repl E e =
+      let val eS = ppExp e
+      in case FM.lookup E eS of
+             SOME (n,_) => 
+             (print ("Substituting " ^ Name.pr n ^ " for " ^ eS ^ "\n"); Var n)
+           | NONE => e
+      end
+
+  val cse = fn ss => cse FM.empty ss
+
+  (* Hoisting variable declarations outside of loops *)
+
+  (* invariant:  
+       hoist U ss = (ssh, ssi)  ==>
+         1) uses(ssh) \cap U = 0   
+         2) uses(ssh) \cap decl(ssi) = 0
+         3) ssh contains declarations only.
+  *)
+
+  fun hoist U nil = (nil,nil)
+    | hoist U (s::ss) =
+      let val ds = defs_s s
+          val us = uses_s s
+          val (ssh,ss) = hoist (N.union(U,ds)) ss      
+      in case s of
+             Decl(n,SOME e) => 
+             if disjoint(us,U) then ((n,e)::ssh,ss)
+             else let val (ssh,ss) = dehoist (N.singleton n) (ssh,ss)
+                  in (ssh,s::ss)
+                  end
+           | For(e,n,ss0) =>
+             let val (ssh0,ss0) = hoist (N.singleton n) ss0
+                 val ds = defs_ss ss0
+                 val (ssh0,ss0) = dehoist (N.insert(ds,n)) (ssh0,ss0)
+             in (ssh0@ssh,For(e,n,ss0)::ss)
+             end
+           | Ifs(e,ss1,ss2) => (ssh,Ifs(e,hoistCat U ss1, hoistCat U ss2)::ss)
+           | _ => (ssh,s::ss)
+     end
+  and hoistCat U ss = 
+      let val (ssh,ss) = hoist U ss
+      in List.map (fn (n,e) => Decl(n,SOME e)) ssh @ ss
+      end
+  and dehoist U (nil,ss) = (nil, ss)
+    | dehoist U ((n,e)::ssh,ss) = 
+      if disjoint(U, uses e (N.singleton n)) then 
+        let val (ssh,ss) = dehoist U (ssh,ss)
+        in ((n,e)::ssh,ss)
+        end
+      else
+        let val (ssh,ss) = dehoist (N.insert(U,n)) (ssh,ss)
+        in (ssh,Decl(n,SOME e)::ss)
+        end
+
+  val hoist = fn ss => hoistCat N.empty ss
 end

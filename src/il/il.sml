@@ -7,23 +7,25 @@ fun die s = raise Fail ("IL." ^ s)
 
 datatype Type = Int | Double | Bool | Char | Vec of Type
 
-structure Name : sig
+structure Name :> sig
   eqtype t
   val new : Type -> t
   val pr : t -> string
   val typeOf : t -> Type
+  val iref   : t -> int ref
 end =
 struct
-  type t = string * Type
+  type t = string * Type * int ref
   val count = ref 0
   fun prefix Int = "n"
     | prefix Double = "d"
     | prefix Bool = "b"
     | prefix Char = "c"
     | prefix (Vec _) = "a"
-  fun new t = (prefix t ^ Int.toString(!count) before count := !count + 1, t)
-  fun pr (s,_) = s
-  fun typeOf (_,t) = t
+  fun new t = (prefix t ^ Int.toString(!count) before count := !count + 1, t, ref 0)
+  fun pr (s,_,_) = s
+  fun typeOf (_,t,_) = t
+  fun iref (_,_,iref) = iref
 end
 
 structure NameSet = OrderSet(struct type t = Name.t
@@ -36,7 +38,7 @@ datatype value =
        | CharV of word
        | ArrV of value option ref vector
 datatype Unop = Neg | I2D | D2I | B2I | Not | Floor | Ceil | Ln | Sin | Cos | Tan | Expd | Sqrt | Roll | Now | Strlen 
-datatype Binop = Add | Sub | Mul | Divv | Modv | Resi | Mini | Maxi | Mind | Maxd | Lt | Lteq | Eq | Andb | Orb | Xorb | Powd | Ori | Andi | Xori | Shli | Shri | Shari | ReadIntVecFile | ReadDoubleVecFile
+datatype Binop = Add | Sub | Mul | Divv | Modv | Resi | Mini | Maxi | Mind | Maxd | Lt | Lteq | Eq | Andb | Orb | Xorb | Powd | Ori | Andi | Xori | Shli | Shri | Shari
 datatype Exp =
          Var of Name.t
        | I of Int32.int
@@ -61,6 +63,8 @@ datatype Stmt = For of Exp * Name.t * Block  (* name is a binding occurence *)
               | Halt of string
               | Printf of string * Exp list
               | Sprintf of Name.t * string * Exp list
+              | ReadIntVecFile of Name.t * Name.t * Exp
+              | ReadDoubleVecFile of Name.t * Name.t * Exp
               | Comment of string
 
 withtype Block = Stmt list
@@ -102,6 +106,8 @@ fun eq_s(s1,s2) =
     | (Halt s1, Halt s2) => s1 = s2
     | (Printf(s1,es1), Printf(s2,es2)) => s1 = s2 andalso eqs(es1,es2)
     | (Sprintf(n1,s1,es1), Sprintf(n2,s2,es2)) => n1 = n2 andalso s1 = s2 andalso eqs(es1,es2)
+    | (ReadIntVecFile(n1,n1',e1), ReadIntVecFile(n2,n2',e2)) => n1 = n2 andalso n1' = n2' andalso eq(e1,e2)
+    | (ReadDoubleVecFile(n1,n1',e1), ReadDoubleVecFile(n2,n2',e2)) => n1 = n2 andalso n1' = n2' andalso eq(e1,e2)
     | (Comment s1, Comment s2) => s1 = s2
     | _ => false
 and eq_ss (nil,nil) = true
@@ -207,10 +213,6 @@ signature PROGRAM = sig
   val powd  : e * e -> e
   val notb  : e -> e
   val roll  : e -> e
-
-  val readIntVecFile : e * e -> e (* [readIntVecFile(file,intAddr)] returns an allocated int vector and stores the number of integers into the intAddr pointer. *)
-  val readDoubleVecFile : e * e -> e
-
   val unI   : e -> int option
   val unB   : e -> bool option
   val unD   : e -> real option
@@ -227,12 +229,23 @@ signature PROGRAM = sig
   val Halt : string -> s
   val Printf : string * e list -> s
   val Sprintf : Name.t * string * e list -> s
+  val ReadIntVecFile : Name.t * Name.t * e -> s
+  val ReadDoubleVecFile : Name.t * Name.t * e -> s
   val Comment : string -> s
   val emp : s
   val unDecl : s -> (Name.t * e option) option
 
   type kd = string * Name.t list * ss
   type p = kd list * ss
+
+  (* Basic analyses *)
+  val uses      : e -> IL.NameSet.set -> IL.NameSet.set
+  val usess     : e list -> IL.NameSet.set -> IL.NameSet.set
+  val uses_s    : s -> IL.NameSet.set
+  val uses_ss   : ss -> IL.NameSet.set
+  val defs_s    : s -> IL.NameSet.set
+  val defs_ss   : ss -> IL.NameSet.set
+  val decls_s   : s -> IL.NameSet.set
 
   (* static evaluation *)
   datatype info = EqI of e
@@ -248,8 +261,9 @@ signature PROGRAM = sig
   val rm_decls : e -> ss -> ss
   val rm_decls0 : ss -> ss
 
-  val simpleIdx : Name.t -> e -> bool
-  val simpleExp : e -> bool
+  val simpleIdx    : Name.t -> e -> bool
+  val simpleExp    : e -> bool
+  val side_effects : e -> bool
 end
 
 structure Program : PROGRAM = struct
@@ -287,6 +301,22 @@ in
         | C _ => true
         | _ => false
 
+  fun side_effects e =
+      case e of
+          Alloc _ => true
+        | Unop(unop,e) => unop = Now orelse unop = Roll orelse side_effects e
+        | If (e1,e2,e3) => side_effects e1 orelse side_effects e2 orelse side_effects e3
+        | T => false
+        | F => false
+        | Var _ => false
+        | I _ => false
+        | D _ => false        
+        | C _ => false
+        | Subs _ => false
+        | Vect (_,nil) => false
+        | Vect(t,e::es) => side_effects e orelse side_effects(Vect(t,es))
+        | Binop(binop,e1,e2)  => side_effects e1 orelse side_effects e2
+
   structure N = NameSet
   fun uses e acc =
       case e of
@@ -299,67 +329,56 @@ in
        | If(e0,e1,e2) => uses e0 (uses e1 (uses e2 acc))
        | Subs (n,e) => uses e (N.insert (acc,n))
        | Alloc (_,e) => uses e acc
-       | Vect (_,nil) => acc
-       | Vect (t,e::es) => uses (Vect(t,es)) (uses e acc)
+       | Vect (t,es) => usess es acc
        | Binop(_,e1,e2) => uses e1 (uses e2 acc)
        | Unop(_,e) => uses e acc
-
-  fun uses_s s =
-      case s of
-        IL.Assign (_,e) => uses e N.empty
-      | IL.AssignArr (n,e1,e2) => uses e1 (uses e2 (N.singleton n))
-      | IL.Decl (_,SOME e) => uses e (N.empty)
-      | IL.Decl (_,NONE) => N.empty
-      | IL.Nop => N.empty
-      | IL.Free n => N.singleton n
-      | IL.Ret e => uses e N.empty
-      | IL.Halt _ => N.empty
-      | IL.Ifs(e,s1,s2) => uses e (N.union (uses_ss s1,uses_ss s2))
-      | IL.For(e,n,body) => uses e (N.difference(uses_ss body,N.singleton n))
-      | IL.Printf(_, nil) => N.empty
-      | IL.Printf(s, e::es) => uses e (uses_s (IL.Printf(s,es)))
-      | IL.Sprintf(n, _, nil) => N.singleton n
-      | IL.Sprintf(n, s, e::es) => uses e (uses_s (IL.Sprintf(n,s,es)))
-      | IL.Comment _ => N.empty
-
-  and uses_ss nil = N.empty
-    | uses_ss (s::ss) = N.union (uses_s s, uses_ss ss)
-
-  fun defs_s s =
-      case s of
-        IL.Nop => N.empty
-      | IL.Ret e => N.empty
-      | IL.Halt _ => N.empty
-      | IL.Free n => N.empty
-      | IL.Decl(n,SOME e) => N.singleton n
-      | IL.Decl(n,NONE) => N.empty
-      | IL.Assign(n,e) => N.singleton n
-      | IL.AssignArr(n,e0,e) => N.empty
-      | IL.Ifs(_,s1,s2) => N.union(defs_ss s1,defs_ss s2)
-      | IL.For(e,n,body) => N.difference(defs_ss body,N.singleton n)
-      | IL.Printf _ => N.empty
-      | IL.Sprintf _ => N.empty
-      | IL.Comment _ => N.empty
-
-  and defs_ss nil = N.empty
-    | defs_ss (s::ss) = N.union (defs_s s, defs_ss ss)
+  and usess nil acc = acc
+    | usess (e::es) acc = uses e (usess es acc)
 
   fun decls_s s =
       case s of
-        IL.Nop => N.empty
-      | IL.Ret e => N.empty
-      | IL.Halt _ => N.empty
-      | IL.Free n => N.empty
-      | IL.Decl(n,_) => N.singleton n
-      | IL.Assign(n,e) => N.empty
-      | IL.AssignArr(n,e0,e) => N.empty
-      | IL.Ifs(_,s1,s2) => N.empty
-      | IL.For(e,_,_) => N.empty
-      | IL.Printf _ => N.empty
-      | IL.Sprintf _ => N.empty
-      | IL.Comment _ => N.empty
-  and decls_ss nil = N.empty
-    | decls_ss (s::ss) = N.union (decls_s s, decls_ss ss)
+          IL.Decl(n,_) => N.singleton n
+        | _ => N.empty
+
+  fun defs_s s =
+      case s of
+          IL.Nop => N.empty
+        | IL.Ret _ => N.empty
+        | IL.Halt _ => N.empty
+        | IL.Free n => N.empty
+        | IL.Decl(n,_) => N.empty
+        | IL.Assign(n,_) => N.singleton n
+        | IL.AssignArr(n,_,_) => N.singleton n
+        | IL.For(_,n,body) => N.remove (defs_ss body,n)
+        | IL.Ifs(_,ss1,ss2) => N.union(defs_ss ss1,defs_ss ss2)
+        | IL.Printf _ => N.empty
+        | IL.Sprintf (n,_,_) => N.singleton n
+        | IL.ReadIntVecFile (n1,n2,_) => N.fromList[n1,n2]
+        | IL.ReadDoubleVecFile (n1,n2,_) => N.fromList[n1,n2]
+        | IL.Comment _ => N.empty
+
+  and defs_ss nil = N.empty
+    | defs_ss (s::ss) = N.union(defs_s s, N.difference(defs_ss ss,decls_s s))
+
+  fun uses_s s =
+      case s of
+          IL.Nop => N.empty
+        | IL.Ret e => uses e N.empty
+        | IL.Halt _ => N.empty
+        | IL.Free n => N.singleton n
+        | IL.Decl(n,SOME e) => uses e N.empty
+        | IL.Decl(n,NONE) => N.empty
+        | IL.Assign(n,e) => uses e N.empty
+        | IL.AssignArr(n,e1,e2) => uses e1 (uses e2 (N.singleton n))
+        | IL.For(e,n,body) => uses e (N.remove(uses_ss body,n))
+        | IL.Ifs(e,ss1,ss2) => uses e (N.union(uses_ss ss1,uses_ss ss2))
+        | IL.Printf(_,es) => usess es N.empty
+        | IL.Sprintf(n,_,es) => usess es N.empty                      (* notice: n is not used by the statement *)
+        | IL.ReadIntVecFile (n1,n2,e) => uses e (N.singleton n2)      (* notice: n1 is not used by the statement *)
+        | IL.ReadDoubleVecFile (n1,n2,e) => uses e (N.singleton n2)   (* notice: n1 is not used by the statement *)
+        | IL.Comment _ => N.empty
+  and uses_ss nil = N.empty
+    | uses_ss (s::ss) = N.union(uses_s s, N.difference(uses_ss ss,N.union(decls_s s,defs_s s)))
 
 (*
   fun dce ss =
@@ -607,6 +626,8 @@ in
   fun (IL.I a) <= (IL.I b) = B(Int32.<=(a,b))
     | (IL.D a) <= (IL.D b) = B(Real.<=(a,b))
     | (IL.C a) <= (IL.C b) = B(Word.<=(a,b))
+    | (IL.Binop(Addi,IL.I 1,e)) <= e' = e < e'
+    | a <= (IL.I b) =  a < (I(Int.+(b,1)))
     | a <= b = Binop(Lteq,a,b)
 
   fun notb IL.T = B false
@@ -689,10 +710,6 @@ in
   fun b2i IL.T = I 1
     | b2i IL.F = I 0
     | b2i e = Unop(B2I,e)
-
-  fun readIntVecFile (e1,e2) = IL.Binop(IL.ReadIntVecFile, e1, e2)
-  fun readDoubleVecFile (e1,e2) = IL.Binop(IL.ReadDoubleVecFile, e1, e2)
-
 end
 fun Subs(n,e) = IL.Subs(n,e)
 val Alloc = IL.Alloc
@@ -713,6 +730,8 @@ val Halt = IL.Halt
 val Free = IL.Free
 val Printf = IL.Printf
 val Sprintf = IL.Sprintf
+val ReadIntVecFile = IL.ReadIntVecFile
+val ReadDoubleVecFile = IL.ReadDoubleVecFile
 val Comment = IL.Comment
 fun isEmp ss = List.all (fn IL.Nop => true | _ => false) ss
 fun size ss =
@@ -786,7 +805,9 @@ fun defs ss : N.set =
         end
       | IL.Ifs(e,ss1,ss2) => N.union(N.union(defs ss1,defs ss2),defs ss)
       | IL.Printf _ => defs ss
-      | IL.Sprintf _ => defs ss
+      | IL.Sprintf (n,_,_) => N.insert(defs ss,n)
+      | IL.ReadIntVecFile (n1,n2,_) => N.union(defs ss,N.fromList[n1,n2])
+      | IL.ReadDoubleVecFile (n1,n2,_) => N.union(defs ss,N.fromList[n1,n2])
       | IL.Comment _ => defs ss
 
 fun rm_declsU U ss =
@@ -841,9 +862,9 @@ fun env_lookeq E n =
 fun lt E e1 e2 =
     let fun look E n i =
             case E of
-              (n', LtI(IL.I i'))::E => if n=n' andalso Int32.>=(i,i') then IL.T
+              (n', LtI(IL.I i'))::E => if n=n' andalso Int32.<=(i',i) then IL.T
                                        else look E n i
-            | (n', GtEqI(IL.I i'))::E => if n=n' andalso Int32.<=(i,i') then IL.F
+            | (n', GtEqI(IL.I i'))::E => if n=n' andalso Int32.>=(i',i) then IL.F
                                          else look E n i
             | x::E => look E n i
             | nil => e1 < e2
@@ -910,8 +931,6 @@ fun se_e (E:env) (e:e) : e =
     | IL.Binop(IL.Andb,e1,e2) => andb(se_e E e1, se_e E e2)
     | IL.Binop(IL.Orb,e1,e2) => orb(se_e E e1, se_e E e2)
     | IL.Binop(IL.Xorb,e1,e2) => xorb(se_e E e1, se_e E e2)
-    | IL.Binop(IL.ReadIntVecFile, e1, e2) => readIntVecFile(se_e E e1, se_e E e2)
-    | IL.Binop(IL.ReadDoubleVecFile, e1, e2) => readDoubleVecFile(se_e E e1, se_e E e2)
     | IL.Unop(IL.Neg,e1) => ~(se_e E e1)
     | IL.Unop(IL.I2D,e1) => i2d (se_e E e1)
     | IL.Unop(IL.D2I,e1) => d2i (se_e E e1)
@@ -986,7 +1005,17 @@ fun se_ss (E:env) (ss:ss) : ss =
             val ss1 = rm_decls0 ss1
         in ForOptimize (se_ss E') (e', n, ss1) ss
         end
-      | IL.Ifs(e,ss0,ss1) =>
+      | IL.Ifs(e,[],[IL.Halt str]) =>
+        let val e = se_e E e
+            val ss = case e of
+                         IL.Binop(IL.Lt,IL.Var n,x) =>
+                         let val E2 = (n,LtI x)::E
+                         in se_ss E2 ss
+                         end
+                       | _ => se_ss E ss
+        in Ifs(e,[],[Halt str]) ss
+        end
+        | IL.Ifs(e,ss0,ss1) =>
         let val e = se_e E e
             val ss0 = se_ss E ss0
             val ss1 = se_ss E ss1
@@ -999,17 +1028,19 @@ fun se_ss (E:env) (ss:ss) : ss =
         end
       | IL.Printf(s,es) => Printf(s, List.map(se_e E)es) :: se_ss E ss
       | IL.Sprintf(n,s,es) => Sprintf(n, s, List.map(se_e E)es) :: se_ss E ss
+      | IL.ReadIntVecFile(n1,n2,e) => ReadIntVecFile(n1, n2, se_e E e) :: se_ss E ss
+      | IL.ReadDoubleVecFile(n1,n2,e) => ReadDoubleVecFile(n1, n2, se_e E e) :: se_ss E ss
       | IL.Comment s => Comment s :: se_ss E ss
 
 (* Peep hole optimization *)
 and peep ss =
     case ss of
-      IL.Decl(n,NONE) :: IL.Assign(n',e') :: ss' =>
+      (s1 as IL.Decl(n,NONE)) :: (s2 as IL.Assign(n',e')) :: ss' =>
       ((* Util.prln ("peep candidate: " ^ Name.pr n ^ ", " ^ Name.pr n'); *)
        if n = n' then 
          ((*Util.prln ("peep: " ^ Name.pr n);*)
           peep(IL.Decl(n,SOME e') :: ss'))
-       else ss)
+       else peep(s2::s1::ss'))
     | IL.Decl(n,SOME e) :: IL.Assign(n',e') :: ss' =>
        if n = n' then 
          peep(IL.Decl(n,SOME(se_e [(n,EqI e)] e')) :: ss')
@@ -1020,5 +1051,10 @@ and peep ss =
        else ss
     | s :: IL.Nop :: ss => peep (s::ss)
     | IL.Nop :: ss => peep ss
+    | (s1 as IL.Decl(n,NONE)) :: (s2 as IL.Decl(_,SOME _)) :: ss' => 
+      peep(s2::s1::ss')
+    | (s1 as IL.Decl(n,NONE)) :: (s2 as IL.Comment _) :: ss' => 
+      peep(s2::s1::ss')
     | _ => ss
+
 end

@@ -7,31 +7,11 @@ structure P = Program
 val optimisationLevel = IL.optimisationLevel
 val enableComments = ref false
 val unsafeAsserts = ref false
-val statistics = ref false
+val statistics_p = ref false
+val hoist_p = ref false
 
-structure Stat : sig
-  val incr   : string -> unit
-  val report : unit -> unit
-end = struct
-  val table : (string, int ref) Util.alist ref = ref (Util.emptyAlist())
-  fun incr s = 
-      if !statistics then
-        case Util.lookupAlist (!table) s of
-            SOME r => r := !r + 1
-          | NONE => table := Util.extendAlist (!table) (s,ref 1)
-      else ()
-  fun report () =
-      if !statistics then
-        let val sz = List.foldl (fn ((s,_),a) => (Int.max(size s,a))) 0 (!table)
-            val () = Util.prln "[Statistics Report (Laila)]"
-            val rep = List.app (fn (s,r) => 
-                                   let val line = StringCvt.padRight #" " sz s ^ " -> " ^ Int.toString(!r)
-                                   in Util.prln (" " ^ line)
-                                   end) (!table)
-        in ()
-        end
-      else ()
-end
+val stat = Statistics.new "Laila" statistics_p
+val statIncr = Statistics.incr stat
 
 fun die s = raise Fail ("Laila." ^ s)
 
@@ -337,16 +317,26 @@ fun rm_decls0 ss = pr_wrap "rm_decls0" P.rm_decls0 ss
 fun rm_decls p = pr_wrap "rm_decls" (fn (e,ss) => P.rm_decls e ss) p
 
 (* Some utility functions *)
+fun opt_loop ss =
+    let fun opt ss =
+            let val ss = se_ss ss
+                val ss = ILUtil.cse ss
+                val ss = se_ss ss
+                val ss = se_ss ss
+                val ss = if !hoist_p then ILUtil.hoist ss
+                         else ss
+            in ss
+            end
+    in opt (opt ss)
+    end
+
 fun opt_ss0 ss =
-    let val ss = se_ss ss
-        val ss = se_ss ss
-        val ss = se_ss ss
+    let val ss = opt_loop ss
     in rm_decls0 ss
     end
 
 fun opt_ss e ss =
-    let val ss = se_ss ss
-        val ss = se_ss ss
+    let val ss = opt_loop ss
     in rm_decls (e,ss)
     end
 
@@ -359,7 +349,7 @@ fun pp_prog ((ta,tb,p): prog) : string =
 (*        val () = print "optimizing laila program\n" *)
         val ss = opt_ss0 ss
 (*        val () = print "printing laila program\n" *)
-    in Stat.report()
+    in Statistics.report stat
      ; ILUtil.ppFunction "kernel" (ta,tb) name_arg ss
     end
 
@@ -522,7 +512,7 @@ fun concat v1 v2 =
       let fun fromSh' ps nil nil = ret(I 0)
             | fromSh' (p::ps) (_::sh) (i::idx) = 
               fromSh' ps sh idx >>= (fn x =>
-              lett (addi(muli(i,p),x)))
+              lett (muli(i,p)) >>= (fn y => lett (addi(y,x))))
             | fromSh' _ _ _ = die "fromSh: dimension mismatch"
       in comment "fromSh" >>= (fn () =>
          rprod sh >>= (fn ps =>
@@ -704,14 +694,14 @@ fun zipWith ty g (a as Arr(_,sha,idxa)) (b as Arr(_,shb,idxb)) =
     case (idxa, idxb) of
         (F fa, F fb) =>
         let fun fr i = fa i >>= (fn va => fb i >>= (fn vb => g(va,vb)))
-        in Stat.incr "zipWith(F)";
+        in statIncr "zipWith(F)";
            lett (shEq sha shb) >>= (fn shapeeq =>
            assert "arguments to zipWith have different shape" shapeeq
            (ret(ArrF(ty,sha,fr))))
         end
      | (N fa, N fb) =>
         let fun fr i = fa i >>= (fn va => fb i >>= (fn vb => g(va,vb)))
-        in Stat.incr "zipWith(N)";
+        in statIncr "zipWith(N)";
            lett (shEq sha shb) >>= (fn shapeeq =>      
            assert "arguments to zipWith have different shape" shapeeq
            (ret(ArrN(ty,sha,fr))))
@@ -735,7 +725,7 @@ fun scanChunked ty sz n m g f =
 
 fun scan f a =
     let val (ty,sh,g) = toF0 a
-    in Stat.incr "scan";
+    in statIncr "scan";
        case List.rev sh of
            nil => ret a
          | m::rsh =>
@@ -756,12 +746,12 @@ fun catenate_first (a1 as Arr(ty1,sh1,idx1)) (a2 as Arr(ty2,sh2,idx2)) : m M =
               lett (shEq s1 s2) >>= (fn shapeeq =>
               assert "arguments to catenate_first have incompatible shapes" shapeeq (k()))
           fun flat f1 f2 =
-              (Stat.incr "catenate_first (F)";
+              (statIncr "catenate_first (F)";
                check (fn () =>
                lett (lprod sh1) >>= (fn boundary => 
                ret(ArrF(ty1,sh', fn i => If0(lti(i,boundary), f1 i, f2 (subi(i,boundary))))))))
           fun nested f1 f2 =
-              (Stat.incr "catenate_first (N)";
+              (statIncr "catenate_first (N)";
                check (fn () =>
                ret(ArrN(ty1,sh', fn i::ix => If0(lti(i,v1), f1 (i::ix), f2(subi(i,v1)::ix))
                                   | nil => die "catenate_first"))))
@@ -781,7 +771,7 @@ fun take n (Arr(ty,sh,idx)) =
                            | _ :: sh => absn :: sh
     in case idx of
            F f =>
-           (Stat.incr "take(F)";
+           (statIncr "take(F)";
             lett (lprod sh) >>= (fn sz =>
             lett (lprod sh') >>= (fn sz' =>
             lett (subi(sz',sz)) >>= (fn offset =>
@@ -790,7 +780,7 @@ fun take n (Arr(ty,sh,idx)) =
                                     ifM ty (andb(gtei(n,I 0),gtei(i,sz)), ret default,
                                             lett (If(negative_n,subi(i,offset),i)) >>= f))))))))
          | N f =>
-           (Stat.incr "take(N)";
+           (statIncr "take(N)";
             case (sh, sh') of
                 (s::sh1,s'::sh1') =>
                 lett (subi(s',s)) >>= (fn offset =>
@@ -813,12 +803,12 @@ fun drop n (Arr(ty,sh,idx)) =
            let val offset = case sh of
                                 nil => I 0
                               | _ :: subsh => maxi(I 0, muli(n,lprod subsh))
-           in Stat.incr "drop(F)";
+           in statIncr "drop(F)";
               lett offset >>= (fn offset =>
               ret (ArrF(ty,sh', fn i => lett (addi(i,offset)) >>= f)))
            end
          | N f =>
-           (Stat.incr "drop(N)";
+           (statIncr "drop(N)";
             lett (maxi(I 0,n)) >>= (fn offset =>
             ret (ArrN(ty,sh', fn i::ix => lett (addi(i,offset)) >>= (fn i' => f(i'::ix))
                                | _ => die "drop: impossible"))))
@@ -865,7 +855,7 @@ fun transpose2 idxs a =
         val () = if r <> sz_idxs then die "transpose2: wrong index vector length" else ()
         val sh' = exchange' idxs sh
     in if r < 2 then ret a
-       else (Stat.incr "transpose2(N)";
+       else (statIncr "transpose2(N)";
              comment "transpose2(N)" >>= (fn () =>
              ret (ArrN(ty,sh',f o exchange idxs))))
     end
@@ -878,7 +868,7 @@ fun catenate (t1:m) (t2:m) : m M =
 fun reduce f e (Arr(ty,sh,idx)) scalar array =
     case idx of
         N g =>
-        (Stat.incr "reduce(N)";
+        (statIncr "reduce(N)";
          case List.rev sh of
              nil => ret (scalar e)
            | [sz] => foldl f e (V(ty,sz,fn i => g [i])) >>= (ret o scalar)
@@ -888,7 +878,7 @@ fun reduce f e (Arr(ty,sh,idx)) scalar array =
                                fn ix => foldl f e (V(ty,s,fn j => g(ix@[j]))))))
              end)
       | F g =>
-        (Stat.incr "reduce(F)";
+        (statIncr "reduce(F)";
          case List.rev sh of
              nil => ret (scalar e)
            | [sz] => foldl f e (V(ty,sz,g)) >>= (ret o scalar)
@@ -925,7 +915,7 @@ fun replicate (def,is,vs) =
 
 fun vreverse a =
     let val (ty,sh,f) = toF0 a
-    in Stat.incr "vreverse";
+    in statIncr "vreverse";
        case sh of
            [] => ret a
          | n :: subsh =>
@@ -946,7 +936,7 @@ fun vrotate n (a as Arr(ty,sh,idx)) =
           let val n = If(gti(n,I 0),modi(n,s),subi(s,modi(negi n,s)))
           in case idx of
                  F f => 
-                  (Stat.incr "vrotate(F)";
+                  (statIncr "vrotate(F)";
                    lett (lprod sh') >>= (fn sz' =>
                    lett (muli(s,sz')) >>= (fn sz =>
                    lett (muli(n,sz')) >>= (fn offset =>
@@ -956,7 +946,7 @@ fun vrotate n (a as Arr(ty,sh,idx)) =
                    in ret(ArrF(ty,sh,f))
                    end))))
                | N f => 
-                 (Stat.incr "vrotate(N)";
+                 (statIncr "vrotate(N)";
                   comment "vrotate(N)" >>= (fn () =>
                   lett n >>= (fn offset =>
                   ret(ArrN(ty,sh,fn i::ix => 
@@ -979,7 +969,7 @@ fun power (f: m -> m M) (n: INT) a : m M =
              | multi_assign (n::ns) (x::xs) = (n := x) :: multi_assign ns xs
              | multi_assign _ _ = die "power - type mismatch"
            val sh = List.map Var names_sh
-       in (Stat.incr "power";
+       in (statIncr "power";
            materializeWithNameN (ty,sh,g) >>= (fn (g,name_vs) =>
            let open P
                val body = f (ArrN(ty,sh,g)) >>= (fn a' =>
@@ -1014,7 +1004,7 @@ fun indexFirst (n:INT) a (scalar: t -> 'b) (array: m -> 'b) : 'b M =
          | [s] => assert "VECTOR INDEX OUT OF BOUNDS" (ltei(n,s))
                          (f nminus1 >>= (ret o scalar))
          | s::sh' => assert "ARRAY INDEX OUT OF BOUNDS" (ltei(n,s))
-                            (Stat.incr "indexFirst";
+                            (statIncr "indexFirst";
                              lett (lprod sh') >>= (fn bulksz =>
                              lett (muli(nminus1,bulksz)) >>= (fn offset =>
                              ret $ array $ ArrF(ty,sh',fn i => f(addi(i,offset))))))))
@@ -1117,7 +1107,7 @@ fun prArr a =
 datatype mm = MA of sh * IL.Type * t * Name.t
 fun mk_mm a =
     let val (ty,sh,f) = toF0 a
-    in Stat.incr "mk_mm";
+    in statIncr "mk_mm";
        lett (lprod sh) >>= (fn sz =>
        materialize (V(ty,sz,f)) >>= (fn (name,name_n) =>
        ret(MA(sh,ty,P.Var name_n, name))))
@@ -1137,18 +1127,26 @@ fun nowi x = P.nowi x
 (* Reading files *)
 fun readFile _ = die "readFile not implemented"
 
-fun readVecFile ty reader a : m M =
-    toV a >>= (fn v =>
-    materialize v >>= (fn (name_file,name_n) =>
-    alloc0 Type.Int (I 1) >>= (fn name_count =>
-    lettWithName (reader(P.Var name_file, P.Var name_count)) >>= (fn (_, name_ivec) =>
-    lett (P.Subs(name_count,I 0)) >>= (fn count =>
-    ret(vec(V(ty,count,fn i => ret(P.Subs(name_ivec,i))))))))))
+fun decl ty =
+    let val n = Name.new ty
+    in (n, fn ss => IL.Decl(n,NONE) :: ss)
+    end
 
-val readIntVecFile : m -> m M = 
-    readVecFile Type.Int P.readIntVecFile
+fun readVecFile ty read a : m M =
+    let fun reader t = ((), fn ss => read t::ss)
+    in toV a >>= (fn v =>
+       materialize v >>= (fn (name_file,name_n) =>
+       alloc0 Type.Int (I 1) >>= (fn name_count =>
+       decl (Type.Vec ty) >>= (fn name_ivec =>
+       reader(name_ivec,name_count,P.Var name_file) >>= (fn () =>
+       lett (P.Subs(name_count,I 0)) >>= (fn count =>
+       ret(vec(V(ty,count,fn i => ret(P.Subs(name_ivec,i)))))))))))
+    end
+
+val readIntVecFile : m -> m M =
+    readVecFile Type.Int P.ReadIntVecFile
 
 val readDoubleVecFile : m -> m M = 
-    readVecFile Type.Double P.readDoubleVecFile
+    readVecFile Type.Double P.ReadDoubleVecFile
 
 end

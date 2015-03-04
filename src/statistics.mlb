@@ -1,0 +1,6 @@
+
+local $(SML_LIB)/basis/basis.mlb
+   util.mlb
+in statistics.sig
+   statistics.sml
+end

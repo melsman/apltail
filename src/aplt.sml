@@ -10,7 +10,8 @@ fun compileAndRun (flags,files) =
         val silent_p = Flags.flag_p flags "-silent"
         val () = Laila.unsafeAsserts := Flags.flag_p flags "-unsafe"
         val () = Laila.enableComments := Flags.flag_p flags "-comments"
-        val () = Laila.statistics := Flags.flag_p flags "-stat_laila"
+        val () = Laila.statistics_p := Flags.flag_p flags "-stat_laila"
+        val () = Laila.hoist_p := Flags.flag_p flags "-opt_hoist"
         val () = case Flags.flag flags "-O" of
                      NONE => ()
                    | SOME n =>
@@ -63,6 +64,7 @@ fun usage() =
     " -O n        : optimisation level (n>0 optimises double operations aggresively)\n" ^
     " -comments   : write comments in generated C code\n" ^
     " -unsafe     : don't include assert code in generated C code for array indexing\n" ^
-    " -stat_laila : print statistics for LAILA code generation\n"
+    " -stat_laila : print statistics for LAILA code generation\n" ^
+    " -opt_hoist  : enable hoist optimization in LAILA code generation\n"
 
 val () = Flags.runargs {usage=usage,run=compileAndRun,unaries=["-o","-oc","-O"]}

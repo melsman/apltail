@@ -231,7 +231,7 @@ double* read_csv_doubles(FILE* handle, int* valuesRead) {
   return buffer_ptr;
 }
 
-int* readIntVecFile(char* filename, int* valuesRead) {
+int* readIntVecFile(int* valuesRead, char* filename) {
   FILE* file = fopen(filename, "r");
   if (file == NULL) {
     fprintf(stderr, "Error reading %s: %d (%s)\n", filename, errno, strerror(errno));
@@ -248,7 +248,7 @@ int* readIntVecFile(char* filename, int* valuesRead) {
   return res;
 }
 
-double* readDoubleVecFile(char* filename, int* valuesRead) {
+double* readDoubleVecFile(int* valuesRead, char* filename) {
   FILE* file = fopen(filename, "r");
   if (file == NULL) {
     fprintf(stderr, "Error reading %s: %d (%s)\n", filename, errno, strerror(errno));

@@ -17,4 +17,7 @@ signature ILUTIL = sig
   val ppFunction  : string -> Type.T * Type.T -> Name.t -> ss -> string
   val ppValue     : value -> string
   val typeExp     : e -> Type.T
+
+  val cse         : ss -> ss
+  val hoist       : ss -> ss
 end

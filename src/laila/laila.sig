@@ -2,18 +2,19 @@ signature LAILA = sig
 
   include TYPE
 
-  val optimisationLevel : int ref
-  val enableComments : bool ref
-  val unsafeAsserts : bool ref
-  val statistics : bool ref
+  val optimisationLevel : int ref     (* -O 2: constant folding on double operations *)
+  val enableComments : bool ref       (* Print comments in generated code *)
+  val unsafeAsserts : bool ref        (* Don't insert asserts for zipWith, etc. *)
+  val statistics_p : bool ref         (* Print statistics *)
+  val hoist_p : bool ref              (* Hoist optimization *)
 
-  type 'a M    (* monad encapsulating program construction *)
+  (* Monad encapsulating program construction *)
+  type 'a M
   val >>=      : 'a M * ('a -> 'b M) -> 'b M
   val ret      : 'a -> 'a M
 
   (* Terms *)
-  type t                      (* terms *)
-
+  type t
   val I        : Int32.int -> t
   val D        : real -> t
   val B        : bool -> t
@@ -43,14 +44,10 @@ signature LAILA = sig
   val pp_prog  : prog -> string
   val ppV      : value -> string
 
-  type m (* APL multi-dimensional arrays *)
-
   type INT = t
   type DOUBLE = t
   type BOOL = t
   type CHAR = t
-
-  val fromListM : T -> t list -> m M
 
   val assert    : string -> BOOL -> 'a M -> 'a M
 
@@ -113,54 +110,39 @@ signature LAILA = sig
   val xorb    : BOOL * BOOL -> BOOL
   val notb    : BOOL -> BOOL
 
-  val zilde   : T -> m
-  val scl     : T -> t -> m  (* scalar value *) 
-  val enclose : t -> m       (* one dimensional vector with one element *)
-  val iota    : INT -> m
-
-  val rank    : m -> INT
-
-  val rav     : m -> m M
-
-  val dimincr : m -> m (* shape(dimincr(m)) = shape(m)@[1] *)
-
-  val each    : T -> (t -> t M) -> m -> m
-
-  val lett    : t -> t M
-  val letm    : m -> m M
-
-  val zipWith : T -> (t * t -> t M) -> m -> m -> m M
-
+  (* APL multi-dimensional arrays *)
+  type m 
+  val zilde      : T -> m
+  val scl        : T -> t -> m  (* scalar value *) 
+  val enclose    : t -> m       (* one dimensional vector with one element *)
+  val iota       : INT -> m
+  val rank       : m -> INT
+  val rav        : m -> m M
+  val dimincr    : m -> m (* shape(dimincr(m)) = shape(m)@[1] *)
+  val each       : T -> (t -> t M) -> m -> m
+  val lett       : t -> t M
+  val letm       : m -> m M
+  val mem        : m -> m M
+  val zipWith    : T -> (t * t -> t M) -> m -> m -> m M
   val scan       : (t * t -> t M) -> m -> m M
-
   val catenate   : m -> m -> m M
-
   val take       : INT -> m -> m M
   val drop       : INT -> m -> m M
-
   val first      : m -> t M
-
-  val mem        : m -> m M
-
   val rotate     : INT -> m -> m  (* ok for vectors *)
-
   val vreverse   : m -> m M
   val vrotate    : INT -> m -> m M
-
   val reshape    : m -> m -> m M
   val shape      : m -> m
-
   val reduce     : (t * t -> t M) -> t -> m -> (t -> 'b) -> (m -> 'b) -> 'b M
-
   val transpose  : m -> m M
   val transpose2 : int list -> m -> m M
-
   val compress   : m * m -> m M
   val replicate  : t * m * m -> m M
-
   val power      : (m -> m M) -> INT -> m -> m M
   val powerScl   : (t -> t M) -> INT -> t -> t M
   val condScl    : (t -> t M) -> BOOL -> t -> t M
+  val fromListM  : T -> t list -> m M
 
   (* Indexing *)
   val idxS       : INT -> INT -> m -> (t -> 'b) -> (m -> 'b) -> 'b M
