@@ -13,7 +13,7 @@ fun flag flags s =
 
 fun isFlag s =
     case String.explode s of
-        #"-" :: _ => true
+        #"-" :: _ :: _ => true
       | _ => false
 
 fun runargs {unaries: string list,
