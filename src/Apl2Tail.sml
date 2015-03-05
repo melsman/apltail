@@ -1086,7 +1086,7 @@ fun compileExp (flags : Flags.flags) G (e : AplAst.exp) : res =
                 SOME ofile => T.outprog p_types ofile p
               | NONE =>
                 if p_tail andalso not verbose_p then
-                  (print "TAIL program:\n";
+                  (if not silent_p then print "TAIL program:\n" else ();
                    print (T.pp_prog p_types p);
                    print "\n")
                 else ()  (* program already printed! *)

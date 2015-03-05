@@ -13,7 +13,7 @@ fun flag flags s =
 
 fun isFlag s =
     case String.explode s of
-        #"-" :: _ => true
+        #"-" :: _ :: _ => true
       | _ => false
 
 fun runargs {unaries: string list,
@@ -29,7 +29,7 @@ fun runargs {unaries: string list,
               | f :: rest => 
                 if isFlag f then loop rest ((f,NONE)::acc)
                 else run(rev acc, args)
-              | nil => print(usage () ^ "\n")
+              | nil => (print(usage () ^ "\n"); OS.Process.exit OS.Process.failure)
     in loop (CommandLine.arguments()) nil
     end
 

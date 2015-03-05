@@ -43,7 +43,7 @@ fun compileAndRun (flags,files) =
                             else ()  (* program already printed! *)
                      end
              end
-           | NONE => ()
+           | NONE => OS.Process.exit OS.Process.failure
     end
         
 val name = CommandLine.name()

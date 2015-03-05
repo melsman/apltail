@@ -1,6 +1,7 @@
 MLCOMP ?= mlton -mlb-path-map $(HOME)/.mlton/mlb-path-map
 FILES=src/flags.sml src/flags.mlb src/aplt.sml src/aplt.mlb \
   src/apl2tail.mlb src/Apl2Tail.sml src/Tail2Laila.sml \
+  src/util.sig src/util.sml src/util.mlb \
   $(shell ls -1 src/tail/*.sig src/tail/*.sml src/tail/*.mlb) \
   $(shell ls -1 src/il/*.sig src/il/*.sml src/il/*.mlb) \
   $(shell ls -1 src/laila/*.sig src/laila/*.sml src/laila/*.mlb)

@@ -53,9 +53,12 @@ val maxInt = case Int.maxInt of
                  SOME i => i
                | NONE => raise Fail "Util.no maxInt"
 
+
 (* File manipulation *)
 fun readFile f =
-    let val is = TextIO.openIn f
+    let val is = case f of
+                    "-" => TextIO.stdIn
+                  | _   => TextIO.openIn f
     in let val s = TextIO.inputAll is
        in TextIO.closeIn is;
           s
