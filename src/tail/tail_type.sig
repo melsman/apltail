@@ -20,19 +20,19 @@
 *)
 
 signature TAIL_TYPE = sig
-  (* Ranks *)
+  (* Ranks (\rho) *)
   type rnk
   val rnk       : int -> rnk
   val unRnk     : rnk -> int option
-  val RnkVar    : unit -> rnk
+  val RnkVar    : unit -> rnk (* generate new shape variable *)
   val RnkVarCon : (int->string option) -> rnk
   val relateR   : (int -> int) * (int -> int) -> rnk -> rnk -> string option
   val relateR2  : {f12: int*int->int,f13:int*int->int,f23:int*int->int} -> 
                   rnk -> rnk -> rnk -> string option
-  val unifyR    : rnk -> rnk -> string option
+  val unifyR    : rnk -> rnk -> string option (* unify two shape variables. Returns NONE on _success_! *)
   val prRnk     : rnk -> string
 
-  (* Base types *)
+  (* Base types (\kappa) *)
   type bty
   val IntB     : bty
   val BoolB    : bty
@@ -42,11 +42,11 @@ signature TAIL_TYPE = sig
   val isDouble : bty -> bool
   val isBool   : bty -> bool
   val isChar   : bty -> bool
-  val TyVarB   : unit -> bty
-  val unifyB   : bty -> bty -> string option
+  val TyVarB   : unit -> bty    (* generate new base type variable *)
+  val unifyB   : bty -> bty -> string option (* unify two base type variables. Returns NONE on _success_! *)
   val prBty    : bty -> string
 
-  (* Types *)
+  (* Types (\tau) *)
   type typ
   val Arr      : bty -> rnk -> typ         (* Array type [k]r *)
   val Vcc      : bty -> rnk -> typ         (* Vector type <k>r *)
@@ -71,9 +71,9 @@ signature TAIL_TYPE = sig
   val unFun    : typ -> (typ * typ) option
   val unArr'   : typ -> (bty * rnk) option    (* also returns values for Vcc,S,SV *)
 
-  val TyVar    : unit -> typ
-  val subtype  : typ -> typ -> string option
-  val unify    : typ -> typ -> string option
+  val TyVar    : unit -> typ  (* create type variable *)
+  val subtype  : typ -> typ -> string option (* is subtype. Returns NONE on _success_! *)
+  val unify    : typ -> typ -> string option (* unify two type variables. Returns NONE on _success_! *)
   val join     : typ -> typ -> typ  (* least common supertype; may raise Fail *)
   val prType   : typ -> string
 end

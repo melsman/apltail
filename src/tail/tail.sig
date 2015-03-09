@@ -9,12 +9,13 @@ signature TAIL = sig
 
   structure Exp : TAIL_EXP
 
-  (* Types *)
+  (* Types (phantom types) *)
   eqtype Int and Double and 'a Num  (* numeric types *)
      and Bool                       (* booleans *)
      and Char                       (* characters *)
      and 'a Vec                     (* vectors *)
 
+  (* TAIL types (= TAIL_TYPE.typ) *)
   eqtype 'a T                       (* Type constructors *)
   val Int       : Int Num T
   val Double    : Double Num T
@@ -35,6 +36,7 @@ signature TAIL = sig
   type 'a t     = Exp.exp         (* terms *)
   type 'a v     = 'a Vec t        (* vector terms *)
 
+  (* TAIL terms w. added phantom types *)
   type 'a NUM   = 'a Num t        (* basic term types *)
   type INT      = Int NUM
   type DOUBLE   = Double NUM
@@ -52,13 +54,30 @@ signature TAIL = sig
   val fromList  : 'a T -> 'a t list -> 'a v
   val fromChars : word list -> Char v
 
-  (* Compiled Programs *)
+  (* Compiled Programs
+        'a - ???
+        'b - the return type of the expression *)
   type ('a,'b) prog
+
+  (* [runM flags t0 c] Runs the monadic expression c, type checks it
+       and optimizes it.
+
+       Prints type errors and intermediate representations if the
+       'verbose' flag (-v) is set.
+
+       The expression is expected to return a value of type 't0'.
+   *)
   val runM      : {verbose: bool, optlevel: int, prtype: bool} 
                   -> 'b T -> 'b t M -> (unit,'b) prog
+
+  (* Run the monadic expression, the function will be given a variable
+     where to store the final result *)
   val runF      : 'a T * 'b T -> ('a t -> 'b t M) -> ('a,'b) prog
-  val outprog   : bool -> string -> ('a,'b)prog -> unit
-  val runHack   : 'a M -> 'a option 
+
+  (* [outprog prtype filename c]
+       'prtype' indicates whether the output should include instance lists. *)
+  val outprog   : bool -> string -> ('a,'b) prog -> unit
+  val runHack   : 'a M -> 'a option
   val toExp     : (unit,'b) prog -> 'b t 
 
   (* Values and Evaluation *)
@@ -79,6 +98,7 @@ signature TAIL = sig
 
   type 'a m (* APL multi-dimensional arrays *)
 
+  (* TAIL built-in operations *)
   val ceil      : DOUBLE -> INT
   val floor     : DOUBLE -> INT
   val ln        : DOUBLE -> DOUBLE
@@ -154,6 +174,7 @@ signature TAIL = sig
   val siz       : 'a m -> INT
   val dim       : 'a m -> INT
 
+  (* Ravel *)
   val rav       : 'a m -> 'a m
   val rav0      : 'a m -> 'a v
 
@@ -178,6 +199,7 @@ signature TAIL = sig
 
   val first     : 'a m -> 'a t
 
+  (* Memoize *)
   val mem       : 'a m -> 'a m
 
   val rotate    : INT -> 'a m -> 'a m
