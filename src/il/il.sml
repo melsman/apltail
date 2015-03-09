@@ -248,7 +248,7 @@ signature PROGRAM = sig
   val decls_s   : s -> IL.NameSet.set
 
   (* static evaluation *)
-  datatype info = EqI of e
+  datatype info = EqI of bool * e
                 | LtI of e
                 | GtEqI of e 
   type env = (Name.t * info) list
@@ -834,11 +834,11 @@ fun rm_decls0 ss =
     rm_declsU N.empty ss
 
 infix ::=
-datatype info = EqI of e
+datatype info = EqI of bool * e   (* true ==> e *must* be inlined *)
               | LtI of e
               | GtEqI of e 
 
-fun names_info (EqI e) = uses e N.empty
+fun names_info (EqI(_,e)) = uses e N.empty
   | names_info (LtI e) = uses e N.empty
   | names_info (GtEqI e) = uses e N.empty
 
@@ -888,10 +888,33 @@ fun modu E e1 e2 =
       | _ => default()
     end
 
+fun eq E0 e1 e2 =
+    let fun default() = e1 == e2
+        fun look E e d : bool option =
+            case (e, E) of
+                (IL.Var n, (n',GtEqI(IL.I d'))::E) => if n=n' andalso Int.>(d',d) then SOME false
+                                                      else look E e d
+              | (IL.Var n, (n',EqI(_,IL.I d'))::E) => if n=n' andalso d=d' then SOME true
+                                                      else look E e d
+              | (IL.Var n, (n',EqI(_,IL.Binop(IL.Mul,a,b)))::E) => if n=n' andalso d=0 then
+                                                                     (case (look E0 a 0, look E0 b 0) of
+                                                                          (SOME false, SOME false) => SOME false
+                                                                        | _ => look E e d)
+                                                                   else look E e d
+              | (_, _ :: E) => look E e d
+              | _ => NONE
+    in case e2 of
+           IL.I d => (case look E0 e1 d of 
+                          SOME b => B b
+                        | _ => default())
+         | _ => default()
+    end
+
 (* Static evaluation *)
 fun se_e (E:env) (e:e) : e =
     case e of
-      IL.Var n => (case env_lookeq E n of SOME e => e (*if simpleExp e then e else Var n *)
+      IL.Var n => (case env_lookeq E n of SOME(true,e) => e (*if simpleExp e then e else Var n *)
+                                        | SOME(false,e) => Var n
                                         | NONE => Var n)
     | IL.I i => I i
     | IL.D d => D d
@@ -902,7 +925,7 @@ fun se_e (E:env) (e:e) : e =
     | IL.Subs(n,e) =>
       let val e = se_e E e
       in case (env_lookeq E n, e) of 
-             (SOME (IL.Vect(_,es)), IL.I i) => 
+             (SOME (_,IL.Vect(_,es)), IL.I i) => 
              (List.nth (es,i) handle _ => raise Fail "se_e: Subs")
            | _ => Subs(n,e)
       end
@@ -920,7 +943,7 @@ fun se_e (E:env) (e:e) : e =
     | IL.Binop(IL.Powd,e1,e2) => powd (se_e E e1, se_e E e2)
     | IL.Binop(IL.Lt,e1,e2) => lt E (se_e E e1) (se_e E e2)
     | IL.Binop(IL.Lteq,e1,e2) => (se_e E e1) <= (se_e E e2)
-    | IL.Binop(IL.Eq,e1,e2) => (se_e E e1) == (se_e E e2)
+    | IL.Binop(IL.Eq,e1,e2) => eq E (se_e E e1) (se_e E e2)
     | IL.Binop(IL.Resi,e1,e2) => resi(se_e E e1, se_e E e2)
     | IL.Binop(IL.Ori,e1,e2) => ori(se_e E e1, se_e E e2)
     | IL.Binop(IL.Andi,e1,e2) => andi(se_e E e1, se_e E e2)
@@ -965,11 +988,12 @@ fun se_ss (E:env) (ss:ss) : ss =
 	    (* val () = assert_name(E,n) *)
             val E2 = 
                 case (IL.Name.typeOf n, e) of
-                    (IL.Vec _, IL.Vect _) => (n,EqI e)::E
+                    (IL.Vec _, IL.Vect _) => (n,EqI(true,e))::E
                   | (IL.Vec _, _) => E
                   | (IL.Int, IL.Binop(IL.Modv, _, e)) => (n, LtI e)::E
-                  | _ => if simpleExp e then (n,EqI e)::E
-                         else E
+                  | _ => if simpleExp e then (n,EqI(true,e))::E
+                         else case e of IL.Binop(IL.Mul,a,b) => (n,EqI(false,e))::E
+                                      | _ => E
             val ss = se_ss E2 ss
         in Decl(n,SOME e) :: ss
         end
@@ -1001,6 +1025,9 @@ fun se_ss (E:env) (ss:ss) : ss =
             val e' = se_e E' e
             val E2 = (n,GtEqI(I 0))::E'
 	    val	E2 = (n,LtI e')::E2
+            val E2 = case e' of
+                         IL.Var n => (n,GtEqI(I 1))::E2
+                       | _ => E2
             val ss1 = se_ss E2 body
             val ss1 = rm_decls0 ss1
         in ForOptimize (se_ss E') (e', n, ss1) ss
@@ -1043,11 +1070,11 @@ and peep ss =
        else peep(s2::s1::ss'))
     | IL.Decl(n,SOME e) :: IL.Assign(n',e') :: ss' =>
        if n = n' then 
-         peep(IL.Decl(n,SOME(se_e [(n,EqI e)] e')) :: ss')
+         peep(IL.Decl(n,SOME(se_e [(n,EqI(true,e))] e')) :: ss')
        else ss
     | IL.Assign(n,e) :: IL.Assign(n',e') :: ss' =>
        if n = n' then 
-         peep((n := (se_e [(n,EqI e)] e')) :: ss')
+         peep((n := (se_e [(n,EqI(true,e))] e')) :: ss')
        else ss
     | s :: IL.Nop :: ss => peep (s::ss)
     | IL.Nop :: ss => peep ss

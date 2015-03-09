@@ -496,7 +496,7 @@ structure ILUtil : ILUTIL = struct
       let val eS = ppExp e
       in case FM.lookup E eS of
              SOME (n,_) => 
-             (print ("Substituting " ^ Name.pr n ^ " for " ^ eS ^ "\n"); Var n)
+             ((*print ("Substituting " ^ Name.pr n ^ " for " ^ eS ^ "\n");*) Var n)
            | NONE => e
       end
 
