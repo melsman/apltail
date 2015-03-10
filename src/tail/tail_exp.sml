@@ -681,9 +681,9 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
               | Bb of bool
               | Cb of word
               | Fb of denv * var * typ * texp * typ
-  withtype denv = (var * bv Apl.t) list
+  withtype denv = (var * bv Apl.APLArray) list
 
-  type value = bv Apl.t
+  type value = bv Apl.APLArray
 
   fun Dvalue v = Apl.scl (Db 0.0) (Db v)
   fun unDvalue _ = raise Fail "exp.unDvalue: not implemented"
@@ -776,7 +776,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   fun roll 0 = Random.random (!rgen)
     | roll i = real (Random.range (0,i) (!rgen))
 
-  fun fileVecReader fname (f: string -> 'a list) (d: 'a) (g : 'a -> 'b) : 'b Apl.t =
+  fun fileVecReader fname (f: string -> 'a list) (d: 'a) (g : 'a -> 'b) : 'b Apl.APLArray =
       let val v = Apl.map #" " (fn Cb w => wordToChar w 
                                  | _ => raise Fail "eval:fileVecReader") fname
           fun finally x f g =
