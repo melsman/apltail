@@ -26,16 +26,16 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   fun unScl s t =
       case unArr t of
           SOME (bt,r) => (case unifyR r (rnk 0) of
-                              SOME s' => raise Fail (s' ^ " in " ^ s)
-                            | NONE => bt)
+                              ERROR s' => raise Fail (s' ^ " in " ^ s)
+                            | SUCCESS => bt)
         | NONE =>
           case unS t of
               SOME (bt,_) => bt
             | NONE => 
               let val bt = TyVarB()
               in case unify t (Arr bt (rnk 0)) of
-                     SOME s' => raise Fail (s' ^ " in " ^ s)
-                   | NONE => bt
+                     ERROR s' => raise Fail (s' ^ " in " ^ s)
+                   | SUCCESS => bt
               end
 
   fun unUnaryFun s ty =
@@ -77,8 +77,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           let val tv = TyVarB()
               val r = RnkVar()
           in case unify t (Arr tv r) of
-                 NONE => (tv,r)
-               | SOME _ => 
+                 SUCCESS => (tv,r)
+               | ERROR _ => 
                  raise Fail ("expecting array type, but got "
                              ^ prType t ^ " in " ^ s)
           end
@@ -90,8 +90,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           let val tv = TyVarB()
               val r = RnkVar()
           in case unify t (S tv r) of
-                 NONE => (tv,r)
-               | SOME _ => 
+                 SUCCESS => (tv,r)
+               | ERROR _ => 
                  raise Fail ("expecting singleton type, but got "
                              ^ prType t ^ " in " ^ s)
           end
@@ -132,8 +132,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   (* Typing *)
   fun assert0 unify s t1 t2 =
       case unify t1 t2 of
-          SOME s' => raise Fail (s' ^ " in " ^ s)
-        | NONE => ()
+          ERROR s' => raise Fail (s' ^ " in " ^ s)
+        | SUCCESS => ()
 
   val assert = assert0 unify
   val assertR = assert0 unifyR

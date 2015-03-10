@@ -6,8 +6,10 @@ type bv = string
 type tv = string
 type rv = string
 
+datatype unify_result  = SUCCESS | ERROR of string
+
 datatype r = R of int
-           | Rv of rv * (int->string option)
+           | Rv of rv * (int -> unify_result)
 withtype rnk = r uref
 datatype b = IntT
            | DoubleT
@@ -29,7 +31,7 @@ local
       in fn () => s ^ Int.toString(!c before c:= !c + 1)
       end
 in fun RnkVarCon f : rnk = uref(Rv(newcount "'r" (),f))
-   fun RnkVar ()   : rnk = RnkVarCon (fn _ => NONE)
+   fun RnkVar ()   : rnk = RnkVarCon (fn _ => SUCCESS)
    fun TyVarB ()   : bty = uref(Bv(newcount "'b" ()))
    fun TyVar ()    : typ = uref(TyvT(newcount "'a" ()))
 end
@@ -89,8 +91,8 @@ fun unS   t = case !!t of ST p   => SOME p | _ => NONE
 fun unSV  t = case !!t of SVT p  => SOME p | _ => NONE
 fun unFun t = case !!t of FunT p => SOME p | _ => NONE
 
-fun comb f1 f2 t = case f1 t of NONE => f2 t | x => x
-fun check f t = case f t of SOME s => raise Fail s | NONE => ()
+fun comb f1 f2 t = case f1 t of SUCCESS => f2 t | x => x
+fun check f t = case f t of ERROR s => raise Fail s | SUCCESS => ()
 
 fun isInt    bt = case !!bt of IntT    => true | _ => false
 fun isDouble bt = case !!bt of DoubleT => true | _ => false
@@ -199,8 +201,9 @@ fun join t1 t2 =
               | (SOME(bt1,_), NONE) => join (VecB bt1) t2
               | (NONE, SOME(bt2,_)) => join t1 (VecB bt2)
               | _ => (unif t1 t2; t1)
-                
-fun wrap f x y = (f x y; NONE) handle Fail s => SOME s
+
+
+fun wrap f x y = (f x y; SUCCESS) handle Fail s => ERROR s
 val unify = wrap unif
 val subtype = wrap subtype
 val unifyR = wrap unifR
