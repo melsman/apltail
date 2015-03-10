@@ -7,5 +7,6 @@ local
    local $(SMACKAGE)/kitlib/v1/finmap/finmap.mlb
    in Tail2Laila.sml
    end
+   $(APLPARSE_LIB)/aplparse.mlb
 in aplt.sml
 end

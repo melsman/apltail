@@ -104,22 +104,22 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
 
   (* Expressions *)
 
-  datatype exp =
+  datatype texp =
            Var of var * typ
          | I of Int32.int
          | D of real
          | B of bool
          | C of word
-         | Iff of exp * exp * exp * typ
-         | Vc of exp list * typ
-         | Op of opr * exp list * typ
-         | Let of var * typ * exp * exp * typ
-         | Fn of var * typ * exp * typ
+         | Iff of texp * texp * texp * typ
+         | Vc of texp list * typ
+         | Op of opr * texp list * typ
+         | Let of var * typ * texp * texp * typ
+         | Fn of var * typ * texp * typ
 
   (* Environments *)
   type env = (var * typ) list
 
-  val empEnv = nil
+  val emptyEnv = nil
 
   fun lookup e v =
       case e of
@@ -680,7 +680,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
               | Db of real
               | Bb of bool
               | Cb of word
-              | Fb of denv * var * typ * exp * typ
+              | Fb of denv * var * typ * texp * typ
   withtype denv = (var * bv Apl.t) list
 
   type value = bv Apl.t
@@ -731,7 +731,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                       
   fun pr_value v = Apl.pr (pr_bv,",") v
 
-  val empDEnv = nil
+  val emptyDEnv = nil
   val addDE = add
 
   fun unIb (Ib b) = b

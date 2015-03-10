@@ -6,5 +6,6 @@ local
    flags.mlb
 in
    tail/tail.mlb
+   Apl2Tail.sig
    Apl2Tail.sml
 end

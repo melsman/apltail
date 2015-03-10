@@ -1,13 +1,8 @@
-functor Apl2Tail(T : TAIL) :
-sig
-  (* supported flags: [-o f, -tl, -c, -v, -noopt, -p_types, -s_tail, -s_parse] *)
-  type res = (unit, T.Double T.Num) T.prog option
-
-  val compile : Flags.flags -> string list -> res
-end = 
+functor Apl2Tail (T : TAIL) : APL2TAIL =
 struct
 
-type res = (unit, T.Double T.Num) T.prog option
+structure T = T
+type flags = {verbose : bool, optlevel : int, prtype : bool}
 
 local
   open T
@@ -30,53 +25,48 @@ local
   fun id_item_double (ii:id_item) = id_item (#2 ii) 0.0
   fun id_item_bool (ii:id_item) = id_item (#3 ii) false
 
-  type mb = Bool m          (* Multidimensional bool array *)
-  type mi = Int Num m       (* Multidimensional integer array *)
-  type md = Double Num m    (* Multidimensional double array *)
-  type mc = Char m          (* Multidimensional char array *)
-
   infix >>=
 
   datatype 'a N = S of 'a
                 | M of 'a M
   infix >>>=
-  val rett : 'a -> 'a N = fn a => S a
-  fun (a: 'a N) >>>= (b: 'a -> 'b N) : 'b N =
-      case a of
-        M a => M(a >>= (fn a => case b a of S x => ret x
-                                          | M m => m))
-      | S a => b a
+  val rett : 'a -> 'a N = fn x => S x
+  fun (x: 'a N) >>>= (b: 'a -> 'b N) : 'b N =
+      case x of
+        M y => M(y >>= (fn a => case b a of S x => ret x
+                                          | M arr => arr))
+      | S y => b y
 
   (* subM : s N -> s M *)
   fun subM (M c) = c
     | subM (S e) = ret e
 
-  datatype ty = Ity | Dty | Bty | Cty | Aty of ty | FUNty of ty list -> ty | APPty of ty list * ty 
+  (* datatype ty = Ity | Dty | Bty | Cty | Aty of ty | FUNty of ty list -> ty | APPty of ty list * ty  *)
 
   datatype s =                         (* Terms *)
       Bs of BOOL                       (*   boolean *)
     | Is of INT                        (*   integer *)
     | Ds of DOUBLE                     (*   double *)
     | Cs of CHAR                       (*   char *)
-    | Abs of mb                        (*   boolean array *)
-    | Ais of mi                        (*   integer array *)
-    | Ads of md                        (*   double array *)
-    | Acs of mc                        (*   char array *)
+    | Abs of Bool ndarray              (*   boolean array *)
+    | Ais of Int Num ndarray           (*   integer array *)
+    | Ads of Double Num ndarray        (*   double array *)
+    | Acs of Char ndarray              (*   char array *)
     | Ts of s list                     (*   tuple *)
     | Fs of (s list -> s N) * id_item  (*   function in-lining *)
 
-  fun pp_s s =
-      case s of
-          Bs _ => "Bs"
-        | Is _ => "Is"
-        | Ds _ => "Ds"
-        | Cs _ => "Cs"
-        | Abs _ => "Abs"
-        | Ais _ => "Ais"
-        | Ads _ => "Ads"
-        | Acs _ => "Acs"
-        | Ts ss => "Ts(" ^ String.concatWith "," (List.map pp_s ss) ^ ")"
-        | Fs _ => "Fs"
+  (* fun pp_s s = *)
+  (*     case s of *)
+  (*         Bs _ => "Bs" *)
+  (*       | Is _ => "Is" *)
+  (*       | Ds _ => "Ds" *)
+  (*       | Cs _ => "Cs" *)
+  (*       | Abs _ => "Abs" *)
+  (*       | Ais _ => "Ais" *)
+  (*       | Ads _ => "Ads" *)
+  (*       | Acs _ => "Acs" *)
+  (*       | Ts ss => "Ts(" ^ String.concatWith "," (List.map pp_s ss) ^ ")" *)
+  (*       | Fs _ => "Fs" *)
 
   fun itemize [] = ""
     | itemize [s1, s2] = s1 ^ " and " ^ s2
@@ -113,9 +103,9 @@ local
                  | Fs _ => ret s
 
   open AplAst
-  type env = (id,s)Util.alist
+  type env = (id,s) Util.alist
   val lookup = Util.lookupAlist
-  val emp : env = Util.emptyAlist()
+  val empty : env = Util.emptyAlist ()
   infix ++ 
   val op ++ = Util.plusAlist
   fun repair s = String.translate (fn #"-" => "~"
@@ -124,7 +114,7 @@ local
   fun StoD s = Real.fromString(repair s)
 in
 
-(* Error functions *)
+(* Error functions, raises Fail *)
 fun compError msg =
     raise Fail ("Compile Error: " ^ msg)
 
@@ -447,15 +437,15 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
             case e of
               IntE (s,r) =>
               (case StoI s of
-                   SOME 0 => k (Bs(B false),emp)
-                 | SOME 1 => k (Bs(B true),emp)
-                 | SOME i => k (Is(I i),emp) 
+                   SOME 0 => k (Bs(B false),empty)
+                 | SOME 1 => k (Bs(B true),empty)
+                 | SOME i => k (Is(I i),empty) 
                  | NONE => compErr r ("expects an integer, got " ^ s))
-            | StrE ([w],r) => k (Cs(C w),emp)
-            | StrE (ws,r) => k (Acs(vec(fromChars ws)),emp)
+            | StrE ([w],r) => k (Cs(C w),empty)
+            | StrE (ws,r) => k (Acs(vec(fromChars ws)),empty)
             | DoubleE (s,r) =>
               (case StoD s of
-                 SOME d => k (Ds(D d),emp)
+                 SOME d => k (Ds(D d),empty)
                | NONE => compErr r ("expects a double, got " ^ s))
             | IndexE(e,opts,r) =>
               (*  
@@ -487,9 +477,9 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                                           case findOpt 1 (List.map toI opts) of
                                               SOME (x,i,xs) => 
                                               (case findOpt 1 xs of
-                                                   NONE => k(idxS x i a scalar array, emp)
+                                                   NONE => k(idxS x i a scalar array, empty)
                                                  | SOME _ => compErr r "only simple indexing supported")
-                                            | NONE => k(array a,emp)
+                                            | NONE => k(array a,empty)
                                       )
               in comp G e (fn (Ais a,_) => genericIndexing Is Ais a
                             | (Ads a,_) => genericIndexing Ds Ads a
@@ -506,7 +496,7 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                                                                      handle _ => 
                                                                             compErr r ("index " ^ Int.toString i ^ " out of bounds; tuple has " 
                                                                                        ^ Int.toString (length ss) ^ " elements")
-                                                         in k(s,emp)
+                                                         in k(s,empty)
                                                          end)
                                               | _ => compErr r "malformed indexing")
                             | (s, _) => compErrS r s "index function supports tuples, boolean arrays, double arrays, and integer arrays only")
@@ -544,7 +534,7 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                       compOpts (G++G1) opts (fn (opts,_) =>
                       let val is = List.map toI opts                      
                           val v = vec(fromList Int is)
-                      in M(lett(idxassign v a (unCon e))) >>>= (fn x => k(Bs x,emp))
+                      in M(lett(idxassign v a (unCon e))) >>>= (fn x => k(Bs x,empty))
                       end))
                   fun unDs (Ds d) = d
                     | unDs (Is i) = i2d i
@@ -575,32 +565,32 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
               k(Fs (fn [f,g] => compLam22 G e (f,g)
                      | _ => compErr r "dyadic operator (of class (2,2)) expects 2 operator arguments",
                     noii),
-                emp)
+                empty)
             | LambE((2,1),e,r) => (* dyadic operator => monadic function *)
               k(Fs (fn [f,g] => compLam21 G e (f,g)
                      | _ => compErr r "dyadic operator (of class (2,1)) expects 2 operator arguments",
                     noii),
-                emp)
+                empty)
             | LambE((1,1),e,r) => (* monadic operator => monadic function *)
               k(Fs (fn [f] => compLam11 G e f
                      | _ => compErr r "monadic operator (of class (1,1)) expects 1 operator argument",
                     noii),
-                emp)
+                empty)
             | LambE((1,2),e,r) => (* monadic operator => dyadic function *)
               k(Fs (fn [f] => compLam12 G e f
                      | _ => compErr r "monadic operator (of class (1,2)) expects 1 operator argument",
                     noii),
-                emp)
+                empty)
             | LambE((0,1),e,r) =>
               k(Fs (fn [x] => M(lets x) >>>= compLam01 G e
                      | l => compErr r ("monadic function expects one argument; received " ^ Int.toString(List.length l) ^ " arguments"),
                     noii),
-                emp)
+                empty)
             | LambE((0,2),e,r) =>
               k(Fs (fn [x,y] => M(lets x) >>>= (fn x => M(lets y) >>>= (fn y => compLam02 G e (x,y)))
                      | l => compErr r ("dyadic function expects two arguments; received " ^ Int.toString(List.length l) ^ " arguments"),
                     noii),
-                emp)
+                empty)
             | LambE((0,0),e,r) => comp G (LambE((0,1),e,r)) k   (* support for constant functions *)
             | LambE((x,y),e,r) =>
               compErr r ("function or operator of class (" ^ Int.toString x ^ "," ^ Int.toString y ^ ") not supported")
@@ -609,7 +599,7 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
             | IdE(Symb L.Omegaomega,r) => compId G (Symb L.Omegaomega,r) k
             | IdE(Symb L.Alpha,r) => compId G (Symb L.Alpha,r) k
             | IdE(Symb L.Alphaalpha,r) => compId G (Symb L.Alphaalpha,r) k
-            | IdE(Symb L.Zilde,_) => k (Ais (zilde ()),emp)
+            | IdE(Symb L.Zilde,_) => k (Ais (zilde ()),empty)
             | VecE(es,r) =>
               comps G (rev es) (fn (nil,G1) => k (Ais (zilde ()),G1)
                                  | ([s],_) => compErr r "singleton vectors should not appear" 
@@ -665,9 +655,9 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
               k(Fs (fn [Fs (f,ii),n] => rett(Fs (compPower r f n, noii))
                      | _ => compErr r "power operation expects a function as its first argument",
                     noii), 
-                emp)
-            | IdE(Symb L.Slash,r) => k (Fs (compSlash r, noii), emp)
-            | IdE(Symb L.Backslash,r) => k (Fs (compBackslash r, noii), emp)
+                empty)
+            | IdE(Symb L.Slash,r) => k (Fs (compSlash r, noii), empty)
+            | IdE(Symb L.Backslash,r) => k (Fs (compBackslash r, noii), empty)
             | IdE(Symb L.Slashbar,r) => compId G (Var "$slashbar",r) k
             | IdE(Symb L.Dot,r) => compId G (Var "$dot",r) k
             | IdE(Symb L.Each,r) => 
@@ -695,7 +685,7 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                        end
                      | _ => compErr r "expecting function as left argument to each operation",
                     noii), 
-                emp)
+                empty)
             | IdE(Symb L.Iota,r) => compPrimFunM k r (fn r =>
                                                       fn Is i => (S(Ais(iota i)) handle Fail msg => compErr r msg)
                                                        | Ais a => (S(Ais(iota' a)) handle Fail msg => compErr r msg)
@@ -871,27 +861,27 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
             | IdE(Symb L.Nor,r) => compPrimFunD k r (compBoolOp norb) (NOii,NOii,NOii)
             | IdE(Symb L.Tilde,r) => compPrimFunM k r (compOpr1b notb)
             | e => compError(pr_exp e ^ " not implemented")
-        and comps G nil k = k(nil,emp)
+        and comps G nil k = k(nil,empty)
           | comps G (e::es) k = comp G e (fn (s,G1) => comps (G++G1) es (fn (ss,G2) => k(s::ss,G1++G2)))
-        and compOpts G nil k = k(nil,emp)
-          | compOpts G (NONE::es) k = compOpts G es (fn (ss,_) => k(NONE::ss,emp))
-          | compOpts G (SOME e::es) k = comp G e (fn (s,_) => compOpts G es (fn (ss,_) => k(SOME s::ss,emp)))
+        and compOpts G nil k = k(nil,empty)
+          | compOpts G (NONE::es) k = compOpts G es (fn (ss,_) => k(NONE::ss,empty))
+          | compOpts G (SOME e::es) k = comp G e (fn (s,_) => compOpts G es (fn (ss,_) => k(SOME s::ss,empty)))
         and compPrimFunMD k r (mon,dya) ii =
             k(Fs (fn [x1,x2] => dya r (x1,x2)
                    | [x] => mon r x
                    | _ => compErr r "function expects one or two arguments",
                   ii),
-              emp) handle Fail msg => compErr r msg
+              empty) handle Fail msg => compErr r msg
         and compPrimFunM k r mon =
             k(Fs (fn [x] => mon r x 
                    | _ => compErr r "monadic function expects one argument",
                   noii),
-              emp) handle Fail msg => compErr r msg
+              empty) handle Fail msg => compErr r msg
         and compPrimFunD k r dya ii =
             k(Fs (fn [x1,x2] => dya r (x1,x2)
                    | _ => compErr r "dyadic function expects two arguments",
                   ii),
-              emp) handle Fail msg => compErr r msg
+              empty) handle Fail msg => compErr r msg
         and compId G (id,r) k =
             case compIdOpt G (id,r) k of
                 SOME r => r
@@ -904,7 +894,7 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                 end
         and compIdOpt G (id,r) k =
             case lookup G id of
-                SOME x => SOME(k(x,emp))
+                SOME x => SOME(k(x,empty))
               | NONE => NONE
         and compLam11 G e f =
             rett(Fs(fn [x] =>
@@ -1001,28 +991,27 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
     in runM flags Double c'
     end
 
-val initialB : AplParse.env * env =
-    let open AplParse
-        fun liftBinOpIII s f =
+val initial : (string * AplParse.class * s) list =
+    let fun liftBinOpIII s f =
             let fun err () = compError ("dyadic function " ^ s ^ " expects two integer arrays as arguments")
-            in (s, fun2, Fs(fn [a1,a2] => compOpr2III f err (a1,a2)
+            in (s, AplParse.fun2, Fs(fn [a1,a2] => compOpr2III f err (a1,a2)
                              | _ => err(),noii))
             end
         fun liftUnOpII s f =
             let fun err () = compError ("monadic function " ^ s ^ " expects an integer array as argument")
-            in (s, fun1, Fs(fn [a] => compOpr1II f err a
+            in (s, AplParse.fun1, Fs(fn [a] => compOpr1II f err a
                              | _ => err(),noii))
             end
         fun Fun1Acs2 g s f =
-            (s, fun1, Fs (fn [Acs x] => rett(g (f x))
+            (s, AplParse.fun1, Fs (fn [Acs x] => rett(g (f x))
                          | l => compError ("monadic function " ^ s ^ " expects character vector as argument"),
                           noii))
         fun Fun1Is2 g s f =
-            (s, fun1, Fs (fn [Is x] => rett(g (f x))
+            (s, AplParse.fun1, Fs (fn [Is x] => rett(g (f x))
                          | [Bs x] => rett(g (f(b2i x)))
                          | l => compError ("monadic function " ^ s ^ " expects integer argument"),
                           noii))
-        val initial =
+     in
             [Fun1Acs2 Acs "Quad$ReadFile" readFile,
              Fun1Acs2 Ais "Quad$ReadIntVecFile" readIntVecFile,
              Fun1Acs2 Ads "Quad$ReadDoubleVecFile" readDoubleVecFile,
@@ -1034,78 +1023,13 @@ val initialB : AplParse.env * env =
              liftBinOpIII "Quad$INT32SHR" shri,
              liftBinOpIII "Quad$INT32SHAR" shari,
              liftBinOpIII "Quad$INT32XOR" xori]
-        val initialPE = List.foldl (fn ((id,c,_),e) => add (id, [c]) e) env0 initial
-        val initialCE = List.map (fn (id,_,x) => (Var id,x)) initial
-    in (initialPE, initialCE)
     end
+
+val initialCompileEnv : env = List.map (fn (id,_,x) => (AplAst.Var id,x)) initial
 
 end
 
-fun parseFile (flags : Flags.flags) (pe : AplParse.env) (f : string) : AplAst.exp * AplParse.env =
-    let val verbose_p = Flags.flag_p flags "-v"
-        val silent_p = Flags.flag_p flags "-silent"
-        val () = if not silent_p then Util.prln ("[Reading file: " ^ f ^ "]")
-                 else ()
-        val s = Util.readFile f
-        val ts = AplLex.lex f s
-        fun pr f = if verbose_p then Util.prln(f()) else ()
-        val () = pr (fn () => "File lexed:")
-        val () = pr (fn () => " " ^ AplLex.pr_tokens (map #1 ts))
-        val () = pr (fn () => "Parsing tokens...")
-        val (e,pe') = AplParse.parse pe ts
-    in pr(fn () => "Parse success:\n " ^ AplAst.pr_exp e);
-       (e,pe')
-    end
+val initialParseEnv : AplParse.env = List.foldl (fn ((id,c,_),e) => AplParse.add (id, [c]) e) AplParse.env0 initial
+fun compile flags parsetree = compileAst flags initialCompileEnv parsetree
 
-fun parseFiles (flags : Flags.flags) (pe0 : AplParse.env) (fs: string list) : AplAst.exp =
-    let val verbose_p = Flags.flag_p flags "-v"
-        fun mergeExps (NONE,e) = SOME e
-          | mergeExps (SOME e0,e) = SOME(AplParse.seq(e0,e))
-        fun parseFs pe = 
-            fn (nil, NONE) => raise Fail "Expecting at least one file"
-             | (nil, SOME e) => e
-             | (f::fs, acc) =>
-                let val (e,pe') = parseFile flags pe f
-                in parseFs (AplParse.plus(pe,pe')) (fs,mergeExps (acc,e))
-                end 
-    in parseFs pe0 (fs,NONE)
-    end
-
-(* compileExp : flag list -> ??? Apl2Tail.env ??? -> AplAst.exp -> *)
-fun compileExp (flags : Flags.flags) G (e : AplAst.exp) : res =
-    let (* val compile_only_p = flag_p flags "-c" *)
-        val verbose_p = Flags.flag_p flags "-v"
-        val silent_p = Flags.flag_p flags "-silent"
-        val p_tail = Flags.flag_p flags "-p_tail"
-        val p_types = Flags.flag_p flags "-p_types"
-        val optlevel = if Flags.flag_p flags "-noopt" then 0 else 1
-        val outfile = Flags.flag flags "-o"
-        val p = compileAst {verbose=verbose_p, optlevel=optlevel, prtype=p_types} G e
-        val () =
-            case outfile of
-                SOME ofile => T.outprog p_types ofile p
-              | NONE =>
-                if p_tail andalso not verbose_p then
-                  (if not silent_p then print "TAIL program:\n" else ();
-                   print (T.pp_prog p_types p);
-                   print "\n")
-                else ()  (* program already printed! *)
-    in SOME p
-    end
-
-fun errHandler (e : exn) : 'a option =
-    case e of
-        AplParse.ParseErr (l,msg) => (Util.prln ("Parse Error at " ^ 
-                                                 Region.ppLoc l ^ ": \n  " ^ 
-                                                 msg); NONE)
-      | Fail s => (Util.prln s; NONE)
-      | _ => raise e
-
-fun compile flags (fs : string list) : res =
-    let val s_parse = Flags.flag_p flags "-s_parse"   (* stop after parsing *)
-        val (PE,CE) = initialB
-        val e = parseFiles flags PE fs
-    in if s_parse then (Util.prln "Stopping after parsing."; NONE)
-       else compileExp flags CE e
-    end handle ? => errHandler ?
 end

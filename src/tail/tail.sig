@@ -33,15 +33,15 @@ signature TAIL = sig
   val ret       : 'a -> 'a M
 
   (* Terms *)
-  type 'a t     = Exp.exp         (* terms *)
-  type 'a v     = 'a Vec t        (* vector terms *)
+  type 'a exp     = Exp.texp         (* terms *)
+  type 'a tvector = 'a Vec exp        (* vector terms *)
 
   (* TAIL terms w. added phantom types *)
-  type 'a NUM   = 'a Num t        (* basic term types *)
+  type 'a NUM   = 'a Num exp        (* basic term types *)
   type INT      = Int NUM
   type DOUBLE   = Double NUM
-  type BOOL     = Bool t
-  type CHAR     = Char t
+  type BOOL     = Bool exp
+  type CHAR     = Char exp
 
   val I         : Int32.int -> INT
   val D         : real -> DOUBLE
@@ -50,9 +50,9 @@ signature TAIL = sig
   val %         : INT * INT -> INT
   val i2d       : INT -> DOUBLE
   val b2i       : BOOL -> INT
-  val If        : BOOL * 'a t * 'a t -> 'a t
-  val fromList  : 'a T -> 'a t list -> 'a v
-  val fromChars : word list -> Char v
+  val If        : BOOL * 'a exp * 'a exp -> 'a exp
+  val fromList  : 'a T -> 'a exp list -> 'a tvector
+  val fromChars : word list -> Char tvector
 
   (* Compiled Programs
         'a - ???
@@ -68,35 +68,39 @@ signature TAIL = sig
        The expression is expected to return a value of type 't0'.
    *)
   val runM      : {verbose: bool, optlevel: int, prtype: bool} 
-                  -> 'b T -> 'b t M -> (unit,'b) prog
+                  -> 'b T -> 'b exp M -> (unit,'b) prog
 
   (* Run the monadic expression, the function will be given a variable
      where to store the final result *)
-  val runF      : 'a T * 'b T -> ('a t -> 'b t M) -> ('a,'b) prog
+  val runF      : 'a T * 'b T -> ('a exp -> 'b exp M) -> ('a,'b) prog
 
   (* [outprog prtype filename c]
        'prtype' indicates whether the output should include instance lists. *)
   val outprog   : bool -> string -> ('a,'b) prog -> unit
   val runHack   : 'a M -> 'a option
-  val toExp     : (unit,'b) prog -> 'b t 
+  val toExp     : (unit,'b) prog -> 'b exp 
 
   (* Values and Evaluation *)
-  type 'a V
-  val Iv        : Int32.int -> Int Num V
-  val unIv      : Int Num V -> Int32.int
-  val Dv        : real -> Double Num V
-  val unDv      : Double Num V -> real
-  val Bv        : bool -> Bool V
-  val unBv      : Bool V -> bool
-  val Vv        : 'a V list -> 'a Vec V
-  val unVv      : 'a Vec V -> 'a V list
-  val Uv        : unit V 
-  val eval      : ('a,'b) prog -> 'a V -> 'b V
-  val pp_prog   : bool -> ('a,'b) prog -> string
-  val pp_exp    : bool -> 'a t -> string
-  val ppV       : 'a V -> string
+  type 'a value
+  val Iv        : Int32.int -> Int Num value
+  val unIv      : Int Num value -> Int32.int
+  val Dv        : real -> Double Num value
+  val unDv      : Double Num value -> real
+  val Bv        : bool -> Bool value
+  val unBv      : Bool value -> bool
+  val Vv        : 'a value list -> 'a Vec value
+  val unVv      : 'a Vec value -> 'a value list
+  val Uv        : unit value
 
-  type 'a m (* APL multi-dimensional arrays *)
+  (* Evaluate TAIL expression to a value *)
+  val eval      : ('a,'b) prog -> 'a value -> 'b value
+
+  (* Pretty printing *)
+  val pp_prog   : bool -> ('a,'b) prog -> string
+  val pp_exp    : bool -> 'a exp -> string
+  val ppValue   : 'a value -> string
+
+  type 'a ndarray (* APL multi-dimensional arrays *)
 
   (* TAIL built-in operations *)
   val ceil      : DOUBLE -> INT
@@ -164,84 +168,84 @@ signature TAIL = sig
   val eqc       : CHAR * CHAR -> BOOL
   val neqc      : CHAR * CHAR -> BOOL
 
-  val zilde     : unit -> 'a m
-  val scl       : 'a t -> 'a m   (* identity! *)
-  val scalar    : 'a t -> 'a m
-  val vec       : 'a v -> 'a m
-  val iota      : INT -> Int Num m
-  val iota'     : Int Num m -> Int Num m
+  val zilde     : unit -> 'a ndarray
+  val scl       : 'a exp -> 'a ndarray   (* identity! *)
+  val scalar    : 'a exp -> 'a ndarray
+  val vec       : 'a tvector -> 'a ndarray
+  val iota      : INT -> Int Num ndarray
+  val iota'     : Int Num ndarray -> Int Num ndarray
 
-  val siz       : 'a m -> INT
-  val dim       : 'a m -> INT
+  val siz       : 'a ndarray -> INT
+  val dim       : 'a ndarray -> INT
 
   (* Ravel *)
-  val rav       : 'a m -> 'a m
-  val rav0      : 'a m -> 'a v
+  val rav       : 'a ndarray -> 'a ndarray
+  val rav0      : 'a ndarray -> 'a tvector
 
-(*  val index   : Int Num v -> 'a m -> 'a m M *)
-  val each      : ('a t -> 'b t M) -> 'a m -> 'b m
+(*  val index   : Int Num tvector -> 'a m -> 'a m M *)
+  val each      : ('a exp -> 'b exp M) -> 'a ndarray -> 'b ndarray
 
-  val red       : ('a t * 'b t -> 'b t) -> 'b t -> 'a m -> 'b t
+  val red       : ('a exp * 'b exp -> 'b exp) -> 'b exp -> 'a ndarray -> 'b exp
 
-  val mif       : BOOL * 'a m * 'a m -> 'a m
-  val lett      : 'a t -> 'a t M
-  val letm      : 'a m -> 'a m M
+  val mif       : BOOL * 'a ndarray * 'a ndarray -> 'a ndarray
+  val lett      : 'a exp -> 'a exp M
+  val letm      : 'a ndarray -> 'a ndarray M
 
-  val zipWith   : ('a t * 'b t -> 'c t M) -> 'a m -> 'b m -> 'c m
+  val zipWith   : ('a exp * 'b exp -> 'c exp M) -> 'a ndarray -> 'b ndarray -> 'c ndarray
 
-  val scan      : ('a t * 'b t -> 'a t M) -> 'b m -> 'a m
+  val scan      : ('a exp * 'b exp -> 'a exp M) -> 'b ndarray -> 'a ndarray
 
-  val catenate  : 'a m -> 'a m -> 'a m
-  val catenate_first : 'a m -> 'a m -> 'a m
+  val catenate  : 'a ndarray -> 'a ndarray -> 'a ndarray
+  val catenate_first : 'a ndarray -> 'a ndarray -> 'a ndarray
 
-  val take      : INT -> 'a m -> 'a m
-  val drop      : INT -> 'a m -> 'a m
+  val take      : INT -> 'a ndarray -> 'a ndarray
+  val drop      : INT -> 'a ndarray -> 'a ndarray
 
-  val first     : 'a m -> 'a t
+  val first     : 'a ndarray -> 'a exp
 
   (* Memoize *)
-  val mem       : 'a m -> 'a m
+  val mem       : 'a ndarray -> 'a ndarray
 
-  val rotate    : INT -> 'a m -> 'a m
-  val reverse   : 'a m -> 'a m
-  val vreverse  : 'a m -> 'a m 
-  val vrotate   : INT -> 'a m -> 'a m
-  val reshape   : Int Num v -> 'a m -> 'a m
-  val shape     : 'a m -> Int Num v
+  val rotate    : INT -> 'a ndarray -> 'a ndarray
+  val reverse   : 'a ndarray -> 'a ndarray
+  val vreverse  : 'a ndarray -> 'a ndarray 
+  val vrotate   : INT -> 'a ndarray -> 'a ndarray
+  val reshape   : Int Num tvector -> 'a ndarray -> 'a ndarray
+  val shape     : 'a ndarray -> Int Num tvector
 
-  val reduce    : ('a t * 'a t -> 'a t M) -> 'a t -> 'a m -> ('a t -> 'b) -> ('a m -> 'b) -> 'b
+  val reduce    : ('a exp * 'a exp -> 'a exp M) -> 'a exp -> 'a ndarray -> ('a exp -> 'b) -> ('a ndarray -> 'b) -> 'b
 
-  val compress  : Bool m -> 'a m -> 'a m
-  val replicate : 'a t -> Int Num m -> 'a m -> 'a m
+  val compress  : Bool ndarray -> 'a ndarray -> 'a ndarray
+  val replicate : 'a exp -> Int Num ndarray -> 'a ndarray -> 'a ndarray
 
-  val power     : ('a m -> 'a m M) -> INT -> 'a m -> 'a m
-  val powerScl  : ('a t -> 'a t M) -> INT -> 'a t -> 'a t
-  val condScl   : ('a t -> 'a t M) -> BOOL -> 'a t -> 'a t
+  val power     : ('a ndarray -> 'a ndarray M) -> INT -> 'a ndarray -> 'a ndarray
+  val powerScl  : ('a exp -> 'a exp M) -> INT -> 'a exp -> 'a exp
+  val condScl   : ('a exp -> 'a exp M) -> BOOL -> 'a exp -> 'a exp
 
-  val transpose : 'a m -> 'a m
-  val transpose2 : Int Num v -> 'a m -> 'a m
+  val transpose : 'a ndarray -> 'a ndarray
+  val transpose2 : Int Num tvector -> 'a ndarray -> 'a ndarray
 
-  val idxS      : int -> INT -> 'a m -> ('a t -> 'b) -> ('a m -> 'b) -> 'b
-  val idx       : int -> Int Num m -> 'a m -> 'a m
+  val idxS      : int -> INT -> 'a ndarray -> ('a exp -> 'b) -> ('a ndarray -> 'b) -> 'b
+  val idx       : int -> Int Num ndarray -> 'a ndarray -> 'a ndarray
 
-  val idxassign : Int Num m -> 'a m -> 'a t -> BOOL
+  val idxassign : Int Num ndarray -> 'a ndarray -> 'a exp -> BOOL
 
   (* Printing routines *)
-  val prArrI    : Int Num m -> Int Num m
-  val prArrB    : Bool m -> Bool m
-  val prArrD    : Double Num m -> Double Num m
-  val prArrC    : Char m -> Char m
+  val prArrI    : Int Num ndarray -> Int Num ndarray
+  val prArrB    : Bool ndarray -> Bool ndarray
+  val prArrD    : Double Num ndarray -> Double Num ndarray
+  val prArrC    : Char ndarray -> Char ndarray
   val prSclI    : INT -> INT
   val prSclB    : BOOL -> BOOL
   val prSclD    : DOUBLE -> DOUBLE
   val prSclC    : CHAR -> CHAR
-  val formatI   : INT -> Char m
-  val formatD   : DOUBLE -> Char m
+  val formatI   : INT -> Char ndarray
+  val formatD   : DOUBLE -> Char ndarray
 
   (* File access *)
-  val readFile  : Char m -> Char m
-  val readIntVecFile : Char m -> Int Num m
-  val readDoubleVecFile : Char m -> Double Num m
+  val readFile  : Char ndarray -> Char ndarray
+  val readIntVecFile : Char ndarray -> Int Num ndarray
+  val readDoubleVecFile : Char ndarray -> Double Num ndarray
            
   (* Int32 binary operations *)
   val andi      : INT * INT -> INT

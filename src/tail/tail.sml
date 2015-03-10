@@ -110,15 +110,15 @@ fun If (b,e1,e2) = Iff_e(b,e1,e2)
 val fromList = fn _ => Vc_e
 val fromChars = Vc_e o (List.map C)
 
-type 'a t = exp
-type 'a v = exp
-type 'a NUM = exp
-type INT = exp
-type DOUBLE = exp
-type BOOL = exp
-type CHAR = exp
+type 'a exp = texp
+type 'a tvector = texp
+type 'a NUM = texp
+type INT = texp
+type DOUBLE = texp
+type BOOL = texp
+type CHAR = texp
                 
-type 'a M = ('a -> exp) -> exp
+type 'a M = ('a -> texp) -> texp
          
 fun runHack (m : 'a M) : 'a option =
     let exception RunHack of 'a
@@ -133,13 +133,13 @@ fun (f : 'a M) >>= (g : 'a -> 'b M) : 'b M =
    fn k => f (fn x => g x k)
 
 (* Compiled Programs *)
-type ('a,'b) prog = exp
+type ('a,'b) prog = texp
 fun toExp x = x
 val main_arg_var = newVar()
 fun runF _ f = f (Var(main_arg_var,TyVar())) (fn x => x)
  
 (* Values and Evaluation *)
-type 'a V = Exp.value
+type 'a value = Exp.value
 fun Iv _ = die "Iv"
 fun unIv _ = die "unIv"
 val Dv = Exp.Dvalue
@@ -151,7 +151,7 @@ fun unVv _ = die "unVv"
 val Uv = Exp.Uvalue
 
 type 'a MVec = unit
-type 'a m = exp
+type 'a ndarray = texp
 fun zilde () = Op_e("zilde",nil)
 fun scl t = t
 fun scalar t = Vc_e[t]
@@ -290,7 +290,7 @@ end
 
 structure Optimize = struct
 
-type def = {shape: Exp.exp option, value: Exp.exp option}
+type def = {shape: Exp.texp option, value: Exp.texp option}
 type env = def FM.map
 
 fun rot 0 es = es
@@ -370,7 +370,7 @@ and peepOp E (opr,es,t) =
             | _ => Op(opr,es,t)
         else Op(opr,es,t)
                
-and getShape (E:env) (e : Exp.exp) : Exp.exp option =
+and getShape (E:env) (e : Exp.texp) : Exp.texp option =
     let fun tryType() =
             case unVcc (typeOf e) of
                 NONE => NONE
@@ -459,21 +459,21 @@ type IE = mul FM.map
 fun bumpIE (ie:IE):IE = FM.composemap (fn _ => MANY) ie
 fun plusIE (ie1,ie2) : IE = FM.mergeMap (fn _ => MANY) ie1 ie2
 fun oneIE v : IE = FM.singleton(v,ONE)
-val empIE : IE = FM.empty
+val emptyIE : IE = FM.empty
 
 fun uses e =
     case e of
         Var (v,_) => oneIE v
-      | I _ => empIE
-      | D _ => empIE
-      | B _ => empIE
-      | C _ => empIE
+      | I _ => emptyIE
+      | D _ => emptyIE
+      | B _ => emptyIE
+      | C _ => emptyIE
       | Iff (c,e1,e2,_) => usess [c,e1,e2]
       | Vc(es,_) => usess es
       | Op(opr,es,_) => usess es
       | Let (_,_,e1,e2,_) => usess [e1,e2]
       | Fn (_,_,e,_) => bumpIE(uses e)
-and usess nil = empIE
+and usess nil = emptyIE
   | usess (e::es) = plusIE(uses e,usess es)
 
 (* The inliner needs to be implemented fully one day - for now, we are
@@ -600,7 +600,7 @@ fun pp_exp (prtype:bool) e =
     end
 
 val pp_prog = pp_exp
-val ppV = Exp.pr_value
+val ppValue = Exp.pr_value
 
 fun outprog prtype ofile p =
     let val body = pp_prog prtype p
@@ -619,7 +619,7 @@ fun runM {verbose,optlevel,prtype} tt m =
         val () = prln (fn() => "Untyped program:\n" ^ pp_prog false p)
         val () = prln (fn() => "Typing the program...")
         fun typeit h p =
-            case typeExp empEnv p of
+            case typeExp emptyEnv p of
                 ERR s => 
                 let val msg = "***Type error - " ^ h ^ ": " ^ s
                 in prln (fn() => msg);
@@ -640,7 +640,7 @@ fun runM {verbose,optlevel,prtype} tt m =
     end
 
 fun eval p v =
-    let val de = Exp.addDE Exp.empDEnv main_arg_var v
+    let val de = Exp.addDE Exp.emptyDEnv main_arg_var v
         val v' = Exp.eval de p
     in v'
     end

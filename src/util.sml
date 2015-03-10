@@ -44,6 +44,7 @@ fun realToCString d =
         end
 
 fun prln s = print(s ^ "\n")
+fun log verbose f = if verbose then prln(f()) else ()
 
 (* Minimum and maximum values *)
 val minInt = case Int.minInt of

@@ -20,6 +20,7 @@ signature UTIL = sig
   val intToCString  : int -> string
   val realToCString : real -> string
   val prln          : string -> unit
+  val log           : bool -> (unit -> string) -> unit
 
   (* Minimum and maximum values *)
   val minInt : int
