@@ -17,7 +17,6 @@ signature TAIL_EXP = sig
   eqtype var
   val newVar : unit -> var         (* create new immutable variable *)
   val mutableVar : var -> bool ref (* get reference to get/set whether this variable is mutable *)
-  val ppVar  : var -> string
 
   (* Finite map's keyed by TAIL-variables *)
   structure FM : sig
@@ -48,7 +47,7 @@ signature TAIL_EXP = sig
   (* Type environment *)
   type env
   val lookup   : env -> var -> typ option
-  val emptyEnv   : env
+  val emptyEnv : env
   val add      : env -> var -> typ -> env
 
   (* Type-checking *)
@@ -82,8 +81,8 @@ signature TAIL_EXP = sig
   (* Evaluate an expression in the given environment *)
   val eval : denv -> texp -> value
 
-  (* Pretty printing values and characters *)
+  (* Pretty printing variables, values and characters *)
+  val ppVar  : var -> string
   val pr_value : value -> string
   val pr_char : word -> string
-
 end
