@@ -613,29 +613,26 @@ fun outprog prtype ofile p =
 
 fun runM {verbose,optlevel,prtype} tt m =
     let val p = m (fn x => x)
-        fun prln f =
-            if verbose then (print (f()); print "\n")
-            else ()
-        val () = prln (fn() => "Untyped program:\n" ^ pp_prog false p)
-        val () = prln (fn() => "Typing the program...")
+        val _ = Util.log verbose (fn _ => "Untyped program:\n" ^ pp_prog false p)
+        val _ = Util.log verbose (fn _ => "Typing the program...")
         fun typeit h p =
             case typeExp emptyEnv p of
                 ERR s => 
                 let val msg = "***Type error - " ^ h ^ ": " ^ s
-                in prln (fn() => msg);
-                   prln (fn() => "Program:");
-                   prln (fn() => pp_prog prtype p);
+                in Util.log verbose (fn _ => msg);
+                   Util.log verbose (fn _ => "Program:");
+                   Util.log verbose (fn _ => pp_prog prtype p);
                    die msg
                 end
-              | OK t => (prln (fn() => "  Program has type: " ^ prType t);   (* perhaps unify tt with t!! *)
+              | OK t => (Util.log verbose (fn _ => "  Program has type: " ^ prType t);   (* perhaps unify tt with t!! *)
                          let val p = Exp.resolveShOpr p
-                         in prln (fn() => "Typed program - " ^ h ^ ":\n" ^ pp_prog prtype p);
+                         in Util.log verbose (fn _ => "Typed program - " ^ h ^ ":\n" ^ pp_prog prtype p);
                             p
                          end)
         val p = typeit "before optimization" p
         val p = Optimize.optimize optlevel p
         val p = typeit "after optimization" p
-        val () = prln (fn() => "Optimised program:\n" ^ pp_prog prtype p)
+        val _ = Util.log verbose (fn _ => "Optimised program:\n" ^ pp_prog prtype p)
     in p
     end
 

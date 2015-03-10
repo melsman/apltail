@@ -23,6 +23,8 @@ fun lookupAlist E n =
       | NONE => NONE
 fun plusAlist (a1,a2) = a2@a1
 
+fun listContains s xs = List.exists (curry (op =) s) xs
+
 (* Printing basic values *)
 fun intToCString i =
     if i = ~2147483648 then "-2147483648"
@@ -43,8 +45,12 @@ fun realToCString d =
            else s ^ ".0"
         end
 
+(* Add quotes around a string *)
+fun quote s = "'" ^ s ^ "'" 
+
 fun prln s = print(s ^ "\n")
 fun log verbose f = if verbose then prln(f()) else ()
+
 
 (* Minimum and maximum values *)
 val minInt = case Int.minInt of
