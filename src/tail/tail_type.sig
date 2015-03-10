@@ -28,9 +28,9 @@ signature TAIL_TYPE = sig
   val unRnk     : rnk -> int option
   val RnkVar    : unit -> rnk (* generate new shape variable *)
   val RnkVarCon : (int-> unify_result) -> rnk
-  val relateR   : (int -> int) * (int -> int) -> rnk -> rnk -> string option
-  val relateR2  : {f12: int*int->int,f13:int*int->int,f23:int*int->int} -> 
-                  rnk -> rnk -> rnk -> string option
+  (* val relateR   : (int -> int) * (int -> int) -> rnk -> rnk -> string option *)
+  (* val relateR2  : {f12: int*int->int,f13:int*int->int,f23:int*int->int} ->  *)
+  (*                 rnk -> rnk -> rnk -> string option *)
   val unifyR    : rnk -> rnk -> unify_result (* unify two shape variables. *)
   val prRnk     : rnk -> string
 

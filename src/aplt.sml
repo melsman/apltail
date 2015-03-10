@@ -33,7 +33,7 @@ fun parseFiles (flags : Flags.flags) (pe0 : AplParse.env) (fs: string list) : Ap
     end
 
 (* Compilation *)
-(* compileExp : flag list -> ??? Apl2Tail.env ??? -> AplAst.exp -> *)
+(* compileExp : flag list -> AplAst.exp -> (unit, Tail.Double Tail.Num) Tail.prog option *)
 fun compileExp (flags : Flags.flags) (e : AplAst.exp) : res =
     let (* val compile_only_p = flag_p flags "-c" *)
         val verbose_p = Flags.flag_p flags "-v"

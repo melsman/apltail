@@ -139,8 +139,8 @@ and combR (r1,r2) =
       | (R i, Rv(_,f)) => (check f i; r1)
 and unifR r1 r2 = URef.unify combR (r1,r2)
 
-fun relateR _ = raise Fail "relateR not implemented"
-fun relateR2 _ = raise Fail "relateR2 not implemented"
+(* fun relateR _ = raise Fail "relateR not implemented" *)
+(* fun relateR2 _ = raise Fail "relateR2 not implemented" *)
 
 (* The applications of unify below should be replaced with conditional unifications *)
 
