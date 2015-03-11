@@ -1,6 +1,6 @@
 functor TailOptimize (Exp : TAIL_EXP) :
 sig
-  val optimize : int -> Exp.texp -> Exp.texp
+  val optimize : int -> Exp.uexp -> Exp.uexp
   val optimisationLevel : int ref
 end
  = struct
@@ -11,7 +11,7 @@ open Exp
 val optimisationLevel = ref 0
 fun optlevel() = !optimisationLevel
 
-type def = {shape: Exp.texp option, value: Exp.texp option}
+type def = {shape: Exp.uexp option, value: Exp.uexp option}
 type env = def FM.map
 
 fun rot 0 es = es
@@ -91,7 +91,7 @@ and peepOp E (opr,es,t) =
             | _ => Op(opr,es,t)
         else Op(opr,es,t)
                
-and getShape (E:env) (e : Exp.texp) : Exp.texp option =
+and getShape (E:env) (e : Exp.uexp) : Exp.uexp option =
     let fun tryType() =
             case unVcc (typeOf e) of
                 NONE => NONE

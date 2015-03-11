@@ -33,8 +33,9 @@ signature TAIL = sig
   val ret       : 'a -> 'a M
 
   (* Terms *)
-  type 'a exp     = Exp.texp         (* terms *)
+  type 'a exp
   type 'a tvector = 'a Vec exp        (* vector terms *)
+  val typeOf : 'a exp -> Exp.typ
 
   (* TAIL terms w. added phantom types *)
   type 'a NUM   = 'a Num exp        (* basic term types *)

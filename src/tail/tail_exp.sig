@@ -32,17 +32,17 @@ signature TAIL_EXP = sig
   end
 
   (* TAIL AST *)
-  datatype texp =
+  datatype uexp =
            Var of var * typ
          | I of Int32.int
          | D of real
          | B of bool
          | C of word
-         | Iff of texp * texp * texp * typ
-         | Vc of texp list * typ
-         | Op of opr * texp list * typ
-         | Let of var * typ * texp * texp * typ
-         | Fn of var * typ * texp * typ
+         | Iff of uexp * uexp * uexp * typ
+         | Vc of uexp list * typ
+         | Op of opr * uexp list * typ
+         | Let of var * typ * uexp * uexp * typ
+         | Fn of var * typ * uexp * typ
 
   (* Type environment *)
   type env
@@ -52,22 +52,22 @@ signature TAIL_EXP = sig
 
   (* Type-checking *)
   datatype 't report = OK of 't | ERR of string
-  val typeExp  : env -> texp -> typ report
+  val typeExp  : env -> uexp -> typ report
 
   (* Walk the syntax tree, mark each operator that works on
      shape-types (appends "V" to the end of the operation name) *)
-  val resolveShOpr : texp -> texp
+  val resolveShOpr : uexp -> uexp
 
   (* Alternative constructors that checks the types upon
      construction. May raise Fail. *)
-  val Iff_e    : texp * texp * texp -> texp
-  val Vc_e     : texp list -> texp
-  val Op_e     : opr * texp list -> texp
-  val Let_e    : var * typ * texp * texp -> texp
-  val Fn_e     : var * typ * texp -> texp
+  val Iff_e    : uexp * uexp * uexp -> uexp
+  val Vc_e     : uexp list -> uexp
+  val Op_e     : opr * uexp list -> uexp
+  val Let_e    : var * typ * uexp * uexp -> uexp
+  val Fn_e     : var * typ * uexp -> uexp
 
   (* Get the type of a TAIL-expression *)
-  val typeOf   : texp -> typ
+  val typeOf   : uexp -> typ
 
   (* Values & Stores *)
   type value
@@ -79,7 +79,7 @@ signature TAIL_EXP = sig
   val Uvalue   : value          (* = Dvalue 0.0 ? *)
 
   (* Evaluate an expression in the given environment *)
-  val eval : denv -> texp -> value
+  val eval : denv -> uexp -> value
 
   (* Pretty printing variables, values and characters *)
   val ppVar  : var -> string

@@ -101,17 +101,17 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
 
   (* Expressions *)
 
-  datatype texp =
+  datatype uexp =
            Var of var * typ
          | I of Int32.int
          | D of real
          | B of bool
          | C of word
-         | Iff of texp * texp * texp * typ
-         | Vc of texp list * typ
-         | Op of opr * texp list * typ
-         | Let of var * typ * texp * texp * typ
-         | Fn of var * typ * texp * typ
+         | Iff of uexp * uexp * uexp * typ
+         | Vc of uexp list * typ
+         | Op of opr * uexp list * typ
+         | Let of var * typ * uexp * uexp * typ
+         | Fn of var * typ * uexp * typ
 
   (* Environments *)
   type env = (var * typ) list
@@ -677,7 +677,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
               | Db of real
               | Bb of bool
               | Cb of word
-              | Fb of denv * var * typ * texp * typ
+              | Fb of denv * var * typ * uexp * typ
   withtype denv = (var * bv Apl.APLArray) list
 
   type value = bv Apl.APLArray

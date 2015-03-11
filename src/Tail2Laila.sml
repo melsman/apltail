@@ -14,7 +14,7 @@ fun qq s = "'" ^ s ^ "'"
 structure T = Tail
 structure E = T.Exp
 structure TY = E.T
-type exp = E.texp
+type exp = E.uexp
 
 structure L = Laila
 
@@ -185,7 +185,7 @@ fun ltypeOf t =
                        else die "ltypeOf.supports only arrays of type int, bool, char, or double"
       | NONE => die "ltypeOf.supports only arrays"
 
-fun comp (E:env) (e : E.texp) (k: lexp -> lexp L.M) : lexp L.M =
+fun comp (E:env) (e : E.uexp) (k: lexp -> lexp L.M) : lexp L.M =
     let val kS = k o S
         val kA = k o A
     in case e of
@@ -314,19 +314,19 @@ and unA s = fn A a => a
              | MA a => L.mm2m a
              | _ => die ("unA: " ^ s)
 and compS E e k = comp E e (k o unS "compS")
-and compA E (e : E.texp) (k: L.m -> lexp L.M) : lexp L.M =
+and compA E (e : E.uexp) (k: L.m -> lexp L.M) : lexp L.M =
     comp E e (fn A a => k a 
                | MA a => k (L.mm2m a)
                | _ => die ("compA; e = " ^ T.pp_exp true e))
-and compMA E (e : E.texp) (k: L.mm -> lexp L.M) : lexp L.M =
+and compMA E (e : E.uexp) (k: L.mm -> lexp L.M) : lexp L.M =
     comp E e (fn MA a => k a
                | _ => die ("compMA; e = " ^ T.pp_exp true e))
-and compV E (e : E.texp) (k: int list -> lexp L.M) : lexp L.M =
+and compV E (e : E.uexp) (k: int list -> lexp L.M) : lexp L.M =
     case e of
         E.Vc(xs,_) => k(List.map (fn E.I x => x
                                  | _ => die "compV.expecting immediate integer") xs)
       | _ => die "compV.expecting immediate integer vector" 
-and compFN E (e : E.texp) (k: (lexp list -> lexp L.M) -> lexp L.M) : lexp L.M =
+and compFN E (e : E.uexp) (k: (lexp list -> lexp L.M) -> lexp L.M) : lexp L.M =
     comp E e (fn FN f => k f | _ => die "compFN")
 and comps c E nil k = k nil
   | comps c E (e::es) k = 

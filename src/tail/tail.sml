@@ -110,15 +110,17 @@ fun If (b,e1,e2) = Iff_e(b,e1,e2)
 val fromList = fn _ => Vc_e
 val fromChars = Vc_e o (List.map C)
 
-type 'a exp = texp
-type 'a tvector = texp
-type 'a NUM = texp
-type INT = texp
-type DOUBLE = texp
-type BOOL = texp
-type CHAR = texp
+type 'a exp = uexp
+type 'a tvector = uexp
+type 'a NUM = uexp
+type INT = uexp
+type DOUBLE = uexp
+type BOOL = uexp
+type CHAR = uexp
+
+val typeOf = Exp.typeOf
                 
-type 'a M = ('a -> texp) -> texp
+type 'a M = ('a -> uexp) -> uexp
          
 fun runHack (m : 'a M) : 'a option =
     let exception RunHack of 'a
@@ -133,7 +135,7 @@ fun (f : 'a M) >>= (g : 'a -> 'b M) : 'b M =
    fn k => f (fn x => g x k)
 
 (* Compiled Programs *)
-type ('a,'b) prog = texp
+type ('a,'b) prog = uexp
 fun toExp x = x
 val main_arg_var = newVar()
 fun runF _ f = f (Var(main_arg_var,TyVar())) (fn x => x)
@@ -151,7 +153,7 @@ fun unVv _ = die "unVv"
 val Uv = Exp.Uvalue
 
 type 'a MVec = unit
-type 'a ndarray = texp
+type 'a ndarray = uexp
 fun zilde () = Op_e("zilde",nil)
 fun scl t = t
 fun scalar t = Vc_e[t]
