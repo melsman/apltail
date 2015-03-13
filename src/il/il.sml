@@ -232,7 +232,7 @@ signature PROGRAM = sig
   val ReadIntVecFile : Name.t * Name.t * e -> s
   val ReadDoubleVecFile : Name.t * Name.t * e -> s
   val Comment : string -> s
-  val emp : s
+  val empty : s
   val unDecl : s -> (Name.t * e option) option
 
   type kd = string * Name.t list * ss
@@ -723,7 +723,7 @@ type ss = s list
 type kd = string * Name.t list * ss
 type p = kd list * ss
 
-val emp = IL.Nop
+val empty = IL.Nop
 val Decl = IL.Decl
 val Ret = IL.Ret
 val Halt = IL.Halt
@@ -782,7 +782,7 @@ val For = ForOptimize (fn x => x)
 local open IL infix := ::= 
 in
   fun n := e = 
-     if IL.eq(e, Var n) then emp 
+     if IL.eq(e, Var n) then empty
      else Assign(n,e)
   fun (n,i) ::= e = AssignArr(n, i, e)      
 end

@@ -5,6 +5,8 @@ local
    $(SMACKAGE)/kitlib/v1/set/set.mlb
    $(SMACKAGE)/kitlib/v1/random/random.mlb
 in
+   ../util.mlb
+
    apl.mlb   (* interpreter *)
 
    tail_type.sig
@@ -12,6 +14,7 @@ in
    tail.sig
 
    tail_exp.sml        (* functor *)
+   tail_optimize.sml
    tail_type.sml
    tail.sml
 end

@@ -20,16 +20,18 @@
 *)
 
 signature TAIL_TYPE = sig
+  datatype unify_result  = SUCCESS | ERROR of string
+
   (* Ranks (\rho) *)
   type rnk
   val rnk       : int -> rnk
   val unRnk     : rnk -> int option
   val RnkVar    : unit -> rnk (* generate new shape variable *)
-  val RnkVarCon : (int->string option) -> rnk
-  val relateR   : (int -> int) * (int -> int) -> rnk -> rnk -> string option
-  val relateR2  : {f12: int*int->int,f13:int*int->int,f23:int*int->int} -> 
-                  rnk -> rnk -> rnk -> string option
-  val unifyR    : rnk -> rnk -> string option (* unify two shape variables. Returns NONE on _success_! *)
+  val RnkVarCon : (int-> unify_result) -> rnk
+  (* val relateR   : (int -> int) * (int -> int) -> rnk -> rnk -> string option *)
+  (* val relateR2  : {f12: int*int->int,f13:int*int->int,f23:int*int->int} ->  *)
+  (*                 rnk -> rnk -> rnk -> string option *)
+  val unifyR    : rnk -> rnk -> unify_result (* unify two shape variables. *)
   val prRnk     : rnk -> string
 
   (* Base types (\kappa) *)
@@ -43,7 +45,7 @@ signature TAIL_TYPE = sig
   val isBool   : bty -> bool
   val isChar   : bty -> bool
   val TyVarB   : unit -> bty    (* generate new base type variable *)
-  val unifyB   : bty -> bty -> string option (* unify two base type variables. Returns NONE on _success_! *)
+  val unifyB   : bty -> bty -> unify_result (* unify two base type variables *)
   val prBty    : bty -> string
 
   (* Types (\tau) *)
@@ -72,8 +74,8 @@ signature TAIL_TYPE = sig
   val unArr'   : typ -> (bty * rnk) option    (* also returns values for Vcc,S,SV *)
 
   val TyVar    : unit -> typ  (* create type variable *)
-  val subtype  : typ -> typ -> string option (* is subtype. Returns NONE on _success_! *)
-  val unify    : typ -> typ -> string option (* unify two type variables. Returns NONE on _success_! *)
+  val subtype  : typ -> typ -> unify_result (* is subtype *)
+  val unify    : typ -> typ -> unify_result (* unify two type variables *)
   val join     : typ -> typ -> typ  (* least common supertype; may raise Fail *)
   val prType   : typ -> string
 end

@@ -3,11 +3,13 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   open T
   type opr = string
 
-  type var = {id:string,mutable:bool ref}
-  local val c = ref 0
+  type var = {id : string,
+              mutable : bool ref}
+  local val idCounter = ref 0
   in fun newVar() = 
-         {id="v" ^ Int.toString (!c),mutable=ref false}
-         before c := !c + 1
+         { id = "v" ^ Int.toString (!idCounter),
+           mutable = ref false}
+         before idCounter := !idCounter + 1
      fun mutableVar (v:var) = #mutable v
      fun ppVar (v:var) = if !(#mutable v) then "m" ^ #id v
                          else #id v
@@ -17,25 +19,20 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                                     fun compare (v1:t,v2:t) = String.compare(#id v1,#id v2)
                              end)
 
-  (* General feature functions *)
-  fun qq s = "'" ^ s ^ "'" 
-  fun curry f x y = f (x,y)
-  fun isIn s xs = List.exists (curry (op =) s) xs
-                           
   (* Some type utilities *)
   fun unScl s t =
       case unArr t of
           SOME (bt,r) => (case unifyR r (rnk 0) of
-                              SOME s' => raise Fail (s' ^ " in " ^ s)
-                            | NONE => bt)
+                              ERROR s' => raise Fail (s' ^ " in " ^ s)
+                            | SUCCESS => bt)
         | NONE =>
           case unS t of
               SOME (bt,_) => bt
             | NONE => 
               let val bt = TyVarB()
               in case unify t (Arr bt (rnk 0)) of
-                     SOME s' => raise Fail (s' ^ " in " ^ s)
-                   | NONE => bt
+                     ERROR s' => raise Fail (s' ^ " in " ^ s)
+                   | SUCCESS => bt
               end
 
   fun unUnaryFun s ty =
@@ -77,8 +74,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           let val tv = TyVarB()
               val r = RnkVar()
           in case unify t (Arr tv r) of
-                 NONE => (tv,r)
-               | SOME _ => 
+                 SUCCESS => (tv,r)
+               | ERROR _ => 
                  raise Fail ("expecting array type, but got "
                              ^ prType t ^ " in " ^ s)
           end
@@ -90,8 +87,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           let val tv = TyVarB()
               val r = RnkVar()
           in case unify t (S tv r) of
-                 NONE => (tv,r)
-               | SOME _ => 
+                 SUCCESS => (tv,r)
+               | ERROR _ => 
                  raise Fail ("expecting singleton type, but got "
                              ^ prType t ^ " in " ^ s)
           end
@@ -104,22 +101,22 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
 
   (* Expressions *)
 
-  datatype exp =
+  datatype uexp =
            Var of var * typ
          | I of Int32.int
          | D of real
          | B of bool
          | C of word
-         | Iff of exp * exp * exp * typ
-         | Vc of exp list * typ
-         | Op of opr * exp list * typ
-         | Let of var * typ * exp * exp * typ
-         | Fn of var * typ * exp * typ
+         | Iff of uexp * uexp * uexp * typ
+         | Vc of uexp list * typ
+         | Op of opr * uexp list * typ
+         | Let of var * typ * uexp * uexp * typ
+         | Fn of var * typ * uexp * typ
 
   (* Environments *)
   type env = (var * typ) list
 
-  val empEnv = nil
+  val emptyEnv = nil
 
   fun lookup e v =
       case e of
@@ -132,8 +129,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   (* Typing *)
   fun assert0 unify s t1 t2 =
       case unify t1 t2 of
-          SOME s' => raise Fail (s' ^ " in " ^ s)
-        | NONE => ()
+          ERROR s' => raise Fail (s' ^ " in " ^ s)
+        | SUCCESS => ()
 
   val assert = assert0 unify
   val assertR = assert0 unifyR
@@ -142,22 +139,22 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   val assert_sub = assert0 subtype
 
   fun isBinOpIII opr =
-      isIn opr ["addi","subi","muli","divi","maxi","mini","mod","resi","andi","ori","shli","shri","shari","xori"]
+      Util.listContains opr ["addi","subi","muli","divi","maxi","mini","mod","resi","andi","ori","shli","shri","shari","xori"]
 
   fun isBinOpDDD opr =
-      isIn opr ["addd","subd","muld","divd","resd","maxd","mind","powd"]
+      Util.listContains opr ["addd","subd","muld","divd","resd","maxd","mind","powd"]
 
   fun isBinOpIIB opr =
-      isIn opr ["lti","ltei","eqi","gti","gtei"]
+      Util.listContains opr ["lti","ltei","eqi","gti","gtei"]
 
   fun isBinOpDDB opr =
-      isIn opr ["ltd","lted","eqd","gtd","gted"]
+      Util.listContains opr ["ltd","lted","eqd","gtd","gted"]
 
   fun isBinOpBBB opr =
-      isIn opr ["andb","orb","eqb","xorb","norb","nandb"]
+      Util.listContains opr ["andb","orb","eqb","xorb","norb","nandb"]
 
   fun isBinOpCCB opr =
-      isIn opr ["ltc","ltec","eqc","gtc","gtec"]
+      Util.listContains opr ["ltc","ltec","eqc","gtc","gtec"]
 
   fun isInt' t =
       case unArr t of
@@ -546,8 +543,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           else if isBinOpDDB opr then tyBin Double Double Bool opr t1 t2
           else if isBinOpBBB opr then tyBin Bool Bool Bool opr t1 t2
           else if isBinOpCCB opr then tyBin Char Char Bool opr t1 t2
-          else raise Fail ("binary operator " ^ qq opr ^ " not supported")
-        | _ => raise Fail ("operator " ^ qq opr ^ ", with " 
+          else raise Fail ("binary operator " ^ Util.quote opr ^ " not supported")
+        | _ => raise Fail ("operator " ^ Util.quote opr ^ ", with "
                            ^ Int.toString (length ts) 
                            ^ " arguments, not supported")
   and tyBin t1 t2 t3 opr t1' t2' =
@@ -565,7 +562,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
               case e of
                   Var(v, t0) => (case lookup E v of
                                      SOME t => (assert "var" t t0; t)
-                                  |  NONE => raise Fail ("Unknown variable " ^ qq (ppVar v)))
+                                  |  NONE => raise Fail ("Unknown variable " ^ Util.quote (ppVar v)))
                 | I n => S IntB (rnk n)
                 | D _ => Double
                 | B true => S BoolB (rnk 1)
@@ -680,10 +677,10 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
               | Db of real
               | Bb of bool
               | Cb of word
-              | Fb of denv * var * typ * exp * typ
-  withtype denv = (var * bv Apl.t) list
+              | Fb of denv * var * typ * uexp * typ
+  withtype denv = (var * bv Apl.APLArray) list
 
-  type value = bv Apl.t
+  type value = bv Apl.APLArray
 
   fun Dvalue v = Apl.scl (Db 0.0) (Db v)
   fun unDvalue _ = raise Fail "exp.unDvalue: not implemented"
@@ -731,7 +728,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                       
   fun pr_value v = Apl.pr (pr_bv,",") v
 
-  val empDEnv = nil
+  val emptyDEnv = nil
   val addDE = add
 
   fun unIb (Ib b) = b
@@ -776,7 +773,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   fun roll 0 = Random.random (!rgen)
     | roll i = real (Random.range (0,i) (!rgen))
 
-  fun fileVecReader fname (f: string -> 'a list) (d: 'a) (g : 'a -> 'b) : 'b Apl.t =
+  fun fileVecReader fname (f: string -> 'a list) (d: 'a) (g : 'a -> 'b) : 'b Apl.APLArray =
       let val v = Apl.map #" " (fn Cb w => wordToChar w 
                                  | _ => raise Fail "eval:fileVecReader") fname
           fun finally x f g =

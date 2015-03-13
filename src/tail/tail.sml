@@ -1,9 +1,9 @@
 structure Tail : TAIL = struct
 
 structure Exp = TailExp(TailType)
+structure Optimize = TailOptimize(Exp)
 
-val optimisationLevel = ref 0
-fun optlevel() = !optimisationLevel
+val optimisationLevel = Optimize.optimisationLevel
 
 fun die s = raise Fail ("Tail." ^ s)
 
@@ -110,15 +110,17 @@ fun If (b,e1,e2) = Iff_e(b,e1,e2)
 val fromList = fn _ => Vc_e
 val fromChars = Vc_e o (List.map C)
 
-type 'a t = exp
-type 'a v = exp
-type 'a NUM = exp
-type INT = exp
-type DOUBLE = exp
-type BOOL = exp
-type CHAR = exp
+type 'a exp = uexp
+type 'a tvector = uexp
+type 'a NUM = uexp
+type INT = uexp
+type DOUBLE = uexp
+type BOOL = uexp
+type CHAR = uexp
+
+val typeOf = Exp.typeOf
                 
-type 'a M = ('a -> exp) -> exp
+type 'a M = ('a -> uexp) -> uexp
          
 fun runHack (m : 'a M) : 'a option =
     let exception RunHack of 'a
@@ -133,13 +135,13 @@ fun (f : 'a M) >>= (g : 'a -> 'b M) : 'b M =
    fn k => f (fn x => g x k)
 
 (* Compiled Programs *)
-type ('a,'b) prog = exp
+type ('a,'b) prog = uexp
 fun toExp x = x
 val main_arg_var = newVar()
 fun runF _ f = f (Var(main_arg_var,TyVar())) (fn x => x)
  
 (* Values and Evaluation *)
-type 'a V = Exp.value
+type 'a value = Exp.value
 fun Iv _ = die "Iv"
 fun unIv _ = die "unIv"
 val Dv = Exp.Dvalue
@@ -151,7 +153,7 @@ fun unVv _ = die "unVv"
 val Uv = Exp.Uvalue
 
 type 'a MVec = unit
-type 'a m = exp
+type 'a ndarray = uexp
 fun zilde () = Op_e("zilde",nil)
 fun scl t = t
 fun scalar t = Vc_e[t]
@@ -272,6 +274,7 @@ fun letm e =
     in fn f => Let_e(v,t,e,f(Var(v,t)))
     end
 
+(* Pretty printing *)
 local fun pr s x = Op_e(s,[x])
 in
 val prArrI = pr "prArrI"
@@ -285,207 +288,6 @@ val prSclC = pr "prSclC"
 val formatI = pr "formatI"
 val formatD = pr "formatD"
 end
-
-(* Optimization *)
-
-structure Optimize = struct
-
-type def = {shape: Exp.exp option, value: Exp.exp option}
-type env = def FM.map
-
-fun rot 0 es = es
-  | rot n es = if n < 0 then rev(rot (~n) (rev es))
-               else case es of
-                        e::es => rot (n-1) (es@[e])
-                      | [] => []
-
-fun peep E e =
-    case e of
-        Op(opr,es,t) => peepOp E (opr,es,t)
-      | e => e
-and peepOp E (opr,es,t) =
-    case (opr, es) of
-        ("addi", [I 0,e]) => e
-      | ("addi", [e,I 0]) => e
-      | ("addi", [I i1,I i2]) => I(Int32.+(i1,i2))
-      | ("subi", [I i1,I i2]) => I(Int32.-(i1,i2))
-      | ("subi", [e,I 0]) => e
-      | ("negi", [I i]) => I(Int32.~ i)
-      | ("absi", [I i]) => I(Int32.abs i)
-      | ("i2d", [I i]) => D(Real.fromLargeInt (Int32.toLarge i))
-      | ("b2i", [B true]) => I 1
-      | ("b2i", [B false]) => I 0
-      | ("b2iV", [B true]) => I 1
-      | ("b2iV", [B false]) => I 0
-      | ("reduce", [f,n,Op("zilde",[],_)]) => n
-      | ("vreverse", [Vc(es,t)]) => Vc(rev es, t)
-      | ("vrotateV", [I 0,e]) => e
-      | ("shape", [e]) => (case getShape E e of
-                               SOME e => e
-                             | NONE => Op (opr,[e],t))
-      | ("shapeV", [e]) => (case getShape E e of
-                                 SOME e => e
-                               | NONE => Op (opr,[e],t))
-      | ("dropV", [I n,Vc(es',_)]) =>
-        let val n = Int32.toInt n
-        in if n >= 0 andalso n <= length es' then Vc(List.drop(es',n),t)
-           else if n < 0 andalso ~n <= length es' then Vc(List.take(es',length es' + n),t)
-           else Op(opr,es,t)
-        end
-      | ("takeV", [I n,Vc(es',_)]) =>
-        let val n = Int32.toInt n
-        in if n >= 0 andalso n <= length es' then Vc(List.take(es',n),t)
-           else if n < 0 andalso ~n <= length es' then Vc(List.drop(es',length es' + n),t)
-           else Op(opr,es,t)
-        end
-      | ("firstV", [Vc(e::es,t)]) => e
-      | ("first", [Vc(e::es,t)]) => e
-      | ("transp2", [Vc([I 2,I 1],_),e]) => Op("transp", [e],t)
-      | ("transp2", [Vc([_],_),e]) => e
-      | ("catV", [Vc(es1,_),Vc(es2,_)]) => Vc(es1@es2,t)
-      | ("cat", [Vc(es1,_),Vc(es2,_)]) => Vc(es1@es2,t)
-      | ("snocV", [Vc(es,_),e]) => Vc(es@[e],t)
-      | ("iotaV",[I n]) => 
-        let val n = Int32.toInt n
-        in if n <= 3 then Vc(List.map I (List.tabulate (n,fn x => x+1)),t)
-           else Op(opr,es,t)
-        end
-      | ("eachV", [Fn(v,_,Op("b2i",[Var (v',_)],t'),_),Vc(es',_)]) =>
-        if v=v' then Vc(List.map (fn e => peepOp E ("b2i",[e],t')) es',t)
-        else Op(opr,es,t)
-      | ("catV", [Vc([],_),e]) => e
-      | ("vrotateV", [I n,Vc(es,_)]) => Vc(rot(Int32.toInt n) es,t)
-      | ("transp", [Vc e]) => Vc e
-      | ("reshape", [Vc([I n],_), Vc(es',t')]) =>
-        if Int32.toInt n = length es' then Vc(es',t')
-        else Op(opr,es,t)
-      | ("idxS", [I 1, I i, Vc(xs,_)]) => List.nth(xs,i-1)
-      | _ =>
-        if optlevel() > 0 then 
-          case (opr, es) of
-              ("powd", [D a, D b]) => D(Math.pow(a,b))
-            | ("muld", [D a, D b]) => D(Real.*(a,b))
-            | ("addd", [D a, D b]) => D(Real.+(a,b))
-            | ("subd", [D a, D b]) => D(Real.-(a,b))
-            | _ => Op(opr,es,t)
-        else Op(opr,es,t)
-               
-and getShape (E:env) (e : Exp.exp) : Exp.exp option =
-    let fun tryType() =
-            case unVcc (typeOf e) of
-                NONE => NONE
-              | SOME (bt,r) => case unRnk r of
-                                   NONE => NONE
-                                 | SOME i => SOME (Vc([I(Int32.fromInt i)],SV IntB r))
-    in case tryType() of
-           SOME e => SOME e
-         | NONE =>
-       case e of
-           Op("reshape",[sh,e],_) => SOME sh
-         | Var(v,_) => (case FM.lookup E v of
-                            SOME{shape=SOME sh,...} => SOME sh
-                          | _ => NONE)
-         | Vc(es,_) => SOME(Vc([I(Int32.fromInt(length es))],SV IntB (rnk(length es))))
-         | Op("transp", [e], _) =>
-           (case getShape E e of
-                SOME sh => SOME(peepOp E ("vreverse",[sh],typeOf sh))
-              | NONE => NONE)
-         | _ => NONE
-    end
-
-fun simple e =
-    case e of
-        I _ => true
-      | D _ => true
-      | B _ => true
-      | C _ => true
-      | Var _ => true
-      | Vc(es,_) => (*length es <= 20 andalso*) List.all simple es
-      | _ => false
-
-fun optimize optlevel e =
-    if Int.<= (optlevel, 0) then e
-    else
-    let fun add E k v = E
-        fun opt E e =
-            case e of
-                Var (v,_) => (case FM.lookup E v of
-                                  SOME{value=SOME e,...} => e
-                                | _ => e)
-              | I i => e
-              | D r => e
-              | B b => e
-              | C w => e
-              | Iff (c,e1,e2,t) => Iff(opt E c,opt E e1,opt E e2,t)
-              | Vc(es,t) => Vc (opts E es,t)
-              | Op(opr,es,t) => peepOp E (opr,opts E es,t)
-              | Let (v,ty,e1,e2,t) => 
-                let val e1 = opt E e1
-                in if simple e1 then
-                     let val E' = FM.add(v,{shape=NONE,value=SOME e1},E)
-                     in opt E' e2
-                     end
-                   else 
-                     let val sh = getShape E e1
-                         val E' = FM.add(v,{shape=sh,value=NONE},E)
-                         val e2 = opt E' e2
-                     in Let(v,ty,e1,e2,t)
-                     end
-                end
-              | Fn (v,t,e,t') => 
-                let val E' = FM.add(v,{shape=NONE,value=NONE},E)
-                in Fn(v,t,opt E' e,t')
-                end
-        and opts E es = List.map (opt E) es
-        val initE = FM.empty
-    in opt initE e
-    end
-
-(* Inliner : The inliner inlines simple (i.e., non-side-effecting
-expressions not containing lambdas are considered simple) variable
-definitions for which the bound variables are used at most once. The
-inliner works in two steps. The first step computes a map (buttom-up)
-of the number of uses of a variable (ZERO, ONE, MANY). Variables that
-are used under a lambda are considered to be used MANY times (such
-variables are therefore not inlined). The second step is a top-down
-transformation of the source, which inlines simple variable
-definitions that are inferred in the first step to be used ONE
-time. Simple variable definitions that are never used are eliminated.
-*)
-                         
-datatype mul = ONE | MANY
-
-type IE = mul FM.map
-fun bumpIE (ie:IE):IE = FM.composemap (fn _ => MANY) ie
-fun plusIE (ie1,ie2) : IE = FM.mergeMap (fn _ => MANY) ie1 ie2
-fun oneIE v : IE = FM.singleton(v,ONE)
-val empIE : IE = FM.empty
-
-fun uses e =
-    case e of
-        Var (v,_) => oneIE v
-      | I _ => empIE
-      | D _ => empIE
-      | B _ => empIE
-      | C _ => empIE
-      | Iff (c,e1,e2,_) => usess [c,e1,e2]
-      | Vc(es,_) => usess es
-      | Op(opr,es,_) => usess es
-      | Let (_,_,e1,e2,_) => usess [e1,e2]
-      | Fn (_,_,e,_) => bumpIE(uses e)
-and usess nil = empIE
-  | usess (e::es) = plusIE(uses e,usess es)
-
-(* The inliner needs to be implemented fully one day - for now, we are
-instead more aggressive in inline expressions (even bindings that are
-referenced multiple times.) See definition of "simple" above. *)
-
-
-end (* end of Optimize structure *)
-
-
-
-(* Pretty printing *)
 
 fun prInstanceLists opr es t =
     let 
@@ -600,7 +402,7 @@ fun pp_exp (prtype:bool) e =
     end
 
 val pp_prog = pp_exp
-val ppV = Exp.pr_value
+val ppValue = Exp.pr_value
 
 fun outprog prtype ofile p =
     let val body = pp_prog prtype p
@@ -613,34 +415,31 @@ fun outprog prtype ofile p =
 
 fun runM {verbose,optlevel,prtype} tt m =
     let val p = m (fn x => x)
-        fun prln f =
-            if verbose then (print (f()); print "\n")
-            else ()
-        val () = prln (fn() => "Untyped program:\n" ^ pp_prog false p)
-        val () = prln (fn() => "Typing the program...")
+        val _ = Util.log verbose (fn _ => "Untyped program:\n" ^ pp_prog false p)
+        val _ = Util.log verbose (fn _ => "Typing the program...")
         fun typeit h p =
-            case typeExp empEnv p of
+            case typeExp emptyEnv p of
                 ERR s => 
                 let val msg = "***Type error - " ^ h ^ ": " ^ s
-                in prln (fn() => msg);
-                   prln (fn() => "Program:");
-                   prln (fn() => pp_prog prtype p);
+                in Util.log verbose (fn _ => msg);
+                   Util.log verbose (fn _ => "Program:");
+                   Util.log verbose (fn _ => pp_prog prtype p);
                    die msg
                 end
-              | OK t => (prln (fn() => "  Program has type: " ^ prType t);   (* perhaps unify tt with t!! *)
+              | OK t => (Util.log verbose (fn _ => "  Program has type: " ^ prType t);   (* perhaps unify tt with t!! *)
                          let val p = Exp.resolveShOpr p
-                         in prln (fn() => "Typed program - " ^ h ^ ":\n" ^ pp_prog prtype p);
+                         in Util.log verbose (fn _ => "Typed program - " ^ h ^ ":\n" ^ pp_prog prtype p);
                             p
                          end)
         val p = typeit "before optimization" p
         val p = Optimize.optimize optlevel p
         val p = typeit "after optimization" p
-        val () = prln (fn() => "Optimised program:\n" ^ pp_prog prtype p)
+        val _ = Util.log verbose (fn _ => "Optimised program:\n" ^ pp_prog prtype p)
     in p
     end
 
 fun eval p v =
-    let val de = Exp.addDE Exp.empDEnv main_arg_var v
+    let val de = Exp.addDE Exp.emptyDEnv main_arg_var v
         val v' = Exp.eval de p
     in v'
     end

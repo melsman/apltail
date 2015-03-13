@@ -17,7 +17,6 @@ signature TAIL_EXP = sig
   eqtype var
   val newVar : unit -> var         (* create new immutable variable *)
   val mutableVar : var -> bool ref (* get reference to get/set whether this variable is mutable *)
-  val ppVar  : var -> string
 
   (* Finite map's keyed by TAIL-variables *)
   structure FM : sig
@@ -33,57 +32,57 @@ signature TAIL_EXP = sig
   end
 
   (* TAIL AST *)
-  datatype exp =
+  datatype uexp =
            Var of var * typ
          | I of Int32.int
          | D of real
          | B of bool
          | C of word
-         | Iff of exp * exp * exp * typ
-         | Vc of exp list * typ
-         | Op of opr * exp list * typ
-         | Let of var * typ * exp * exp * typ
-         | Fn of var * typ * exp * typ
+         | Iff of uexp * uexp * uexp * typ
+         | Vc of uexp list * typ
+         | Op of opr * uexp list * typ
+         | Let of var * typ * uexp * uexp * typ
+         | Fn of var * typ * uexp * typ
 
   (* Type environment *)
   type env
   val lookup   : env -> var -> typ option
-  val empEnv   : env
+  val emptyEnv : env
   val add      : env -> var -> typ -> env
 
   (* Type-checking *)
   datatype 't report = OK of 't | ERR of string
-  val typeExp  : env -> exp -> typ report
+  val typeExp  : env -> uexp -> typ report
 
   (* Walk the syntax tree, mark each operator that works on
      shape-types (appends "V" to the end of the operation name) *)
-  val resolveShOpr : exp -> exp
+  val resolveShOpr : uexp -> uexp
 
   (* Alternative constructors that checks the types upon
      construction. May raise Fail. *)
-  val Iff_e    : exp * exp * exp -> exp
-  val Vc_e     : exp list -> exp
-  val Op_e     : opr * exp list -> exp
-  val Let_e    : var * typ * exp * exp -> exp
-  val Fn_e     : var * typ * exp -> exp
+  val Iff_e    : uexp * uexp * uexp -> uexp
+  val Vc_e     : uexp list -> uexp
+  val Op_e     : opr * uexp list -> uexp
+  val Let_e    : var * typ * uexp * uexp -> uexp
+  val Fn_e     : var * typ * uexp -> uexp
 
   (* Get the type of a TAIL-expression *)
-  val typeOf   : exp -> typ
+  val typeOf   : uexp -> typ
 
   (* Values & Stores *)
   type value
   type denv
-  val empDEnv  : denv
+  val emptyDEnv  : denv
   val addDE    : denv -> var -> value -> denv
   val Dvalue   : real -> value
   val unDvalue : value -> real
   val Uvalue   : value          (* = Dvalue 0.0 ? *)
 
   (* Evaluate an expression in the given environment *)
-  val eval : denv -> exp -> value
+  val eval : denv -> uexp -> value
 
-  (* Pretty printing values and characters *)
+  (* Pretty printing variables, values and characters *)
+  val ppVar  : var -> string
   val pr_value : value -> string
   val pr_char : word -> string
-
 end

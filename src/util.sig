@@ -16,10 +16,15 @@ signature UTIL = sig
   val lookupAlist : (''a,'b) alist -> ''a -> 'b option
   val plusAlist   : (''a,'b) alist * (''a,'b) alist -> (''a,'b) alist
 
+  val listContains : ''a -> ''a list -> bool
+
   (* Printing *)
   val intToCString  : int -> string
   val realToCString : real -> string
+  val quote         : string -> string
   val prln          : string -> unit
+  val log           : bool -> (unit -> string) -> unit
+
 
   (* Minimum and maximum values *)
   val minInt : int
