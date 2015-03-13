@@ -56,7 +56,7 @@ signature TAIL = sig
   val fromChars : word list -> Char tvector
 
   (* Compiled Programs
-        'a - ???
+        'a - the input type of the expression (often just "unit")
         'b - the return type of the expression *)
   type ('a,'b) prog
 
