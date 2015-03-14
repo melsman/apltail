@@ -373,8 +373,8 @@ fun pp_exp (prtype:bool) e =
         fun pp i e : t =
             case e of
                 Var (v,_) => $(ppVar v)
-              | I i => $(Int32.toString i)
-              | D r => $(Real.fmt (StringCvt.FIX (SOME 2)) r)
+              | I i => $(Util.intToCString i)
+              | D r => $(Util.realToCString r)
               | B true => $"tt"
               | B false => $"ff"
               | C w => $("'" ^ pr_char w ^ "'")
