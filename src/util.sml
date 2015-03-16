@@ -31,10 +31,10 @@ fun intToCString i =
     else if i < 0 then "-" ^ intToCString (~i)
     else Int32.toString i
 
-fun realToCString d =
-    if d < 0.0 then "-" ^ realToCString (~d)
+fun realToString inf d =
+    if d < 0.0 then "-" ^ realToString inf (~d)
     else
-      if Real.==(d,Real.posInf) then "HUGE_VAL"
+      if Real.==(d,Real.posInf) then inf
       else 
         let val s = Real.toString d
             val s = String.translate (fn #"~" => "-" 
@@ -44,6 +44,9 @@ fun realToCString d =
            else if CharVector.exists (fn c => c = #"e") s then s
            else s ^ ".0"
         end
+
+fun realToCString d = realToString "HUGE_VAL" d
+fun realToTailString d = realToString "inf" d
 
 (* Add quotes around a string *)
 fun quote s = "'" ^ s ^ "'" 

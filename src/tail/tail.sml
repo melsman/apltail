@@ -374,7 +374,7 @@ fun pp_exp (prtype:bool) e =
             case e of
                 Var (v,_) => $(ppVar v)
               | I i => $(Util.intToCString i)
-              | D r => $(Util.realToCString r)
+              | D r => $(Util.realToTailString r)
               | B true => $"tt"
               | B false => $"ff"
               | C w => $("'" ^ pr_char w ^ "'")
