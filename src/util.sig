@@ -21,6 +21,7 @@ signature UTIL = sig
   (* Printing *)
   val intToCString  : int -> string
   val realToCString : real -> string
+  val realToTailString : real -> string
   val quote         : string -> string
   val prln          : string -> unit
   val log           : bool -> (unit -> string) -> unit
