@@ -65,6 +65,7 @@ and peepOp E (opr,es,t) =
       | ("transp2", [Vc([_],_),e]) => e
       | ("catV", [Vc(es1,_),Vc(es2,_)]) => Vc(es1@es2,t)
       | ("cat", [Vc(es1,_),Vc(es2,_)]) => Vc(es1@es2,t)
+      | ("catV", [e1,Vc([e2],_)]) => Op("snocV", [e1,e2], t) 
       | ("snocV", [Vc(es,_),e]) => Vc(es@[e],t)
       | ("iotaV",[I n]) => 
         let val n = Int32.toInt n
