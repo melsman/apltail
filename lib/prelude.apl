@@ -42,10 +42,16 @@ testBit ← { 0≠⍵ and 1 sll (⍺-1) }
 now ← ⎕NOW
 
 bench ← {
-  g ← ⍺⍺
-  f ← { ⍵ ⋄ ⌷ g 0 }
+  init ← ⍵
+  f ← ⍺⍺
+  g ← { ⍵ ⋄ f init }
+  r ← g init
   t0 ← now 0
-  r ← (f ⍣ ⍵) 0
+  r ← (g ⍣ ⍺) r
   t1 ← now 1
-  r,(t1-t0)÷⍵
+  ⎕ ← 'ITERATIONS: ' , ⍕ ⍺
+  ⎕ ← 'RESULT: ' , ⍕ ⍵⍵ r
+  ⎕ ← 'AVGTIMING: ' , ⍕ (t1-t0)÷⍺
+  1.0
 }
+
