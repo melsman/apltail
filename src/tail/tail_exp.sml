@@ -376,6 +376,10 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           (unArr' "vrotate" t2;
            assert_sub "first argument to vrotate" t1 Int;
            t2)
+        | ("rotate",[t1,t2]) =>
+          (unArr' "rotate" t2;
+           assert_sub "first argument to rotate" t1 Int;
+           t2)
         | ("zipWith",[tf,t1,t2]) =>
           let val (bt1,bt2,bt) = unBinFun "first argument to zipWith" tf
               val (bt1',r1) = unArr' "zipWith first argument" t1
@@ -527,6 +531,11 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
            case unVcc t2 of
                SOME _ => t2
              | NONE => raise Fail (opr ^ " expects second argument to be a sized vector type"))
+        | ("rotateV",[t1,t2]) =>
+          (assert_sub opr t1 Int;           
+           case unVcc t2 of
+               SOME _ => t2
+             | NONE => raise Fail (opr ^ " expects second argument to be a sized vector type"))
         | ("prSclI",[t]) => (assert_sub opr t Int; t)
         | ("prSclB",[t]) => (assert_sub opr t Bool; t)
         | ("prSclD",[t]) => (assert_sub opr t Double; t)
@@ -629,6 +638,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
       |  ("iota"    , _        , _        , SOME _   ) => true
       |  ("vreverse", _        , _        , SOME _   ) => true
       |  ("vrotate" , _        , _        , SOME _   ) => true
+      |  ("rotate"  , _        , _        , SOME _   ) => true
       |  ("each"    , _        , _        , SOME _   ) => true
       |  ("b2i"     , SOME _   , _        , _        ) => true
       | _ => false
@@ -868,6 +878,10 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                | ("vrotate", [e1,e2]) =>
                  let val v1 = Apl.map 0 unIb (eval DE e1)
                  in Apl.vrotate(v1,eval DE e2)
+                 end
+               | ("rotate", [e1,e2]) =>
+                 let val v1 = Apl.map 0 unIb (eval DE e1)
+                 in Apl.transpose(Apl.vrotate(v1,Apl.transpose(eval DE e2)))
                  end
                | ("vreverse", [e]) => Apl.vreverse (eval DE e)
                | ("first", [e]) => Apl.first (eval DE e)

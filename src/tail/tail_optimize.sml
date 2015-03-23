@@ -41,6 +41,7 @@ and peepOp E (opr,es,t) =
       | ("reduce", [f,n,Op("zilde",[],_)]) => n
       | ("vreverse", [Vc(es,t)]) => Vc(rev es, t)
       | ("vrotateV", [I 0,e]) => e
+      | ("rotateV", [I 0,e]) => e
       | ("shape", [e]) => (case getShape E e of
                                SOME e => e
                              | NONE => Op (opr,[e],t))
@@ -77,6 +78,7 @@ and peepOp E (opr,es,t) =
         else Op(opr,es,t)
       | ("catV", [Vc([],_),e]) => e
       | ("vrotateV", [I n,Vc(es,_)]) => Vc(rot(Int32.toInt n) es,t)
+      | ("rotateV", [I n,Vc(es,_)]) => Vc(rot(Int32.toInt n) es,t)
       | ("transp", [Vc e]) => Vc e
       | ("reshape", [Vc([I n],_), Vc(es',t')]) =>
         if Int32.toInt n = length es' then Vc(es',t')
