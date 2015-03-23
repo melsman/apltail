@@ -40,3 +40,12 @@ srl ← ⎕INT32SHR
 testBit ← { 0≠⍵ and 1 sll (⍺-1) }
 
 now ← ⎕NOW
+
+bench ← {
+  g ← ⍺⍺
+  f ← { ⍵ ⋄ ⌷ g 0 }
+  t0 ← now 0
+  r ← (f ⍣ ⍵) 0
+  t1 ← now 1
+  r,(t1-t0)÷⍵
+}
