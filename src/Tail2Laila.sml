@@ -110,6 +110,7 @@ val classifyOp : string -> opOpt =
   | "iotaV" => S_A L.iota
   | "iota" => S_A L.iota
   | "mem" => A_AM L.mem
+  | "memScl" => S_S (fn x => x)
   | "transp" => A_AM L.transpose
   | "transp2" => VA_AM (fn (v,a) => L.transpose2 v a)
   | "vrotateV" => SA_A (fn (i,a) => L.rotate i a)

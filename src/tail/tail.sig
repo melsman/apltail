@@ -206,6 +206,7 @@ signature TAIL = sig
 
   (* Memoize *)
   val mem       : 'a ndarray -> 'a ndarray
+  val memScl    : 'a exp -> 'a exp
 
   val rotate    : INT -> 'a ndarray -> 'a ndarray
   val reverse   : 'a ndarray -> 'a ndarray

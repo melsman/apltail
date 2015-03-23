@@ -218,6 +218,7 @@ fun catenate e1 e2 =
 fun take e1 e2 = Op_e("take", [e1,e2])
 fun drop e1 e2 = Op_e("drop", [e1,e2])
 fun mem e = Op_e("mem",[e])
+fun memScl e = Op_e("memScl",[e])
 fun reshape e1 e2 = Op_e("reshape", [e1,e2])
 fun shape e = Op_e("shape",[e])
 fun reduce f e1 e2 s a =

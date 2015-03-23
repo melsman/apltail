@@ -362,6 +362,10 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | ("firstV",[t]) => type_first true t
         | ("vreverse",[t]) => (unArr' "vreverse" t; t)
         | ("mem",[t]) => (unArr' "mem" t; t)
+        | ("memScl",[t]) => let val (_,r) = unArr' "memScl" t
+                            in assertR "memScl" r (rnk 0)
+                             ; t
+                            end
         | ("transp",[t]) => (unArr' "transp" t; t)
         | ("transp2",[t1,t2]) =>
           let val (bt,r) = unArr' "transp2" t2
@@ -868,6 +872,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                | ("vreverse", [e]) => Apl.vreverse (eval DE e)
                | ("first", [e]) => Apl.first (eval DE e)
                | ("mem", [e]) => eval DE e
+               | ("memScl", [e]) => eval DE e
                | ("transp", [e]) => Apl.transpose (eval DE e)
                | ("transp2", [e1,e2]) =>
                  let val v1 = Apl.map 0 unIb (eval DE e1)
