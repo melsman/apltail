@@ -123,6 +123,26 @@ fun compOpr_a2a e (opr1 : Int Num ndarray -> Int Num ndarray)
   | (Cs x) => ret (Cs x)
   | _ => compErr r ("expects an array as argument in " ^ pr_exp e)
 
+fun compOpr_a2a' e (opr1 : Int Num ndarray -> Int Num ndarray)
+                   (opr2 : Double Num ndarray -> Double Num ndarray)
+                   (opr3 : Bool ndarray -> Bool ndarray)
+                   (opr4 : Char ndarray -> Char ndarray)
+                   (opr5 : Int Num T.exp -> Int Num T.exp)
+                   (opr6 : Double Num T.exp -> Double Num T.exp)
+                   (opr7 : Bool T.exp -> Bool T.exp)
+                   (opr8 : Char T.exp -> Char T.exp)
+                   (r : reg)
+                    : tagged_exp -> tagged_exp M =
+ fn (Ais a) => ret (Ais(opr1 a))
+  | (Ads a) => ret (Ads(opr2 a))
+  | (Abs a) => ret (Abs(opr3 a))
+  | (Acs a) => ret (Acs(opr4 a))
+  | (Is x) => ret (Is(opr5 x))
+  | (Ds x) => ret (Ds(opr6 x))
+  | (Bs x) => ret (Bs(opr7 x))
+  | (Cs x) => ret (Cs(opr8 x))
+  | _ => compErr r ("expects an array as argument in " ^ pr_exp e)
+
 (* Compile dyadic operations with an integer as first argument and
  * an array as second argument.
  *
@@ -932,7 +952,7 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                         | s => compErrS r s "expects a numeric scalar as right argument to format operation"
               in compPrimFunM k r comp_format
               end
-            | IdE(Symb L.Squad,r)    => compPrimFunM k r (compOpr_a2a e mem mem mem mem)
+            | IdE(Symb L.Squad,r)    => compPrimFunM k r (compOpr_a2a' e mem mem mem mem memScl memScl memScl memScl)
             | IdE(Symb L.Take,r)     => compPrimFunD k r (compOpr2_i8a2a_td e take take take take) noii
             | IdE(Symb L.Drop,r)     => compPrimFunD k r (compOpr2_i8a2a_td e drop drop drop drop) noii
             | IdE(Symb L.Rot,r)      => compPrimFunMD k r (compOpr_a2a e reverse reverse reverse reverse,
