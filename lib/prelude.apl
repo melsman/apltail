@@ -45,9 +45,9 @@ bench ← {
   init ← ⍵
   f ← ⍺⍺
   g ← { ⍵ ⋄ f init }
-  r ← g init
+  r ← ⌷g init
   t0 ← now 0
-  r ← (g ⍣ ⍺) r
+  r ← ⌷(g ⍣ ⍺) r
   t1 ← now 1
   ⎕ ← 'ITERATIONS: ' , ⍕ ⍺
   ⎕ ← 'RESULT: ' , ⍕ ⍵⍵ r
