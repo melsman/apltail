@@ -520,7 +520,10 @@ fun compBackslash (r : AplAst.reg) : tagged_exp list -> tagged_exp M =
 (* Compile power operator *)
 fun compPower benchFlag r f n =
     let
-        fun getPowerScl p b = if #bench benchFlag then bench else powerScl
+        fun getPowerScl () = if #bench benchFlag then bench else powerScl
+        fun getCondScl () = if #bench benchFlag then (fn f => fn b => bench f (b2i b)) else condScl
+        fun getPower () = if #bench benchFlag then compError "bench operators works only on scalar values"
+                          else power
         fun unAis (Ais a) = SOME a
           | unAis _ = NONE
         fun unIs (Is i) = SOME i
@@ -542,26 +545,26 @@ fun compPower benchFlag r f n =
                  | Bs b => ret(g(cond h b m))
                  | _ => compErrS r n "expects integer or boolean as right argument to power operator"
             end
-        fun cond f b a = power f (b2i b) a
+        fun cond f b a = (getPower()) f (b2i b) a
     in
-    fn [Ads m] => doPower power cond "double array" Ads unAds m
-     | [Ais m] => doPower power cond "integer array" Ais unAis m
-     | [Ds m] => doPower (getPowerScl powerScl bench) condScl "double scalar" Ds unDs m
+    fn [Ads m] => doPower (getPower()) cond "double array" Ads unAds m
+     | [Ais m] => doPower (getPower()) cond "integer array" Ais unAis m
+     | [Ds m] => doPower (getPowerScl()) (getCondScl()) "double scalar" Ds unDs m
      | [Is m] =>
        (case classifyPower dummyIntS f of
-            INT_C => doPower (getPowerScl powerScl bench) condScl "integer scalar" Is unIs m
+            INT_C => doPower (getPowerScl()) (getCondScl()) "integer scalar" Is unIs m
           | DOUBLE_C => compPower benchFlag r f n [Ds(i2d m)]
           | _ => compErr r "expecting boolean or integer scalar as result of power")
      | [Bs m] =>
        (case classifyPower dummyBoolS f of
             INT_C => compPower benchFlag r f n [Is(b2i m)]
-          | BOOL_C => doPower (getPowerScl powerScl bench) condScl "boolean scalar" Bs unBs m
+          | BOOL_C => doPower (getPowerScl()) (getCondScl()) "boolean scalar" Bs unBs m
           | DOUBLE_C => compPower benchFlag r f n [Ds(i2d(b2i m))]
           | _ => compErr r "expecting boolean, integer, or double scalar as result of power")
      | [Abs m] =>
        (case classifyPower (Abs(zilde())) f of
             INT_C => compPower benchFlag r f n [Ais(each (ret o b2i) m)]
-          | BOOL_C => doPower power cond "boolean array" Abs unAbs m
+          | BOOL_C => doPower (getPower()) cond "boolean array" Abs unAbs m
           | _ => compErr r "expecting boolean or integer array as result of power")
      | _ => compErr r "expecting scalar or array (boolean, integer, or double) as argument to power"
     end
