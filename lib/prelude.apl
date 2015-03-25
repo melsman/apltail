@@ -41,19 +41,6 @@ testBit ← { 0≠⍵ and 1 sll (⍺-1) }
 
 now ← ⎕NOW
 
-bench ← {
-  init ← ⍵
-  f ← ⍺⍺
-  g ← { ⍵ ⋄ f init }
-  r ← ⌷g init
-  t0 ← now 0
-  r ← ⌷(g ⍣ ⍺) r
-  t1 ← now 1
-  ⎕ ← 'ITERATIONS: '
-  ⎕ ← ⍺
-  ⎕ ← 'RESULT: ' 
-  ⎕ ← ⍵⍵ r
-  ⎕ ← 'AVGTIMING: '
-  (t1-t0)÷⍺
-}
+⍝ [(f bench n) 0] runs f n times and prints the avg time in ms.
+bench ← ⎕BENCH
 
