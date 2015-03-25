@@ -518,7 +518,7 @@ structure ILUtil : ILUTIL = struct
           val (ssh,ss) = hoist (N.union(U,ds)) ss      
       in case s of
              Decl(n,SOME e) => 
-             if disjoint(us,U) then ((n,e)::ssh,ss)
+             if disjoint(us,U) andalso not(Program.side_effects e) then ((n,e)::ssh,ss)
              else let val (ssh,ss) = dehoist (N.singleton n) (ssh,ss)
                   in (ssh,s::ss)
                   end

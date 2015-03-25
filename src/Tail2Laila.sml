@@ -219,6 +219,21 @@ fun comp (E:env) (e : E.uexp) (k: lexp -> lexp L.M) : lexp L.M =
             let val f = fn x => f [S x] >>= (L.ret o unS "powerScl")
             in L.powerScl f n a >>= kS
             end))))                                 
+         | E.Op("bench", [f,n,a], _) => 
+           (compFN E f (fn f =>
+            compS E n (fn n =>
+            compS E a (fn a =>
+            let val f = fn x => f [S x] >>= (L.ret o unS "bench")
+            in L.lett (L.nowi (L.I 0)) >>= (fn t0 =>
+               L.powerScl f n a >>= (fn res =>
+               L.lett (L.nowi (L.I 1)) >>= (fn t1 =>
+               L.lett (L.subi(t1,t0)) >>= (fn time =>
+               L.lett (L.divd(L.i2d time,L.i2d n)) >>= (fn avgtime =>
+               L.printf("ITERATIONS: %d\n", [n]) >>= (fn () =>
+               L.printf("TIMING: %d\n", [time]) >>= (fn () =>
+               L.printf("AVGTIMING: %g\n", [avgtime]) >>= (fn () =>
+               kS res))))))))
+            end))))                            
          | E.Op("condScl", [f,n,a], _) => 
            (compFN E f (fn f =>
             compS E n (fn n =>

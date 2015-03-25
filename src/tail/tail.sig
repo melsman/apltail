@@ -260,5 +260,7 @@ signature TAIL = sig
 
   (* Time.now *)
   val nowi      : INT -> INT   (* nowi 0 returns time in milliseconds since process start *)
+
+  val bench     : ('a exp -> 'a exp M) -> INT -> 'a exp -> 'a exp   (* as powerScl, but for benchmarking *)
                       
 end

@@ -410,6 +410,17 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
            ; unScl "powerScl recursive argument" tv
            ; t2
           end
+        | ("bench", [tf,tn,tv]) =>
+          let val (t1,t2) = 
+                  case unFun tf of
+                      SOME(t1,t2) => (t1,t2)
+                    | NONE => raise Fail "expecting function type" 
+          in assert_sub opr tn Int
+           ; assert opr t1 t2
+           ; assert_sub opr tv t2
+           ; unScl "bench recursive argument" tv
+           ; t2
+          end
         | ("condScl", [tf,tb,tv]) =>
           let val (t1,t2) = 
                   case unFun tf of
@@ -936,6 +947,11 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                  end
                | ("powerScl", [ef,en,a]) =>
                  let val (DE0,v,_,e,_) = unFb(Apl.unScl"eval:powerScl"(eval DE ef))
+                     val vn = Apl.map 0 unIb (eval DE en)
+                 in Apl.power (fn y => eval (addDE DE0 v y) e) vn (eval DE a)
+                 end
+               | ("bench", [ef,en,a]) =>
+                 let val (DE0,v,_,e,_) = unFb(Apl.unScl"eval:bench"(eval DE ef))
                      val vn = Apl.map 0 unIb (eval DE en)
                  in Apl.power (fn y => eval (addDE DE0 v y) e) vn (eval DE a)
                  end

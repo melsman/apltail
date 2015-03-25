@@ -518,8 +518,10 @@ fun compBackslash (r : AplAst.reg) : tagged_exp list -> tagged_exp M =
      | _ => compErr r "This type of left-argument to scan not supported yet"
 
 (* Compile power operator *)
-fun compPower r f n =
-    let fun unAis (Ais a) = SOME a
+fun compPower benchFlag r f n =
+    let
+        fun getPowerScl p b = if #bench benchFlag then bench else powerScl
+        fun unAis (Ais a) = SOME a
           | unAis _ = NONE
         fun unIs (Is i) = SOME i
           | unIs (Bs b) = SOME(b2i b)
@@ -544,21 +546,21 @@ fun compPower r f n =
     in
     fn [Ads m] => doPower power cond "double array" Ads unAds m
      | [Ais m] => doPower power cond "integer array" Ais unAis m
-     | [Ds m] => doPower powerScl condScl "double scalar" Ds unDs m
+     | [Ds m] => doPower (getPowerScl powerScl bench) condScl "double scalar" Ds unDs m
      | [Is m] =>
        (case classifyPower dummyIntS f of
-            INT_C => doPower powerScl condScl "integer scalar" Is unIs m
-          | DOUBLE_C => compPower r f n [Ds(i2d m)]
+            INT_C => doPower (getPowerScl powerScl bench) condScl "integer scalar" Is unIs m
+          | DOUBLE_C => compPower benchFlag r f n [Ds(i2d m)]
           | _ => compErr r "expecting boolean or integer scalar as result of power")
      | [Bs m] =>
        (case classifyPower dummyBoolS f of
-            INT_C => compPower r f n [Is(b2i m)]
-          | BOOL_C => doPower powerScl condScl "boolean scalar" Bs unBs m
-          | DOUBLE_C => compPower r f n [Ds(i2d(b2i m))]
+            INT_C => compPower benchFlag r f n [Is(b2i m)]
+          | BOOL_C => doPower (getPowerScl powerScl bench) condScl "boolean scalar" Bs unBs m
+          | DOUBLE_C => compPower benchFlag r f n [Ds(i2d(b2i m))]
           | _ => compErr r "expecting boolean, integer, or double scalar as result of power")
      | [Abs m] =>
        (case classifyPower (Abs(zilde())) f of
-            INT_C => compPower r f n [Ais(each (ret o b2i) m)]
+            INT_C => compPower benchFlag r f n [Ais(each (ret o b2i) m)]
           | BOOL_C => doPower power cond "boolean array" Abs unAbs m
           | _ => compErr r "expecting boolean or integer array as result of power")
      | _ => compErr r "expecting scalar or array (boolean, integer, or double) as argument to power"
@@ -826,7 +828,7 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                                         Fs (f,_) => f [s1,s2] >>= (fn s => k(s,G2++G1++G0))
                                       | s => compErrS r s "expects dyadic operator")))
             | IdE(Symb L.StarDia,r) => 
-              k(Fs (fn [Fs (f,ii),n] => ret(Fs (compPower r f n, noii))
+              k(Fs (fn [Fs (f,ii),n] => ret(Fs (compPower {bench=false} r f n, noii))
                      | _ => compErr r "power operation expects a function as its first argument",
                     noii), 
                 empty)
@@ -1065,11 +1067,18 @@ val initial : (string * AplParse.class * tagged_exp) list =
                          | [Bs x] => ret(g (f(b2i x)))
                          | l => compError ("monadic function " ^ s ^ " expects integer argument"),
                           noii))
+        fun Opr2Fun1bench s =
+            let val r = (Region.botloc,Region.botloc)
+            in (s, AplParse.opr2fun1, Fs(fn [Fs(f,ii),n] => ret (Fs (compPower {bench=true} r f n, noii))
+                                          | _ => compError "bench operation expects a function as its first argument",
+                                         noii))
+            end
      in
             [Fun1Acs2 Acs "Quad$ReadFile" readFile,
              Fun1Acs2 Ais "Quad$ReadIntVecFile" readIntVecFile,
              Fun1Acs2 Ads "Quad$ReadDoubleVecFile" readDoubleVecFile,
              Fun1Is2 Is "Quad$NOW" nowi,
+             Opr2Fun1bench "Quad$BENCH",
              liftUnOpII "Quad$INT32NOT" noti,
              liftBinOpIII "Quad$INT32AND" andi,
              liftBinOpIII "Quad$INT32OR" ori,

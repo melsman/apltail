@@ -49,9 +49,11 @@ bench ← {
   t0 ← now 0
   r ← ⌷(g ⍣ ⍺) r
   t1 ← now 1
-  ⎕ ← 'ITERATIONS: ' , ⍕ ⍺
-  ⎕ ← 'RESULT: ' , ⍕ ⍵⍵ r
-  ⎕ ← 'AVGTIMING: ' , ⍕ (t1-t0)÷⍺
-  1.0
+  ⎕ ← 'ITERATIONS: '
+  ⎕ ← ⍺
+  ⎕ ← 'RESULT: ' 
+  ⎕ ← ⍵⍵ r
+  ⎕ ← 'AVGTIMING: '
+  (t1-t0)÷⍺
 }
 
