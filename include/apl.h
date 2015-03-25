@@ -29,11 +29,11 @@
 #define false 0
 #define bool int
 
-inline int maxi(int a, int b) { return (a > b) ? a : b; }
-inline int mini(int a, int b) { return (a < b) ? a : b; }
+int maxi(int a, int b) { return (a > b) ? a : b; }
+int mini(int a, int b) { return (a < b) ? a : b; }
 
-inline double maxd(double a, double b) { return (a > b) ? a : b; }
-inline double mind(double a, double b) { return (a < b) ? a : b; }
+double maxd(double a, double b) { return (a > b) ? a : b; }
+double mind(double a, double b) { return (a < b) ? a : b; }
 
 
 // ------------------------------
