@@ -114,6 +114,13 @@ and getShape (E:env) (e : Exp.uexp) : Exp.uexp option =
            (case getShape E e of
                 SOME sh => SOME(peepOp E ("vreverse",[sh],typeOf sh))
               | NONE => NONE)
+         | Op("each", [f,e], _) => getShape E e
+         | Op("mem", [e], _) => getShape E e
+         | Op("zipWith", [f,e1,e2], _) =>
+           (case (getShape E e1, getShape E e2) of
+                (x1 as SOME _, _) => x1
+              | (_, x2 as SOME _) => x2
+              | _ => NONE)
          | _ => NONE
     end
 
