@@ -232,7 +232,8 @@ fun comp (E:env) (e : E.uexp) (k: lexp -> lexp L.M) : lexp L.M =
                L.printf("ITERATIONS: %d\n", [n]) >>= (fn () =>
                L.printf("TIMING: %d\n", [time]) >>= (fn () =>
                L.printf("AVGTIMING: %g\n", [avgtime]) >>= (fn () =>
-               kS res))))))))
+               L.printf("RESULT: %f\n", [res]) >>= (fn () =>
+               kS res)))))))))
             end))))                            
          | E.Op("condScl", [f,n,a], _) => 
            (compFN E f (fn f =>
