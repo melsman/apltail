@@ -284,7 +284,7 @@ fun sprintfV (s, es) =
         val ty = Type.Char
         val tyv = Type.Vec ty
         val name = Name.new tyv
-        fun ssT ss = P.Decl(name, SOME(P.Alloc(tyv,P.I sz))) :: 
+        fun ssT ss = P.Decl(name, SOME(P.Alloc(tyv,P.I(Int32.fromInt sz)))) :: 
                      P.Sprintf(name,s,es) :: ss
     in (V(ty,P.strlen (P.Var name), fn i => ret(P.Subs(name,i))), ssT)
     end
@@ -468,7 +468,7 @@ fun concat v1 v2 =
       let open P
           val tyv = Type.Vec ty
           val name = Name.new tyv
-          val sz = I(List.length ts)
+          val sz = I(Int32.fromInt(List.length ts))
           fun ssT ss = Decl(name, SOME(Vect(tyv,ts))) :: ss
       in (V(ty,sz, fn i => ret(Subs(name,i))), ssT)
       end
@@ -648,7 +648,7 @@ fun iota0 n = tabulate Int n (fn x => ret(addi(x,I 1)))
 fun iota n = vec (iota0 n)
 fun shapeV (Arr(_,sh,_)) = shToV sh
 fun shape a = vec (shapeV a)
-fun rank (Arr(_,sh,_)) = I(List.length sh)
+fun rank (Arr(_,sh,_)) = I(Int32.fromInt(List.length sh))
 
 fun dimincr (Arr(ty,sh,F f)) = ArrF(ty,sh @ [I 1], f)
   | dimincr (Arr(ty,sh,N f)) = ArrN(ty,sh @ [I 1], fn ix => case List.rev ix of
@@ -1022,6 +1022,7 @@ fun idxS (d:INT) (n:INT) (a as Arr(_,sh,_)) (scalar: t -> 'b) (array: m -> 'b) :
            SOME d =>
            let fun tk n l = List.take(l,n)
                fun dr n l = List.drop(l,n)
+               val d = Int32.toInt d
                val () = if d < 1 orelse d > r then die "idxS.dimension index error"
                         else ()
                val iotar = List.tabulate (r, fn i => i+1)

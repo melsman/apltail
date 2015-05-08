@@ -341,7 +341,7 @@ and compMA E (e : E.uexp) (k: L.mm -> lexp L.M) : lexp L.M =
                | _ => die ("compMA; e = " ^ T.pp_exp true e))
 and compV E (e : E.uexp) (k: int list -> lexp L.M) : lexp L.M =
     case e of
-        E.Vc(xs,_) => k(List.map (fn E.I x => x
+        E.Vc(xs,_) => k(List.map (fn E.I x => Int32.toInt x
                                  | _ => die "compV.expecting immediate integer") xs)
       | _ => die "compV.expecting immediate integer vector" 
 and compFN E (e : E.uexp) (k: (lexp list -> lexp L.M) -> lexp L.M) : lexp L.M =

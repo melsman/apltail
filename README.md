@@ -2,13 +2,13 @@
 
 This software implements an APL compiler in Standard ML. The compiler
 targets a [typed array intermediate
-language](http://www.elsman.com/pdf/array14_final.pdf) [1].
+language](http://www.elsman.com/pdf/array14_final.pdf) [1]. The
+executable also contains an interpreter for TAIL and a compiler from
+TAIL into C.
 
 See [the compilation scheme](doc/comp.md).
 
 See also the [coverage page](doc/coverage.md).
-
-See also [AplCompile](https://github.com/melsman/aplcompile).
 
 ## An example
 
@@ -158,7 +158,7 @@ and add the following lines to your `sources.local` file in your
     aplparse git git://github.com/melsman/aplparse.git
     apltail git git://github.com/melsman/apltail.git
 
-You also need a Standard ML compiler (e.g., [Mlton](http://www.mlton.org/)).
+You also need a Standard ML compiler (e.g., [Mlton](http://www.mlton.org/) or [MLKit](http://melsman.github.io/mlkit)).
 
 Then simply write
 

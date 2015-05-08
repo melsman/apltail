@@ -9,7 +9,7 @@ structure ILUtil : ILUTIL = struct
   fun die s = raise Fail ("ILUtil." ^ s)
 
   type Env = (Name.t, value) Util.alist
-  val emptyEnv = Util.emptyAlist()
+  val emptyEnv : Env = Util.emptyAlist()
   val lookup = Util.lookupAlist
   val add = Util.extendAlist
 
@@ -49,8 +49,12 @@ structure ILUtil : ILUTIL = struct
       | BoolV b => Bool.toString b
       | ArrV v => "vec"
 
-  fun conv opr i1 i2 =
-      Word32.toIntX(opr(Word32.fromInt i1, Word32.fromInt i2))
+  fun w2i w = Int32.fromLarge (Word32.toLargeIntX w)
+  fun i2w i = Word32.fromLargeInt(Int32.toLarge i)
+
+  fun conv opr i1 i2 = w2i(opr(i2w i1, i2w i2))
+
+  fun conv' opr i1 i2 = w2i(opr(i2w i1, Word.fromInt(Int32.toInt i2)))
 
   fun evalBinOp Add (IntV i1,IntV i2) = IntV(i1+i2)
     | evalBinOp Add (DoubleV i1,DoubleV i2) = DoubleV(i1+i2)
@@ -65,9 +69,9 @@ structure ILUtil : ILUTIL = struct
     | evalBinOp Ori (IntV i1,IntV i2) = IntV(conv Word32.orb i1 i2)
     | evalBinOp Andi (IntV i1,IntV i2) = IntV(conv Word32.andb i1 i2)
     | evalBinOp Xori (IntV i1,IntV i2) = IntV(conv Word32.xorb i1 i2)
-    | evalBinOp Shli (IntV i1,IntV i2) = IntV(conv Word32.<< i1 i2)
-    | evalBinOp Shri (IntV i1,IntV i2) = IntV(conv Word32.>> i1 i2)
-    | evalBinOp Shari (IntV i1,IntV i2) = IntV(conv Word32.~>> i1 i2)
+    | evalBinOp Shli (IntV i1,IntV i2) = IntV(conv' Word32.<< i1 i2)
+    | evalBinOp Shri (IntV i1,IntV i2) = IntV(conv' Word32.>> i1 i2)
+    | evalBinOp Shari (IntV i1,IntV i2) = IntV(conv' Word32.~>> i1 i2)
     | evalBinOp Modv (DoubleV i1,DoubleV i2) = die "evalBinOp.mod double not implemented"
     | evalBinOp Mini (IntV i1,IntV i2) = IntV(if i1 < i2 then i1 else i2)
     | evalBinOp Mind (DoubleV i1,DoubleV i2) = DoubleV(if i1 < i2 then i1 else i2)
@@ -92,15 +96,15 @@ structure ILUtil : ILUTIL = struct
   fun nowMilliseconds() =
       let val t = Time.now()
           val delta = Time.-(t,processStartTime)
-      in Int.fromLarge(Time.toMilliseconds delta)
+      in Int32.fromLarge(Time.toMilliseconds delta)
       end
 
   fun evalUnOp Neg (IntV i) = IntV(~i)
     | evalUnOp Neg (DoubleV d) = DoubleV(~d)
-    | evalUnOp I2D (IntV i) = DoubleV(real i)
-    | evalUnOp D2I (DoubleV d) = (IntV(Real.trunc d))
-    | evalUnOp Ceil (DoubleV d) = (IntV(Real.ceil d))
-    | evalUnOp Floor (DoubleV d) = (IntV(Real.floor d))
+    | evalUnOp I2D (IntV i) = DoubleV(real(Int32.toInt i))
+    | evalUnOp D2I (DoubleV d) = (IntV(Int32.fromInt(Real.trunc d)))
+    | evalUnOp Ceil (DoubleV d) = (IntV(Int32.fromInt(Real.ceil d)))
+    | evalUnOp Floor (DoubleV d) = (IntV(Int32.fromInt(Real.floor d)))
     | evalUnOp Ln (DoubleV d) = (DoubleV(Math.ln d))
     | evalUnOp Sin (DoubleV d) = (DoubleV(Math.sin d))
     | evalUnOp Cos (DoubleV d) = (DoubleV(Math.cos d))
@@ -108,7 +112,7 @@ structure ILUtil : ILUTIL = struct
     | evalUnOp Expd (DoubleV d) = (DoubleV(Math.exp d))
     | evalUnOp Sqrt (DoubleV d) = (DoubleV(Math.sqrt d))
     | evalUnOp Roll (IntV 0) = (DoubleV(Random.random (!rgen)))
-    | evalUnOp Roll (IntV i) = (DoubleV(real (Random.range (0,i) (!rgen))))
+    | evalUnOp Roll (IntV i) = (DoubleV(real (Random.range (0,Int32.toInt i) (!rgen))))
     | evalUnOp B2I (BoolV b) = (IntV(if b then 1 else 0))
     | evalUnOp Now (IntV 0) = (IntV(nowMilliseconds()))
     | evalUnOp _ _ = die "evalUnOp"
@@ -129,14 +133,14 @@ structure ILUtil : ILUTIL = struct
         (case eval E e1 of
            IntV i => (case lookup E n of
                         SOME(ArrV v) => 
-                        (case ! (Vector.sub(v,i)) of
+                        (case ! (Vector.sub(v,Int32.toInt i)) of
                            SOME v => v
                          | NONE => die "eval.Subs.array value not initialized")                       
                       | _ => die("eval.Subs.lookup: " ^ Name.pr n))
          | _ => die "eval.Subs.expecting integer")
       | Alloc (t,e1) =>
         (case eval E e1 of
-           IntV n => ArrV(Vector.tabulate(n,fn _ => ref NONE))
+           IntV n => ArrV(Vector.tabulate(Int32.toInt n,fn _ => ref NONE))
          | _ => die "eval.Alloc.expecting integer")
       | Vect (t,es) =>
         let val vs = List.map (ref o SOME o eval E) es
@@ -154,9 +158,9 @@ structure ILUtil : ILUTIL = struct
         (case eval E e of
            IntV n =>
            Util.iter (fn (i,E) => 
-                         let val E = add E (name,IntV i)
+                         let val E = add E (name,IntV (Int32.fromInt i))
                          in evalSS E body rn
-                         end) E (0,n-1)
+                         end) E (0,Int32.toInt n - 1)
          | _ => die "For")
       | Ifs(e,ss1,ss2) =>
         (case eval E e of
@@ -173,7 +177,7 @@ structure ILUtil : ILUTIL = struct
            let val v = eval E e
            in case lookup E n of
                 SOME(ArrV vec) =>
-                let val r = Vector.sub(vec,i)
+                let val r = Vector.sub(vec,Int32.toInt i)
                 in r := SOME v; E
                 end
               | _ => die "eval.AssignArr.couldn't find vector in env"

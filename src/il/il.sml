@@ -32,7 +32,7 @@ structure NameSet = OrderSet(struct type t = Name.t
                                     fun compare (x, y) = String.compare (Name.pr x, Name.pr y)
                              end)
 datatype value =
-         IntV of int
+         IntV of Int32.int
        | DoubleV of real
        | BoolV of bool
        | CharV of word
@@ -146,7 +146,7 @@ signature PROGRAM = sig
   val Subs  : Name.t * e -> e
   val Alloc : Type.T * e -> e
   val Vect  : Type.T * e list -> e
-  val I     : int -> e
+  val I     : Int32.int -> e
   val D     : real -> e
   val B     : bool -> e
   val C     : word -> e
@@ -213,7 +213,7 @@ signature PROGRAM = sig
   val powd  : e * e -> e
   val notb  : e -> e
   val roll  : e -> e
-  val unI   : e -> int option
+  val unI   : e -> Int32.int option
   val unB   : e -> bool option
   val unD   : e -> real option
 
@@ -627,7 +627,7 @@ in
     | (IL.D a) <= (IL.D b) = B(Real.<=(a,b))
     | (IL.C a) <= (IL.C b) = B(Word.<=(a,b))
     | (IL.Binop(Addi,IL.I 1,e)) <= e' = e < e'
-    | a <= (IL.I b) =  a < (I(Int.+(b,1)))
+    | a <= (IL.I b) =  a < (I(Int32.+(b,1)))
     | a <= b = Binop(Lteq,a,b)
 
   fun notb IL.T = B false
@@ -704,7 +704,7 @@ in
 
   fun i2d e =
       case e of
-        IL.I c => D (real c)
+        IL.I c => (D (real (Int32.toInt c)) handle _ => Unop(I2D,e))
       | _ => Unop(I2D,e)
   fun d2i e = Unop(D2I,e)
   fun b2i IL.T = I 1
@@ -892,7 +892,7 @@ fun eq E0 e1 e2 =
     let fun default() = e1 == e2
         fun look E e d : bool option =
             case (e, E) of
-                (IL.Var n, (n',GtEqI(IL.I d'))::E) => if n=n' andalso Int.>(d',d) then SOME false
+                (IL.Var n, (n',GtEqI(IL.I d'))::E) => if n=n' andalso Int32.>(d',d) then SOME false
                                                       else look E e d
               | (IL.Var n, (n',EqI(_,IL.I d'))::E) => if n=n' andalso d=d' then SOME true
                                                       else look E e d
@@ -926,7 +926,7 @@ fun se_e (E:env) (e:e) : e =
       let val e = se_e E e
       in case (env_lookeq E n, e) of 
              (SOME (_,IL.Vect(_,es)), IL.I i) => 
-             (List.nth (es,i) handle _ => raise Fail "se_e: Subs")
+             (List.nth (es,Int32.toInt i) handle _ => raise Fail "se_e: Subs")
            | _ => Subs(n,e)
       end
     | IL.Alloc(t,e) => Alloc(t,se_e E e)

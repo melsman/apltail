@@ -33,7 +33,7 @@ and peepOp E (opr,es,t) =
       | ("subi", [e,I 0]) => e
       | ("negi", [I i]) => I(Int32.~ i)
       | ("absi", [I i]) => I(Int32.abs i)
-      | ("i2d", [I i]) => D(Real.fromLargeInt (Int32.toLarge i))
+      | ("i2d", [I i]) => (D(real(Int32.toInt i)) handle _ => Op(opr,es,t))
       | ("b2i", [B true]) => I 1
       | ("b2i", [B false]) => I 0
       | ("b2iV", [B true]) => I 1
@@ -70,7 +70,7 @@ and peepOp E (opr,es,t) =
       | ("snocV", [Vc(es,_),e]) => Vc(es@[e],t)
       | ("iotaV",[I n]) => 
         let val n = Int32.toInt n
-        in if n <= 3 then Vc(List.map I (List.tabulate (n,fn x => x+1)),t)
+        in if n <= 3 then Vc(List.map I (List.tabulate (n,fn x => Int32.fromInt(x+1))),t)
            else Op(opr,es,t)
         end
       | ("eachV", [Fn(v,_,Op("b2i",[Var (v',_)],t'),_),Vc(es',_)]) =>
@@ -83,7 +83,7 @@ and peepOp E (opr,es,t) =
       | ("reshape", [Vc([I n],_), Vc(es',t')]) =>
         if Int32.toInt n = length es' then Vc(es',t')
         else Op(opr,es,t)
-      | ("idxS", [I 1, I i, Vc(xs,_)]) => List.nth(xs,i-1)
+      | ("idxS", [I 1, I i, Vc(xs,_)]) => List.nth(xs,Int32.toInt(i-1))
       | _ =>
         if optlevel() > 0 then 
           case (opr, es) of

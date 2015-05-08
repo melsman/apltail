@@ -1,11 +1,35 @@
+structure ArrayInt32 = struct
+  open Array
+  val length = fn x => Int32.fromInt (length x)
+  val sub = fn (a,i) => sub(a,Int32.toInt i)
+  val update = fn (a,i,v) => update(a,Int32.toInt i,v)
+  val foldli = fn f => foldli (fn (i,a,b) => f(Int32.fromInt i,a,b))
+  val tabulate = fn (n,f) => tabulate(Int32.toInt n, f o Int32.fromInt)
+end
+
+structure VectorInt32 = struct
+  open Vector
+  val length = fn x => Int32.fromInt (length x)
+end
+
+structure ListInt32 = struct
+  open List
+  val nth = fn (l,i) => nth (l,Int32.toInt i)
+  val length = fn x => Int32.fromInt (length x)
+  val take = fn (l,n) => take (l,Int32.toInt n)
+  val drop = fn (l,n) => drop (l,Int32.toInt n)
+  val tabulate = fn (n,f) => tabulate(Int32.toInt n, f o Int32.fromInt)
+end
+
 structure Apl :> APL = struct
 
-structure V = Vector
-structure A = Array
+structure V = VectorInt32
+structure A = ArrayInt32
+structure L = ListInt32
 
 fun die s = raise Fail ("Apl: " ^ s)
 
-type 'a APLArray = int vector   (* shape vector *)
+type 'a APLArray = Int32.int vector   (* shape vector *)
           * 'a array     (* elements *)
           * 'a           (* default element *)
 
@@ -16,13 +40,13 @@ local
     fun alist (v: 'a array) : 'a list =
         A.foldr (op ::) nil v
 
-    fun amap f a = A.fromList(List.map f (alist a))
+    fun amap f a = A.fromList(L.map f (alist a))
     fun aconcat (a1,a2) = A.fromList (alist a1 @ alist a2)
 
     fun pp_sh v =
-        "[" ^ String.concatWith "," (List.map Int.toString (list v)) ^ "]"
+        "[" ^ String.concatWith "," (L.map Int32.toString (list v)) ^ "]"
 
-    fun product (v: int vector) : int =
+    fun product (v: Int32.int vector) : Int32.int =
         V.foldl (op * ) 1 v
 
 in
@@ -30,14 +54,14 @@ fun scl (def:'a) (v:'a) : 'a APLArray =
     (V.fromList [], A.fromList [v], def)
 
 fun vec v (vs: 'a list) : 'a APLArray =
-    (V.fromList [length vs], A.fromList vs, v)
+    (V.fromList [Int32.fromInt(length vs)], A.fromList vs, v)
 
 fun zilde v = vec v []
 
 fun unScl s (v: 'a APLArray) : 'a =
     let val len = V.length (#1 v)
     in if len = 0 then A.sub(#2 v,0)
-       else die ("expecting scalar argument for " ^ s ^ " - got array of rank " ^ Int.toString len)
+       else die ("expecting scalar argument for " ^ s ^ " - got array of rank " ^ Int32.toString len)
     end
 fun liftU def f v =
     scl def (f (unScl "liftU" v))
@@ -48,20 +72,20 @@ fun unVec s (v: 'a APLArray) : 'a vector =
     if V.length (#1 v) = 1 then A.vector(#2 v)
     else die ("expecting vector argument for " ^ s)
 
-fun shape (a : 'a APLArray) : int APLArray =
+fun shape (a : 'a APLArray) : Int32.int APLArray =
     let val sh = #1 a
     in (V.fromList[V.length sh], A.fromList(list sh), 0)
     end
 
 (* resize: for reshape operation *)
-fun resize (n:int) (x:'a) (v: 'a array) : 'a array =
+fun resize (n:Int32.int) (x:'a) (v: 'a array) : 'a array =
     let val n0 = A.length v
     in A.tabulate (n,
                    if n0 = 0 then fn _ => x
                    else fn i => A.sub(v,i mod n0))
     end
 
-fun reshape (sh:int APLArray, a : 'a APLArray) : 'a APLArray =
+fun reshape (sh:Int32.int APLArray, a : 'a APLArray) : 'a APLArray =
     let val sh = unVec "reshape" sh
         val x = #3 a
         val vs = resize (product sh) x (#2 a)
@@ -79,7 +103,7 @@ fun first (a : 'a APLArray) : 'a APLArray =
     in scl (#3 a) v
     end
 
-fun iota (n : int APLArray) : int APLArray =
+fun iota (n : Int32.int APLArray) : Int32.int APLArray =
     let val n = unScl "iota" n
     in (V.fromList[n], A.tabulate(n, fn x => x + 1), 0)
     end
@@ -93,7 +117,7 @@ fun unliftB s (defa: 'a) (defb: 'b) (f : 'a APLArray * 'b APLArray -> 'c APLArra
 fun each (x:'b) (f: 'a APLArray -> 'b APLArray) (a : 'a APLArray) : 'b APLArray =
     (#1 a, amap (unliftU "each" (#3 a) f) (#2 a), x)
 
-fun power (f: 'a APLArray -> 'a APLArray) (n : int APLArray) (a : 'a APLArray) : 'a APLArray =
+fun power (f: 'a APLArray -> 'a APLArray) (n : Int32.int APLArray) (a : 'a APLArray) : 'a APLArray =
     let val n = unScl "power" n
     in if n < 0 then die "power: negative number of iterations not supported"
        else if n = 0 then a
@@ -117,12 +141,12 @@ fun reduce (f: 'a APLArray * 'a APLArray -> 'a APLArray) (n:'a APLArray) (a:'a A
                         else run (j+1) (f(scl(#3 a)(A.sub(vs0,i+j)),a))
                 in unScl "loop" (run 1 (scl(#3 a)(A.sub(vs0,i))))
                 end
-            val vs = A.tabulate(k, fn i => loop (i*m))
+            val vs = A.tabulate(k, fn i => loop (i * m))
         in (ns, vs, #3 a)
         end
 
 local
-fun scanlChunked defaultElem (f: 'a APLArray * 'a APLArray -> 'a APLArray) (chunkSize : int) (vec : 'a array) =
+fun scanlChunked defaultElem (f: 'a APLArray * 'a APLArray -> 'a APLArray) chunkSize (vec : 'a array) =
   let
       fun next (i, x, y::ys) = if i mod chunkSize = 0
                                 then scl defaultElem x::y::ys
@@ -131,7 +155,7 @@ fun scanlChunked defaultElem (f: 'a APLArray * 'a APLArray -> 'a APLArray) (chun
 
       val xs : 'a APLArray list = (rev (A.foldli next [] vec))
   in
-      A.fromList (List.map (unScl "scanl") xs)
+      A.fromList (L.map (unScl "scanl") xs)
   end
 
 in
@@ -155,23 +179,23 @@ fun replicate0 s toI (is,vs) =
           | loop _ = die "replicate length error"
     in if Vector.length sh_is <> 1 then die "replicate expects a vector as its first argument"
        else if Vector.length sh_vs <> 1 then die "replicate expects a vector as its second argument"
-       else vec v0 (loop(List.map toI (toList vs_is),toList vs_vs,nil))
+       else vec v0 (loop(L.map toI (toList vs_is),toList vs_vs,nil))
     end
 
-fun replicate a = replicate0 "replicate" (fn x => x) a
+fun replicate a = replicate0 "replicate" Int32.toInt a
 fun compress a = replicate0 "compress" (fn true => 1 | false => 0) a
 
-fun prod nil = 1
+fun prod nil : Int32.int = 1
   | prod (x::xs) = x * prod xs
 
-fun toSh sh (i:int) : int list =
+fun toSh sh (i:Int32.int) : Int32.int list =
     case sh of
         nil => nil
       | x::xs => 
         let val p = prod xs
         in i div p :: toSh xs (i mod p)
         end
-fun fromSh msg sh (idx:int list) : int =
+fun fromSh msg sh (idx:Int32.int list) : Int32.int =
     case (sh, idx) of
         (nil, nil) => 0
       | (s::sh, i::idx) => if i >= s then die (msg ^ ": INDEX ERROR")
@@ -188,31 +212,32 @@ fun transpose (a: 'a APLArray) : 'a APLArray =
     end
 
 fun exchange nil xs = nil
-  | exchange (i::I) xs = List.nth (xs,i-1) :: exchange I xs
+  | exchange (i::I) xs = L.nth (xs,i-1) :: exchange I xs
 
 fun appi0 _ f nil = ()
-  | appi0 n f (x::xs) = (f (x,n); appi0 (n+1) f xs)
+  | appi0 (n:Int32.int) f (x::xs) = (f (x,n); appi0 (n+1) f xs)
   
 fun appi f xs = appi0 0 f xs
 
 fun exchange' ctrl xs =
-    let val sz = length ctrl
-        val a = Array.tabulate (sz,fn _ => 0)
-    in appi (fn (c,i) => Array.update(a,c-1,List.nth(xs,i))) ctrl
-     ; Array.foldr(op::) nil a
+    let val sz = L.length ctrl
+        val a = A.tabulate (sz,fn _ => (0:Int32.int))
+    in appi (fn (c,i) => A.update(a,c-1,L.nth(xs,i))) ctrl
+     ; A.foldr(op::) nil a
     end
 
-fun transpose2 (I: int APLArray, a: 'a APLArray) : 'a APLArray =
+
+fun transpose2 (I: Int32.int APLArray, a: 'a APLArray) : 'a APLArray =
     let val I = alist(#2 I)
         val sh = list(#1 a)
-        val () = if length sh <> length I then
+        val () = if L.length sh <> L.length I then
                    die "transpose2: wrong index vector length"
                  else let fun check n =
                               if n = 0 then ()
-                              else if List.exists (fn x => x = n) I then
+                              else if L.exists (fn x => x = n) I then
                                 check (n-1)
                               else die "transpose2: index vector not a permutation"
-                      in check (length I)
+                      in check (L.length I)
                       end
         val sh' = exchange' I sh
         val vs = #2 a
@@ -249,11 +274,11 @@ fun zipWith (x:'c) (f: 'a APLArray * 'b APLArray -> 'c APLArray) (a : 'a APLArra
          (#1 a, A.fromList(ListPair.map (unliftB "zipWith" (#3 a) (#3 b) f) (alist(#2 a),alist(#2 b))), x)
     end
 
-fun rot 0 a = a
+fun rot (0:Int32.int) a = a
   | rot n nil = nil
   | rot n (x::xs) = rot (n-1) (xs@[x])
     
-fun iot n = List.tabulate(n, fn i => i+1)
+fun iot n = L.tabulate(n, fn i => i+1)
         
 fun desnoc A = case rev A of
                     nil => die "desnoc"
@@ -290,7 +315,7 @@ fun reverse (a: 'a APLArray) : 'a APLArray =
        else (sh,A.fromList (rev (alist(#2 a))),#3 a)
     end
 
-fun vrotate (n : int APLArray, (sh,src,default): 'a APLArray) : 'a APLArray =
+fun vrotate (n : Int32.int APLArray, (sh,src,default): 'a APLArray) : 'a APLArray =
     let val n = unScl "vrotate" n
         val shl = list sh
     in case shl of
@@ -324,7 +349,7 @@ fun vreverse ((sh,src,default): 'a APLArray) : 'a APLArray =
           end
     end
 
-fun rotate (i : int APLArray, a: 'a APLArray) : 'a APLArray =
+fun rotate (i : Int32.int APLArray, a: 'a APLArray) : 'a APLArray =
     let val i = unScl "rotate" i
         val sh = #1 a
         val p = prod (list sh)
@@ -354,28 +379,28 @@ fun drop (i : int APLArray, (sh,src,default): 'a APLArray) : 'a APLArray =
     end
 *)
 
-fun drop (i : int APLArray, (sh,src,default): 'a APLArray) : 'a APLArray =
+fun drop (i : Int32.int APLArray, (sh,src,default): 'a APLArray) : 'a APLArray =
     let val i = unScl "drop" i
-        val x = Int.abs i
+        val x = Int32.abs i
         val sh' =
             case list sh of
                 nil => nil
-              | n :: subsh => Int.max(0,n-x) :: subsh
+              | n :: subsh => Int32.max(0,n-x) :: subsh
         val sz' = prod sh'
         val offset =
             case list sh of
                 nil => 0
-              | _ :: subsh => Int.max(0,i * prod subsh)
+              | _ :: subsh => Int32.max(0,i * prod subsh)
     in (V.fromList sh',
         A.tabulate(sz', fn i => A.sub(src,i+offset)),
         default)
     end
 
-fun take (n : int APLArray, (sh,src,default): 'a APLArray) : 'a APLArray =
+fun take (n : Int32.int APLArray, (sh,src,default): 'a APLArray) : 'a APLArray =
     let val n = unScl "take" n
         val sz = A.length src
-        val sh' = case list sh of nil => [Int.abs n]
-                                | _ :: subsh => Int.abs n :: subsh
+        val sh' = case list sh of nil => [Int32.abs n]
+                                | _ :: subsh => Int32.abs n :: subsh
         val sz' = prod sh'
         val offset = sz' - sz
     in (V.fromList sh',
@@ -445,9 +470,9 @@ fun idxS  (d: int APLArray, n: int APLArray, a: 'a APLArray) : 'a APLArray =
     end
 *)
 
-fun indexFirst (n : int APLArray, a: 'a APLArray) : 'a APLArray =
-    let fun tk n l = List.take(l,n)
-        fun dr n l = List.drop(l,n)
+fun indexFirst (n : Int32.int APLArray, a: 'a APLArray) : 'a APLArray =
+    let fun tk n l = L.take(l,n)
+        fun dr n l = L.drop(l,n)
     in case list (#1 a) of
            s::sh' =>
            let val n = unScl "idxS:n" n
@@ -461,15 +486,15 @@ fun indexFirst (n : int APLArray, a: 'a APLArray) : 'a APLArray =
          | nil => die "indexFirst.assumes non-scalar array as argument"
     end
 
-fun idxS  (d: int APLArray, n: int APLArray, a: 'a APLArray) : 'a APLArray =
-    let fun tk n l = List.take(l,n)
-        fun dr n l = List.drop(l,n)
+fun idxS  (d: Int32.int APLArray, n: Int32.int APLArray, a: 'a APLArray) : 'a APLArray =
+    let fun tk n l = L.take(l,n)
+        fun dr n l = L.drop(l,n)
         val d = unScl "idxS:d" d
         val sh = list (#1 a)
-        val r = List.length sh
+        val r = L.length sh
         val () = if d < 1 orelse d > r then die "idxS.dimension index error"
                  else ()
-        val iotar = List.tabulate (r, fn i => i+1)
+        val iotar = L.tabulate (r, fn i => i+1)
         val iotar = dr 1 iotar
         val I = tk (d-1) iotar @ [1] @ dr (d-1) iotar  (* squeze in a 1 in position d *)
         val a2 = transpose2 (vec 0 I, a)
@@ -486,9 +511,9 @@ fun idxS  (x: int APLArray, n: int APLArray, a: 'a APLArray) : 'a APLArray =
     in idx (comp 1) a
     end
 *)
-fun idxassign (is: int APLArray, a : 'a APLArray, v : 'a) : unit =
+fun idxassign (is: Int32.int APLArray, a : 'a APLArray, v : 'a) : unit =
     let val is = alist (#2 is)
-        val is = List.map (fn x => x - 1) is
+        val is = L.map (fn x => x - 1) is
         val sh = list (#1 a)
         val i = fromSh "idxassign" sh is
     in A.update (#2 a, i, v)
@@ -496,27 +521,27 @@ fun idxassign (is: int APLArray, a : 'a APLArray, v : 'a) : unit =
 
 fun pr (p,sep) (a: 'a APLArray) : string =
     let fun prv sep p s e v =
-            s ^ String.concatWith sep (List.map p v) ^ e
+            s ^ String.concatWith sep (L.map p v) ^ e
         val shape = list (#1 a)
         val values = alist (#2 a)
         fun flat () =
-            (prv "," Int.toString "[" "]" shape ^
+            (prv "," Int32.toString "[" "]" shape ^
              prv sep p "(" ")" values)
     in case shape of
            [_] => if sep="" then prv sep p "" "" values else flat()
          | [X,Y] => 
            if prod shape = 0 then flat() else
            let val sep = if sep="" then sep else " "
-               val values = List.map p values
-               val sz = List.foldl Int.max 0 (List.map size values)
+               val values = L.map p values
+               val sz = L.foldl Int.max 0 (L.map size values)
                fun padn 0 = ""
                  | padn n = " " ^ padn (n-1)
                fun pad v = padn (sz-size v) ^ v
                fun loop [] = nil
                  | loop vs =
-                   let val vs' = List.take(vs,Y)
-                       val v = " " ^ String.concatWith sep (List.map pad vs')
-                   in v :: loop (List.drop(vs,Y))
+                   let val vs' = L.take(vs,Y)
+                       val v = " " ^ String.concatWith sep (L.map pad vs')
+                   in v :: loop (L.drop(vs,Y))
                    end
            in "\n" ^ String.concatWith "\n" (loop values) ^ "\n"
            end

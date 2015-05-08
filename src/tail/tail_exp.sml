@@ -19,6 +19,11 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                                     fun compare (v1:t,v2:t) = String.compare(#id v1,#id v2)
                              end)
 
+  fun i32d i =
+      case Real.fromString(Int32.toString i) of
+          SOME r => r
+        | NONE => raise Fail "TailExp.i32d"
+
   (* Some type utilities *)
   fun unScl s t =
       case unArr t of
@@ -587,7 +592,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                   Var(v, t0) => (case lookup E v of
                                      SOME t => (assert "var" t t0; t)
                                   |  NONE => raise Fail ("Unknown variable " ^ Util.quote (ppVar v)))
-                | I n => S IntB (rnk n)
+                | I n => (S IntB (rnk (Int32.toInt n)) handle _ => Int)
                 | D _ => Double
                 | B true => S BoolB (rnk 1)
                 | B false => S BoolB (rnk 0)
@@ -626,7 +631,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   fun typeOf e : typ =
       case e of
           Var(_,t) => t
-        | I i => S IntB (rnk i)
+        | I i => (S IntB (rnk (Int32.toInt i)) handle _ => Int)
         | D _ => Double
         | B true => S BoolB (rnk 1)
         | B false => S BoolB (rnk 0)
@@ -698,7 +703,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
       in Fn(v,t,e,t')
       end
 
-  datatype bv = Ib of int
+  datatype bv = Ib of Int32.int
               | Db of real
               | Bb of bool
               | Cb of word
@@ -796,7 +801,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
 
   val rgen = ref (Random.newgen ())
   fun roll 0 = Random.random (!rgen)
-    | roll i = real (Random.range (0,i) (!rgen))
+    | roll i = real (Random.range (0,Int32.toInt i) (!rgen)) handle _ => raise Fail "TailExp.roll"
 
   fun fileVecReader fname (f: string -> 'a list) (d: 'a) (g : 'a -> 'b) : 'b Apl.APLArray =
       let val v = Apl.map #" " (fn Cb w => wordToChar w 
@@ -815,7 +820,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   fun nowMilliseconds() =
       let val t = Time.now()
           val delta = Time.-(t, processStartTime)
-      in Int.fromLarge(Time.toMilliseconds delta)
+      in Int32.fromLarge(Time.toMilliseconds delta)
       end
 
   fun eval DE e : value =
@@ -845,18 +850,18 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           in case (opr,es) of
                  ("zilde", []) => Apl.zilde (default t)
                | ("pi", []) => Apl.scl (default t) (Db Math.pi)
-               | ("i2d", [e]) => Apl.liftU (Db 0.0) (fn Ib i => Db(real i) | _ => raise Fail "eval:i2d") (eval DE e)
+               | ("i2d", [e]) => Apl.liftU (Db 0.0) (fn Ib i => Db(i32d i) | _ => raise Fail "eval:i2d") (eval DE e)
                | ("b2i", [e]) => Apl.liftU (Ib 0) (fn Bb b => Ib(if b then 1 else 0) | _ => raise Fail "eval:b2i") (eval DE e)
                | ("negi", [e]) => Apl.liftU (Ib 0) (fn Ib i => Ib(~i) | _ => raise Fail "eval:negi") (eval DE e)
-               | ("absi", [e]) => Apl.liftU (Ib 0) (fn Ib i => Ib(Int.abs i) | _ => raise Fail "eval:absi") (eval DE e)
+               | ("absi", [e]) => Apl.liftU (Ib 0) (fn Ib i => Ib(Int32.abs i) | _ => raise Fail "eval:absi") (eval DE e)
                | ("nowi", [e]) => Apl.liftU (Ib 0) (fn Ib 0 => Ib(nowMilliseconds()) | _ => raise Fail "eval:nowi") (eval DE e)
                | ("signi", [e]) => Apl.liftU (Ib 0) (fn Ib i => Ib(if i >= 0 then 1 else ~1) | _ => raise Fail "eval:signi") (eval DE e)
                | ("signd", [e]) => Apl.liftU (Ib 0) (fn Db i => Ib(if i >= 0.0 then 1 else ~1) | _ => raise Fail "eval:signd") (eval DE e)
                | ("negd", [e]) => Apl.liftU (Db 0.0) (fn Db i => Db(Real.~i) | _ => raise Fail "eval:negd") (eval DE e)
                | ("absd", [e]) => Apl.liftU (Db 0.0) (fn Db i => Db(Real.abs i) | _ => raise Fail "eval:absd") (eval DE e)
                | ("expd", [e]) => Apl.liftU (Db 0.0) (fn Db i => Db(Math.exp i) | _ => raise Fail "eval:expd") (eval DE e)
-               | ("floor", [e]) => Apl.liftU (Ib 0) (fn Db i => Ib(Real.floor i) | _ => raise Fail "eval:floor") (eval DE e)
-               | ("ceil", [e]) => Apl.liftU (Ib 0) (fn Db i => Ib(Real.ceil i) | _ => raise Fail "eval:ceil") (eval DE e)
+               | ("floor", [e]) => Apl.liftU (Ib 0) (fn Db i => Ib(Int32.fromInt(Real.floor i)) | _ => raise Fail "eval:floor") (eval DE e)
+               | ("ceil", [e]) => Apl.liftU (Ib 0) (fn Db i => Ib(Int32.fromInt(Real.ceil i)) | _ => raise Fail "eval:ceil") (eval DE e)
                | ("notb", [e]) => Apl.liftU (Bb false) (fn Bb b => Bb(not b) | _ => raise Fail "eval:notb") (eval DE e)
                | ("ln", [e]) => Apl.liftU (Db 0.0) (fn Db d => Db(Math.ln d) | _ => raise Fail "eval:ln") (eval DE e)
                | ("sin", [e]) => Apl.liftU (Db 0.0) (fn Db d => Db(Math.sin d) | _ => raise Fail "eval:sin") (eval DE e)
@@ -982,7 +987,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                | ("readIntVecFile",[e]) =>
                  let fun scanner s =
                          let val ints = String.tokens (fn x => Char.isSpace x orelse x = #",") s
-                         in List.map (fn s => case Int.fromString s of
+                         in List.map (fn s => case Int32.fromString s of
                                                   SOME i => i
                                                 | NONE => raise Fail ("expecting only integers in file - found '" ^ s ^ "'")) ints
                          end
@@ -1039,9 +1044,9 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                       | "mod" => (op mod)
                       | "andi" => wordOp Word32.andb
                       | "ori" => wordOp Word32.orb
-                      | "shli" => wordOp Word32.<<
-                      | "shri" => wordOp Word32.>>
-                      | "shari" => wordOp Word32.~>>
+                      | "shli" => wordOp (fn (a,b) => Word32.<<(a,Word.fromLarge(Word32.toLarge b)))
+                      | "shri" => wordOp (fn (a,b) => Word32.>>(a,Word.fromLarge(Word32.toLarge b)))
+                      | "shari" => wordOp (fn (a,b) => Word32.~>>(a,Word.fromLarge(Word32.toLarge b)))
                       | "xori" => wordOp Word32.xorb
                       | _ => raise Fail ("evalBinOpIII: unsupported int*int->int operator " ^ opr)
       in Apl.liftB (Ib 0) (fn (b1,b2) => Ib(fct(unIb b1, unIb b2))) (v1,v2)
@@ -1074,7 +1079,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                       | "divd" => (op /)
                       | "powd" => Math.pow
                       | "resd" => (fn(x,y) => if Real.==(x,0.0) then y 
-                                              else y - real(Int32.fromInt(Real.floor(y/x))))
+                                              else y - real(Real.floor(y/x)))
                       | "maxd" => (fn (x,y) => if x > y then x else y)
                       | "mind" => (fn (x,y) => if x < y then x else y)
                       | _ => raise Fail ("evalBinOpDDD: unsupported double*double->double operator " ^ opr)

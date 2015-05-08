@@ -227,8 +227,8 @@ signature TAIL = sig
   val transpose : 'a ndarray -> 'a ndarray
   val transpose2 : Int Num tvector -> 'a ndarray -> 'a ndarray
 
-  val idxS      : int -> INT -> 'a ndarray -> ('a exp -> 'b) -> ('a ndarray -> 'b) -> 'b
-  val idx       : int -> Int Num ndarray -> 'a ndarray -> 'a ndarray
+  val idxS      : Int32.int -> INT -> 'a ndarray -> ('a exp -> 'b) -> ('a ndarray -> 'b) -> 'b
+  val idx       : Int32.int -> Int Num ndarray -> 'a ndarray -> 'a ndarray
 
   val idxassign : Int Num ndarray -> 'a ndarray -> 'a exp -> BOOL
 

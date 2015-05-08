@@ -15,7 +15,7 @@ local
                             | LRii of 'a
                             | NOii
 
-  type id_item = int identity_item * real identity_item * bool identity_item
+  type id_item = Int32.int identity_item * real identity_item * bool identity_item
                  
   fun id_item ii v =
       case ii of
@@ -88,7 +88,7 @@ local
   val op ++ = Util.plusAlist
   fun repair s = String.translate (fn #"-" => "~"
                                     | c => String.str c) s
-  fun StoI s = Int.fromString (repair s)
+  fun StoI s = Int32.fromString (repair s)
   fun StoD s = Real.fromString (repair s)
 in
 
@@ -518,7 +518,7 @@ fun compBackslash (r : AplAst.reg) : tagged_exp list -> tagged_exp M =
      | _ => compErr r "This type of left-argument to scan not supported yet"
 
 (* Compile power operator *)
-fun compPower benchFlag r f n =
+fun compPower (benchFlag:{bench:bool}) r f n =
     let
         fun getPowerScl () = if #bench benchFlag then bench else powerScl
         fun getCondScl () = if #bench benchFlag then (fn f => fn b => bench f (b2i b)) else condScl
