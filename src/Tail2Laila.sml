@@ -326,7 +326,7 @@ fun comp (E:env) (e : E.uexp) (k: lexp -> lexp L.M) : lexp L.M =
 and comp_each E f a t k =
     compFN E f (fn f =>
     compA E a (fn a =>
-    let val f = fn x => f [S x] >>= (L.ret o unS "each")
+    let val f = fn x => L.lett x >>= (fn x => f [S x] >>= (L.ret o unS "each"))
     in k $ A $ L.each (ltypeOf t) f a
     end))
 and unS s = fn S s => s | _ => die ("unS: " ^ s)
