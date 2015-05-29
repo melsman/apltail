@@ -9,6 +9,7 @@ val enableComments = ref false
 val unsafeAsserts = ref false
 val statistics_p = ref false   (* Not used *)
 val hoist_p = ref false        (* Not used *)
+val loopsplit_p = ref false    (* Not used *)
 
 fun die s = raise Fail ("Laila." ^ s)
 

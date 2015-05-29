@@ -82,6 +82,7 @@ fun compileAndRun (flags,files) =
         val () = Laila.enableComments := Flags.flag_p flags "-comments"
         val () = Laila.statistics_p := Flags.flag_p flags "-stat_laila"
         val () = Laila.hoist_p := Flags.flag_p flags "-opt_hoist"
+        val () = Laila.loopsplit_p := Flags.flag_p flags "-opt_loopsplit"
         val () = case Flags.flag flags "-O" of
                      NONE => ()
                    | SOME n =>
@@ -135,7 +136,8 @@ fun usage() =
     " -comments   : write comments in generated C code\n" ^
     " -unsafe     : don't include assert code in generated C code for array indexing\n" ^
     " -stat_laila : print statistics for LAILA code generation\n" ^
-    " -opt_hoist  : enable hoist optimization in LAILA code generation\n"
+    " -opt_hoist  : enable hoist optimization in LAILA code generation\n" ^
+    " -opt_loopsplit : enable loop split optimization in LAILA code generation\n"
 
 (* Parse command line arguments and pass to compileAndRun *)
 val () = Flags.runargs {usage = usage,

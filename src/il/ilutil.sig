@@ -20,4 +20,6 @@ signature ILUTIL = sig
 
   val cse         : ss -> ss
   val hoist       : ss -> ss
+  val loopSplit   : ss -> ss
+
 end

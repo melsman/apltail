@@ -7,6 +7,7 @@ signature LAILA = sig
   val unsafeAsserts : bool ref        (* Don't insert asserts for zipWith, etc. *)
   val statistics_p : bool ref         (* Print statistics *)
   val hoist_p : bool ref              (* Hoist optimization *)
+  val loopsplit_p : bool ref          (* Loop split optimization *)
 
   (* Monad encapsulating program construction *)
   type 'a M

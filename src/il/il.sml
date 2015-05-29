@@ -136,6 +136,7 @@ signature NAME = sig
   eqtype t
   val new : Type.T -> t
   val pr  : t -> string
+  val typeOf : t -> Type.T
 end
 
 structure Name : NAME = IL.Name
@@ -254,8 +255,9 @@ signature PROGRAM = sig
   type env = (Name.t * info) list
 
   (* static evaluation *)
-  val se_e  : env -> e -> e
-  val se_ss : env -> ss -> ss
+  val se_e   : env -> e -> e
+  val se_ss  : env -> ss -> ss
+  val rename : ss -> ss
 
   (* remove unused declarations *)
   val rm_decls : e -> ss -> ss
@@ -859,6 +861,12 @@ fun env_lookeq E n =
                                 else env_lookeq E n
             | _ :: E => env_lookeq E n
 
+fun env_gteq0 E n =
+    case E of nil => false
+            | (n',EqI (_,IL.I i))::E  => if n=n' then Int32.>=(i,0) else env_gteq0 E n
+            | (n',GtEqI (IL.I i))::E => if n=n' then Int32.>=(i,0) else env_gteq0 E n
+            | _::E => env_gteq0 E n
+
 fun lt E e1 e2 =
     let fun look E n i =
             case E of
@@ -991,6 +999,8 @@ fun se_ss (E:env) (ss:ss) : ss =
                     (IL.Vec _, IL.Vect _) => (n,EqI(true,e))::E
                   | (IL.Vec _, _) => E
                   | (IL.Int, IL.Binop(IL.Modv, _, e)) => (n, LtI e)::E
+                  | (IL.Int, IL.Binop(IL.Add, e, IL.Var n')) => 
+                    if env_gteq0 E n' then (n, GtEqI e)::E else E
                   | _ => if simpleExp e then (n,EqI(true,e))::E
                          else case e of IL.Binop(IL.Mul,a,b) => (n,EqI(false,e))::E
                                       | _ => E
@@ -1083,5 +1093,62 @@ and peep ss =
     | (s1 as IL.Decl(n,NONE)) :: (s2 as IL.Comment _) :: ss' => 
       peep(s2::s1::ss')
     | _ => ss
+
+(* Renaming *)
+
+fun ren_n n = Name.new (Name.typeOf n)
+fun look E n = case E of nil => n
+                       | (n',n'')::E => if n=n' then n'' else look E n
+
+fun ren_e E e =
+    case e of
+      IL.Var n => Var(look E n)
+    | IL.I i => e
+    | IL.D d => e
+    | IL.C c => e
+    | IL.T => e
+    | IL.F => e
+    | IL.If(e0,e1,e2) => If(ren_e E e0, ren_e E e1, ren_e E e2)
+    | IL.Subs(n,e) => Subs(look E n,ren_e E e)
+    | IL.Alloc(t,e) => Alloc(t,ren_e E e)
+    | IL.Vect(t,es) => Vect(t,List.map (ren_e E) es)
+    | IL.Binop(opr,e1,e2) => IL.Binop(opr,ren_e E e1,ren_e E e2)
+    | IL.Unop(opr,e1) => IL.Unop(opr,ren_e E e1)
+
+fun ren E nil = nil
+  | ren E (s::ss) =
+    case s of
+        IL.Decl(n,SOME e) =>
+        let val n' = ren_n n
+            val E' = (n,n')::E
+        in IL.Decl(n',SOME(ren_e E e)) :: ren E' ss
+        end
+      | IL.Decl(n,NONE) =>
+        let val n' = ren_n n
+            val E' = (n,n')::E
+        in IL.Decl(n',NONE) :: ren E' ss
+        end        
+      | IL.Nop => ren E ss
+      | IL.Ret e => Ret(ren_e E e)::nil  (* ss2 is dead *)
+      | IL.Halt str => Halt str::nil     (* ss2 is dead *)
+      | IL.Free n => Free (look E n) :: ren E ss
+      | IL.Assign(n,e) => IL.Assign(look E n,ren_e E e) :: ren E ss
+      | IL.AssignArr(n,e0,e) => IL.AssignArr(look E n,ren_e E e0,ren_e E e) :: ren E ss
+      | IL.For(e,n,body) => 
+        let val n' = ren_n n
+            val E' = (n,n')::E
+        in IL.For(ren_e E e,n',ren E' body) :: ren E ss
+        end
+      | IL.Ifs(e,ss0,ss1) => IL.Ifs(ren_e E e,ren E ss0,ren E ss1) :: ren E ss
+      | IL.Printf(s,es) => Printf(s, List.map(ren_e E)es) :: ren E ss
+      | IL.Sprintf(n,s,es) => Sprintf(look E n, s, List.map(ren_e E)es) :: ren E ss
+      | IL.ReadIntVecFile(n1,n2,e) =>
+        ReadIntVecFile(look E n1, look E n2, ren_e E e) :: ren E ss
+      | IL.ReadDoubleVecFile(n1,n2,e) =>
+        ReadDoubleVecFile(look E n1, look E n2, ren_e E e) :: ren E ss
+      | IL.Comment s => Comment s :: ren E ss
+  
+fun rename ss = ren nil ss
+          
 
 end

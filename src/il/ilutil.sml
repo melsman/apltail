@@ -551,4 +551,85 @@ structure ILUtil : ILUTIL = struct
         end
 
   val hoist = fn ss => hoistCat N.empty ss
+
+  (* ---------------------------------------
+   * Loop splitting
+   * --------------------------------------- *)
+
+  (* we match only some simple cases *)
+  fun splits_t N n e acc =
+      case e of
+          Binop(Lt,Var n',e') =>
+          if n=n' andalso not(Program.side_effects e') andalso
+             let val ns = uses e' N.empty
+             in N.isEmpty(N.intersect(N,ns))
+             end
+          then e'::acc
+          else acc
+        | _ => acc
+
+  fun splits_e N n e acc = acc  (* for now, only split on statement-level conditionals *)
+
+  (* Find safe split-expressions in sequences of statements. *)
+  fun splits N n nil acc = acc
+    | splits N n (s::ss) acc = 
+      case s of
+          Nop => splits N n ss acc
+        | Ret e => splits_e N n e (splits N n ss acc)
+        | Halt _ => splits N n ss acc
+        | Free _ => splits N n ss acc
+        | Decl(n',SOME e) => splits_e N n e (splits (N.insert(N,n')) n ss acc)
+        | Decl(n',NONE) => splits (N.insert(N,n')) n ss acc
+        | Assign(n',e) => splits_e N n e acc
+        | AssignArr(n',e1,e2) => splits_e N n 1 (splits_e N n 2 acc)
+        | For(e,n',body) => 
+          splits N n ss (splits_e N n e (splits (N.insert(N,n')) n body acc))
+        | Ifs(e,ss1,ss2) => 
+          splits N n ss (splits N n ss1 (splits N n ss2 (splits_t N n e acc)))
+        | Printf(_,es) => splits N n ss acc
+        | Sprintf(n',_,es) => splits N n ss acc
+        | ReadIntVecFile (n1,n2,e) => splits N n ss acc
+        | ReadDoubleVecFile (n1,n2,e) => splits N n ss acc
+        | Comment _ => splits N n ss acc
+          
+  fun loopSplit nil = nil
+    | loopSplit (s::ss) =
+      case s of
+          Nop => loopSplit ss
+        | For(e,n,body) =>
+          let val N = N.insert(defs_ss body,n)
+              val es = splits N n body []
+          in case es of
+                 nil => For(e,n,loopSplit body)::loopSplit ss
+               | e'::_ => 
+                 let val ne = Name.new Int
+                     val ne' = Name.new Int                                       
+                     val n1 = Name.new Int
+                     val n2 = Name.new Int
+                     val n3 = Name.new Int
+                     val n' = Name.new Int
+                     val body = loopSplit body
+                     val body' = Decl(n,SOME(Program.addi(Var n1,Var n3))) :: body
+                 in Decl(ne,SOME e) ::
+                    Decl(ne',SOME e') ::
+                    Decl(n1,SOME(Program.maxi(I 0,Program.mini(Var ne,Var ne')))) ::
+                    For(Var n1,n,body) ::
+                    Decl(n2,SOME(Program.subi(Var ne,Var n1))) ::
+                    For(Var n2,n3,Program.rename body') ::
+                    loopSplit ss
+                 end
+          end
+        | Ifs(e,ss1,ss2) => Ifs(e,loopSplit ss1,loopSplit ss2)::loopSplit ss 
+        | Ret _ => s::loopSplit ss
+        | Halt _ => s::loopSplit ss
+        | Free _ => s::loopSplit ss
+        | Decl _ => s::loopSplit ss
+        | Assign _ => s::loopSplit ss
+        | AssignArr _ => s::loopSplit ss
+        | Printf _ => s::loopSplit ss
+        | Sprintf _ => s::loopSplit ss
+        | ReadIntVecFile _ => s::loopSplit ss
+        | ReadDoubleVecFile _ => s::loopSplit ss
+        | Comment _ => s::loopSplit ss
+
 end

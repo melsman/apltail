@@ -529,7 +529,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | ("cosh",[t]) => (assert opr Double t; Double)
         | ("sinh",[t]) => (assert opr Double t; Double)
         | ("tanh",[t]) => (assert opr Double t; Double)
-        | ("roll",[t]) => (assert opr Int t; Double)
+        | ("roll",[t]) => (assert_sub opr t Int; Double)
         | ("iotaV",[t]) =>
           (case unS t of
                SOME (bt, r) => (assertB opr IntB bt; Vcc IntB r)

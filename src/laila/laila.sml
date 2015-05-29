@@ -9,6 +9,7 @@ val enableComments = ref false
 val unsafeAsserts = ref false
 val statistics_p = ref false
 val hoist_p = ref false
+val loopsplit_p = ref false
 
 val stat = Statistics.new "Laila" statistics_p
 val statIncr = Statistics.incr stat
@@ -325,9 +326,12 @@ fun opt_loop ss =
                 val ss = se_ss ss
                 val ss = if !hoist_p then ILUtil.hoist ss
                          else ss
+                val ss = if !loopsplit_p then ILUtil.loopSplit ss
+                         else ss
+                val ss = se_ss ss
             in ss
             end
-    in opt (opt ss)
+    in opt (opt (opt ss))
     end
 
 fun opt_ss0 ss =
