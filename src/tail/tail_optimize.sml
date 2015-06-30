@@ -2,6 +2,8 @@ functor TailOptimize (Exp : TAIL_EXP) :
 sig
   val optimize : int -> Exp.uexp -> Exp.uexp
   val optimisationLevel : int ref
+
+  val materialize : Exp.uexp -> Exp.uexp
 end
  = struct
 
@@ -211,5 +213,82 @@ and usess nil = emptyIE
 instead more aggressive in inline expressions (even bindings that are
 referenced multiple times.) See definition of "simple" above. *)
 
+(* materialize: insert mem tail operations in tail programs *)
+
+datatype mul = ONE | MANY
+
+type ME = mul FM.map
+fun plusME nil : ME = FM.empty
+  | plusME (me::mes) = FM.mergeMap (fn _ => MANY) me (plusME mes)
+fun oneME v : ME = FM.singleton(v,ONE)
+val emptyME : ME = FM.empty
+fun remME (me,v) = case FM.remove (v,me) of NONE => me
+                                          | SOME me => me
+fun bumpME (me : ME) : ME = FM.composemap (fn _ => MANY) me
+
+fun isSclTyp t =
+    case unArr' t of
+        SOME (_,r) => (case unRnk r of SOME 0 => true
+                                     | _ => false)
+      | NONE => false
+
+fun mem t e = 
+    if isSclTyp t then e 
+    else case e of
+             Var _ => e
+           | Op("mem", _, _) => e
+           | Op("iota", _, _) => e
+           | Op("iotaV", _, _) => e
+           | _ => Op_e("mem",[e])
+
+fun materialize (e:Exp.uexp) : Exp.uexp =
+    let fun mat e : Exp.uexp * ME =
+            case e of
+                Var (v,t) => (e,oneME v)
+              | I i => (e,emptyME)
+              | D r => (e,emptyME)
+              | B b => (e,emptyME)
+              | C w => (e,emptyME)
+              | Iff (e1,e2,e3,t) =>
+                let val (e1',E1) = mat e1
+                    val (e2',E2) = mat e2
+                    val (e3',E3) = mat e3
+                    val E = plusME[E1,E2,E3]  (* maybe treat plus(E2,E3) differently *) 
+                in (Iff(e1',e2',e3',t),E)
+                end
+              | Vc (es,t) =>
+                let val (es',Es) = ListPair.unzip (List.map mat es)
+                in (Vc(es',t), plusME Es)
+                end
+              | Op ("reshape",[e1,e2],t) =>
+                let val (e1',E1) = mat e1
+                    val (e2',E2) = mat e2
+                    fun con e = Op("reshape", [e1',e], t)
+                in case e2' of
+                       Var _ => (con e2', plusME[E1,bumpME E2])
+                     | _ => (con(mem (typeOf e2') e2'), plusME[E1,E2])
+                end
+              | Op (opr,es,t) =>
+                let val (es',Es) = ListPair.unzip (List.map mat es)
+                in (Op(opr,es',t), plusME Es)
+                end
+(*              | Let (v,tv,Var(v',t'),e2,t) => *)
+              | Let (v,tv,e1,e2,t) =>
+                let val (e1',E1) = mat e1
+                    val (e2',E2) = mat e2
+                    val E = plusME[E1,remME(E2,v)]
+                in (case FM.lookup E2 v of
+                        NONE => Let(v,tv,e1',e2',t)
+                      | SOME ONE => Let(v,tv,e1',e2',t)
+                      | SOME MANY => Let(v,tv,mem tv e1',e2',t)
+                   , E)
+                end
+              | Fn (v,tv,e1,t) =>
+                let val (e1',E1) = mat e1
+                    val E = bumpME(remME(E1,v))
+                in (Fn (v,tv,e1',t), E)
+                end
+    in #1 (mat e)
+    end
 
 end (* end of Optimize structure *)

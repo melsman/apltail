@@ -1,12 +1,14 @@
-TESTS=test test1 test2 test3 test4 test5 test6 test7 test9 test10 \
-      test11 test12 test13 test14 test15 test16 test19 signal \
-      test21 test28 residue mult0 mult sierpinski0 slashbar primes0 \
-      compress primes replicate cons boolean innerLegrand5.3 quadassign \
-      opr1 opr2 opr3 fun2 take drop vrev vrot rot rotfirst first life powscl pow powmat \
-      vec zfunc repl ceilfloormaxmin easter eacheaster else chars shape \
-      innerproduct sign ln circ timespi blackscholes pi readfile \
-      readintvecfile tax dtransp abcd mean idx tup binaryops fib10 sierpinski \
-      idxassign format readdoublevecfile squad expd reduce transpose vowels
+TESTS=test test1 test2 test3 test4 test5 test6 test7 test9 test10	\
+      test11 test12 test13 test14 test15 test16 test19 signal test21	\
+      test28 residue mult0 mult sierpinski0 slashbar primes0 compress	\
+      primes replicate cons boolean innerLegrand5.3 quadassign opr1	\
+      opr2 opr3 fun2 take drop vrev vrot rot rotfirst first life	\
+      powscl pow powmat vec zfunc repl ceilfloormaxmin easter		\
+      eacheaster else chars shape innerproduct sign ln circ timespi	\
+      blackscholes pi readfile readintvecfile tax dtransp abcd mean	\
+      idx tup binaryops fib10 sierpinski idxassign format		\
+      readdoublevecfile squad expd reduce transpose vowels train0	\
+      train trainatop tally
 
 APLFILES=$(TESTS:%=%.apl)
 TLFILES=$(APLFILES:%.apl=%.tl)
@@ -73,16 +75,17 @@ clean:
 
 ################### Testing Laila (C) Backend ###################
 
-CTESTS=test test1 test2 test3 test4 test5 test6 test7 test9 test10 \
-       test11 test12 test13 test14 test15 test16 test19 signal \
-       test21 test28 residue mult0 mult slashbar primes0 \
-       compress primes cons boolean innerLegrand5.3 quadassign \
-       opr1 opr2 opr3 fun2 take drop vrev vrot rot rotfirst first powscl \
-       vec zfunc ceilfloormaxmin easter eacheaster else \
-       innerproduct sign mean powmat life pow fib10 timespi ln \
-       chars repl replicate shape tup circ abcd dtransp tax binaryops \
-       pi blackscholes idx idxassign format readintvecfile \
-       readdoublevecfile squad expd reduce transpose sierpinski sierpinski0 vowels
+CTESTS=test test1 test2 test3 test4 test5 test6 test7 test9 test10	\
+       test11 test12 test13 test14 test15 test16 test19 signal test21	\
+       test28 residue mult0 mult slashbar primes0 compress primes	\
+       cons boolean innerLegrand5.3 quadassign opr1 opr2 opr3 fun2	\
+       take drop vrev vrot rot rotfirst first powscl vec zfunc		\
+       ceilfloormaxmin easter eacheaster else innerproduct sign mean	\
+       powmat life pow fib10 timespi ln chars repl replicate shape	\
+       tup circ abcd dtransp tax binaryops pi blackscholes idx		\
+       idxassign format readintvecfile readdoublevecfile squad expd	\
+       reduce transpose sierpinski sierpinski0 vowels train0 train	\
+       trainatop tally
 
 #      readfile \
 #      
@@ -98,7 +101,7 @@ testc: $(CRESFILES)
 	@echo "----------------------------------------------------"
 
 c/%.c: %.apl Makefile
-	$(APLT) -opt_hoist -opt_loopsplit -c -O 2 -oc $@ $(PRELUDE) $<
+	$(APLT) -materialize -opt_hoist -opt_loopsplit -c -O 2 -oc $@ $(PRELUDE) $<
 
 c/%.exe: c/%.c
 	gcc -I ../include --std=c99 -O3 -o $@ -lm $<

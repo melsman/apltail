@@ -5,7 +5,7 @@ struct
 structure T = T
 
 (* Compiler flags relevant for translation to TAIL *)
-type flags = {verbose : bool, optlevel : int, prtype : bool}
+type flags = {verbose : bool, optlevel : int, prtype : bool, materialize : bool}
 
 local
   open T
@@ -604,7 +604,7 @@ fun compId G (id,r) k =
         SOME r => r
       | NONE => 
         let val id = AplAst.pr_id id
-            fun consider id = if List.exists (fn x => id = x) ["$dot","$out","$slashbar"] then 
+            fun consider id = if List.exists (fn x => id = x) ["$dot","$out","$slashbar","$log","$tally"] then 
                                 "; consider including the prelude.apl file"
                               else ""
         in compErr r ("identifier " ^ id ^ " not in the environment" ^ consider id)
@@ -802,12 +802,14 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                                        else tryTuple())
                                       handle TRYTUPLE => tryTuple()
                                    end)
+            | App1E(GenericE(f,_),e1,r) => comp G (App1E(f MONADIC,e1,r)) k
             | App1E(e0,e1,r) =>
               comp G e1 (fn (s,G') =>
               comp (G++G') e0 (fn (f,G'') =>
                                   case f of
                                     Fs (f,_) => f [s] >>= (fn s' => k(s',G'++G''))
                                   | s => compErrS r s "expects monadic function"))
+            | App2E(GenericE(f,_),e1,e2,r) => comp G (App2E(f DYADIC,e1,e2,r)) k
             | App2E(e0,e1,e2,r) =>
               comp G e2 (fn (s2,G2) =>
               comp (G++G2) e0 (fn (f,G0) =>
@@ -839,6 +841,7 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
             | IdE(Symb L.Backslash,r) => k (Fs (compBackslash r, noii), empty)
             | IdE(Symb L.Slashbar,r) => compId G (Var "$slashbar",r) k
             | IdE(Symb L.Dot,r) => compId G (Var "$dot",r) k
+            | IdE(Symb L.Nmatch,r) => compId G (Var "$tally",r) k
             | IdE(Symb L.Each,r) => 
               k(Fs (fn [Fs (f,_)] =>
                        let fun doInt g =
@@ -869,6 +872,8 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                                                       fn Is i => (ret(Ais(iota i)) handle Fail msg => compErr r msg)
                                                        | Ais a => (ret(Ais(iota' a)) handle Fail msg => compErr r msg)
                                                        | s => compErrS r s "expects an integer argument to iota")
+            | IdE(Symb L.Rtack,r) => compPrimFunMD k r (fn _ => ret, fn r => ret o #2) noii
+            | IdE(Symb L.Ltack,r) => compPrimFunD k r (fn r => ret o #1) noii
             | IdE(Symb L.Trans,r) => compPrimFunMD k r (fn r =>
                                                         fn Ais a => ret(Ais(transpose a))
                                                          | Ads a => ret(Ads(transpose a))

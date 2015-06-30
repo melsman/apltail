@@ -420,7 +420,7 @@ fun outprog prtype ofile p =
      ; print ("Wrote file " ^ ofile ^ "\n")
     end
 
-fun runM {verbose,optlevel,prtype} tt m =
+fun runM {verbose,optlevel,materialize,prtype} tt m =
     let val p = m (fn x => x)
         val _ = Util.log verbose (fn _ => "Untyped program:\n" ^ pp_prog false p)
         val _ = Util.log verbose (fn _ => "Typing the program...")
@@ -441,6 +441,12 @@ fun runM {verbose,optlevel,prtype} tt m =
         val p = typeit "before optimization" p
         val p = Optimize.optimize optlevel p
         val p = typeit "after optimization" p
+        val p = if materialize then
+                  let val p = Optimize.materialize p
+                      val p = typeit "after materialization" p
+                  in p
+                  end
+                else p
         val _ = Util.log verbose (fn _ => "Optimised program:\n" ^ pp_prog prtype p)
     in p
     end

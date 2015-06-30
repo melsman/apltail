@@ -29,6 +29,7 @@ signature TAIL_EXP = sig
      val plus       : 'a map * 'a map -> 'a map
      val mergeMap   : ('a * 'a -> 'a) -> 'a map -> 'a map -> 'a map
      val composemap : ('a -> 'b) -> 'a map -> 'b map
+     val remove     : dom * 'a map -> 'a map option
   end
 
   (* TAIL AST *)

@@ -41,8 +41,9 @@ fun compileExp (flags : Flags.flags) (e : AplAst.exp) : res =
         val p_tail = Flags.flag_p flags "-p_tail"
         val p_types = Flags.flag_p flags "-p_types"
         val optlevel = if Flags.flag_p flags "-noopt" then 0 else 1
+        val materialize = Flags.flag_p flags "-materialize"
         val outfile = Flags.flag flags "-o"
-        val p = Apl2Tail.compile {verbose=verbose_p, optlevel=optlevel, prtype=p_types} e
+        val p = Apl2Tail.compile {verbose=verbose_p, optlevel=optlevel, prtype=p_types, materialize=materialize} e
         val () =
             case outfile of
                 SOME ofile => Tail.outprog p_types ofile p
@@ -121,22 +122,23 @@ val name = CommandLine.name()
 
 fun usage() =
     "Usage: " ^ name ^ " [OPTIONS]... file.apl...\n" ^
-    " -o file     : write TAIL program to file\n" ^
-    " -oc file    : write LAILA program to file\n" ^
-    " -c          : compile only (no evaluation)\n" ^
-    " -noopt      : disable optimizations\n" ^
-    " -p_tail     : print TAIL program\n" ^
-    " -p_types    : print types in TAIL code\n" ^
-    " -p_laila    : print LAILA code\n" ^
-    " -s_parse    : stop after parsing\n" ^
-    " -s_tail     : stop after TAIL generation\n" ^
-    " -silent     : evaluation output only (unless there are errors)\n" ^
-    " -v          : verbose\n" ^
-    " -O n        : optimisation level (n>0 optimises double operations aggresively)\n" ^
-    " -comments   : write comments in generated C code\n" ^
-    " -unsafe     : don't include assert code in generated C code for array indexing\n" ^
-    " -stat_laila : print statistics for LAILA code generation\n" ^
-    " -opt_hoist  : enable hoist optimization in LAILA code generation\n" ^
+    " -o file        : write TAIL program to file\n" ^
+    " -oc file       : write LAILA program to file\n" ^
+    " -c             : compile only (no evaluation)\n" ^
+    " -noopt         : disable optimizations\n" ^
+    " -materialize   : disable materialization of arrays\n" ^
+    " -p_tail        : print TAIL program\n" ^
+    " -p_types       : print types in TAIL code\n" ^
+    " -p_laila       : print LAILA code\n" ^
+    " -s_parse       : stop after parsing\n" ^
+    " -s_tail        : stop after TAIL generation\n" ^
+    " -silent        : evaluation output only (unless there are errors)\n" ^
+    " -v             : verbose\n" ^
+    " -O n           : optimisation level (n>0 optimises double operations aggresively)\n" ^
+    " -comments      : write comments in generated C code\n" ^
+    " -unsafe        : don't include assert code in generated C code for array indexing\n" ^
+    " -stat_laila    : print statistics for LAILA code generation\n" ^
+    " -opt_hoist     : enable hoist optimization in LAILA code generation\n" ^
     " -opt_loopsplit : enable loop split optimization in LAILA code generation\n"
 
 (* Parse command line arguments and pass to compileAndRun *)

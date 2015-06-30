@@ -31,6 +31,11 @@ $log ← {
   (⍟⍵)÷⍟⍺
 }
 
+$tally ← {  
+  ⍝ bind to ≢
+  ⍬⍴(⍴⍵),1
+}
+
 ReadCSVDouble ← ⎕ReadDoubleVecFile
 ReadCSVInt ← ⎕ReadIntVecFile
 xor ← ⎕INT32XOR
