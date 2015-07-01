@@ -1051,7 +1051,7 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                                   Is i => ret (i2d i)
                                 | Bs b => ret (i2d(b2i b))
                                 | Ds d => ret d
-                                | _ => raise Fail "Compile error: expects scalar double value as the result of a program")
+                                | _ => raise Fail ("Compile error: expects scalar double value as the result of a program - got " ^ pp_tagged_exp s))
     in runM flags Double c'
     end
 

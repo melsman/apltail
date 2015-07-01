@@ -33,7 +33,8 @@ $log ← {
 
 $tally ← {  
   ⍝ bind to ≢
-  ⍬⍴(⍴⍵),1
+  ⍝ ⍬⍴(⍴⍵),1
+  ⊃(⍴⍵),1
 }
 
 ReadCSVDouble ← ⎕ReadDoubleVecFile
