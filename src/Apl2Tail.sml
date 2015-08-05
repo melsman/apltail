@@ -3,6 +3,7 @@ struct
 
 (* Export TAIL-structure *)
 structure T = T
+structure CommentParser = CommentParse(T)
 
 (* Compiler flags relevant for translation to TAIL *)
 type flags = {verbose : bool, optlevel : int, prtype : bool}
@@ -79,6 +80,20 @@ local
                  | Acs md => letm md >>= (ret o Acs)
                  | Ts _ => ret s
                  | Fs _ => ret s
+
+  type typ = T.Exp.T.typ
+  fun lets_annotated (s : tagged_exp) ((_,t) : CommentParser.annotation) : tagged_exp M = case s of
+                   Bs x => (*ret s*)lett_typed x t >>= (ret o Bs)
+                 | Is x => (*ret s*)lett_typed x t >>= (ret o Is)
+                 | Ds x => (*ret s*)lett_typed x t >>= (ret o Ds)
+                 | Cs x => (*ret s*)lett_typed x t >>= (ret o Cs)
+                 | Abs mb => letm_typed mb t >>= (ret o Abs)
+                 | Ais mi => letm_typed mi t >>= (ret o Ais)
+                 | Ads md => letm_typed md t >>= (ret o Ads)
+                 | Acs md => letm_typed md t >>= (ret o Acs)
+                 | Ts _ => ret s
+                 | Fs _ => ret s
+
 
   open AplAst
   type env = (id, tagged_exp) Util.alist
@@ -734,6 +749,27 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                    | NONE => compErr r ("identifier " ^ id ^ " not in scope for index assignment")
               end
             | SeqE ([],r) => compErr r "empty sequences not supported"
+            | SeqE ([CommentE _],r) => compErr r "empty sequences not supported"
+            | SeqE (CommentE (tokens, r) :: (e as (AssignE(x,nil,e1,r1))) :: [],r2) =>
+                (* comp G (SeqE (e :: es,r)) k) *)
+                (case CommentParser.parseAnnotation tokens r of
+                     SOME (CommentParser.PComb.OK (annotation, r, _)) =>
+                        comp G e1 (fn (s1,G1) => 
+                           lets_annotated s1 annotation >>=
+                               (fn v => k(v, [(Var x, v)])))
+                   | SOME (CommentParser.PComb.NO (r, f)) => compError (f ()) (* Could not parse *)
+                   | NONE => comp G e k) (* Not an annotation, skip the comment *)
+            | SeqE (CommentE (tokens, r) :: (e as (AssignE(x,nil,e1,r1))) :: es,r2) =>
+                (* comp G (SeqE (e :: es,r)) k) *)
+                ( print (CommentParser.parseAndPrintAnnotation tokens r);
+                 case CommentParser.parseAnnotation tokens r of
+                     SOME (CommentParser.PComb.OK (annotation, r, _)) =>
+                        comp G e1 (fn (s1,G1) => 
+                           lets_annotated s1 annotation >>=
+                               (fn v => comp (G++G1++[(Var x,v)]) (SeqE(es,r)) k))
+                   | SOME (CommentParser.PComb.NO (r, f)) => compError (f ()) (* Could not parse *)
+                   | NONE => comp G (SeqE (e :: es, r)) k) (* Not an annotation, skip the comment *)
+            | SeqE (CommentE _ :: es,r) => comp G (SeqE (es,r)) k
             | SeqE ([e],_) => comp G e k
             | SeqE (e1::es,r) =>
               comp G e1 (fn (s1,G1) =>
@@ -1000,6 +1036,7 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
             | IdE(Symb L.Nand,r)     => compPrimFunD k r (compBoolOp nandb) (NOii,NOii,NOii)
             | IdE(Symb L.Nor,r)      => compPrimFunD k r (compBoolOp norb) (NOii,NOii,NOii)
             | IdE(Symb L.Tilde,r)    => compPrimFunM k r (compOpr1b notb)
+            | CommentE (ts, r)       => compError ("Comment parser output: " ^ CommentParser.parseAndPrintAnnotation ts r)
             | e                      => compError (pr_exp e ^ " not implemented")
         and comps G nil k = k(nil,empty)
           | comps G (e::es) k = comp G e (fn (s,G1) => comps (G++G1) es (fn (ss,G2) => k(s::ss,G1++G2)))

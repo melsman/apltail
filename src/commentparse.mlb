@@ -5,8 +5,6 @@ local
    util.mlb
    flags.mlb
 in
-   tail/tail.mlb
+(* CommentParse.sig *)
    CommentParse.sml
-   Apl2Tail.sig
-   Apl2Tail.sml
 end

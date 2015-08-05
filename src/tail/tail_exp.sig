@@ -64,6 +64,7 @@ signature TAIL_EXP = sig
   val Vc_e     : uexp list -> uexp
   val Op_e     : opr * uexp list -> uexp
   val Let_e    : var * typ * uexp * uexp -> uexp
+  val Let_anno : var * typ * typ * uexp * uexp -> uexp
   val Fn_e     : var * typ * uexp -> uexp
 
   (* Get the type of a TAIL-expression *)

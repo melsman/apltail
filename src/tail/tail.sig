@@ -192,6 +192,9 @@ signature TAIL = sig
   val lett      : 'a exp -> 'a exp M
   val letm      : 'a ndarray -> 'a ndarray M
 
+  val lett_typed : 'a exp -> Exp.T.typ -> 'a exp M
+  val letm_typed : 'a ndarray -> Exp.T.typ -> 'a ndarray M
+
   val zipWith   : ('a exp * 'b exp -> 'c exp M) -> 'a ndarray -> 'b ndarray -> 'c ndarray
 
   val scan      : ('a exp * 'b exp -> 'a exp M) -> 'b ndarray -> 'a ndarray

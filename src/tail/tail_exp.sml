@@ -693,6 +693,13 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
       in Let(v,t,e,e',t')
       end
 
+  fun Let_anno (v,tanno,t,e,e') =
+      let val t' = typeOf e'
+          val _ = assert_sub "Type annotation" t tanno
+      in Let(v,tanno,e,e',t')
+      end
+
+
   fun Fn_e (v,t,e) =
       let val t' = typeOf e
       in Fn(v,t,e,t')

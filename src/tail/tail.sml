@@ -259,11 +259,7 @@ fun vrotate e1 e2 = Op_e("vrotate", [e1,e2])
 fun rotate e1 e2 = Op_e("rotate", [e1,e2])
 fun catenate_first e1 e2 =
     transpose(catenate (transpose e1) (transpose e2))
-fun lett' e f =
-    let val v = newVar()
-        val t = typeOf e
-    in Let_e(v,t,e,f(Var(v,t)))
-    end
+
 fun lett e = 
     let val v = newVar()
         val t = typeOf e
@@ -274,6 +270,18 @@ fun letm e =
     let val v = newVar()
         val t = typeOf e
     in fn f => Let_e(v,t,e,f(Var(v,t)))
+    end
+
+fun lett_typed e tanno =
+    let val v = newVar()
+        val t = typeOf e
+    in fn f => Let_anno(v,tanno,t,e,f(Var(v,t)))
+    end
+
+fun letm_typed e tanno =
+    let val v = newVar()
+        val t = typeOf e
+    in fn f => Let_anno(v,tanno,t,e,f(Var(v,t)))
     end
 
 (* Pretty printing *)
