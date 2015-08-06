@@ -1,7 +1,10 @@
-MLKIT=SML_LIB=/home/dybber/lib/mlkit/lib/mlkit /home/dybber/lib/mlkit/bin/mlkit
-MLCOMP ?= $(MLKIT) -mlb_path_maps $(HOME)/.mlkit/mlb-path-map
+MLKIT=SML_LIB=/Users/mael/gits/mlkit /Users/mael/gits/mlkit/bin/mlkit
+MLCOMP ?= $(MLKIT) -mlb-path-map $(HOME)/.mlkit/mlb-path-map
 
-# MLCOMP ?= mlton -mlb-path-map $(HOME)/.mlton/mlb-path-map
+#MLCOMP ?= mlton -mlb-path-map $(HOME)/.mlton/mlb-path-map
+
+# MLKIT=SML_LIB=/home/dybber/lib/mlkit/lib/mlkit /home/dybber/lib/mlkit/bin/mlkit
+# MLCOMP ?= $(MLKIT) -mlb_path_maps $(HOME)/.mlkit/mlb-path-map
 
 FILES=src/flags.sml src/flags.mlb src/aplt.sml src/aplt.mlb \
   src/commentparse.mlb src/CommentParse.sml \
@@ -12,9 +15,10 @@ FILES=src/flags.sml src/flags.mlb src/aplt.sml src/aplt.mlb \
   $(shell ls -1 src/laila/*.sig src/laila/*.sml src/laila/*.mlb)
 
 SMACKAGE ?= $(HOME)/.smackage/lib
+APLPARSE_LIB ?= $(SMACKAGE)/aplparse/v2.7
 
-#APLPARSE_LIB ?= $(SMACKAGE)/aplparse/v2.6
-APLPARSE_LIB ?= $(HOME)/Documents/research/tail/aplparse
+# APLPARSE_LIB ?= $(HOME)/Documents/research/tail/aplparse
+
 
 .PHONY: all
 all: aplt

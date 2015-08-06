@@ -68,7 +68,7 @@ signature TAIL = sig
 
        The expression is expected to return a value of type 't0'.
    *)
-  val runM      : {verbose: bool, optlevel: int, prtype: bool} 
+  val runM      : {verbose: bool, optlevel: int, prtype: bool, materialize: bool} 
                   -> 'b T -> 'b exp M -> (unit,'b) prog
 
   (* Run the monadic expression, the function will be given a variable

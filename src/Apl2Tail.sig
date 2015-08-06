@@ -2,8 +2,8 @@ signature APL2TAIL = sig
 
   structure T : TAIL
 
-  (* supported flags: [-o f, -tl, -c, -v, -noopt, -p_types, -s_tail, -s_parse] *)
-  type flags = {verbose : bool, optlevel : int, prtype : bool}
+  (* supported flags: [-o f, -tl, -c, -v, -noopt, -nomat, -p_types, -s_tail, -s_parse] *)
+  type flags = {verbose : bool, optlevel : int, prtype : bool, materialize : bool}
 
   (* APL extensions. The parser needs this to disambiguate whether the
      functions are dyadic/monadic or both *)
