@@ -178,14 +178,14 @@ fun printAnnotation (str, ty) = str ^ " : " ^ TT.prType ty
  *)
 
 (* p_id : string p *)
-fun p_id nil              = NO (Region.botloc,fn () => "expecting identifier but found end-of-file")
-  | p_id ((IdT id,r)::ts) = OK(id,r,ts)
-  | p_id ((t,r)::_)       = NO (#1 r,fn() => ("expecting identifier but found token " ^ pp_comment_token t))
+fun p_id nil                   = NO (Region.botloc,fn () => "expecting identifier but found end-of-file")
+  | p_id ((IdT id,r)::ts)      = OK(id,r,ts)
+  | p_id ((t,r:Region.reg)::_) = NO (#1 r,fn() => ("expecting identifier but found token " ^ pp_comment_token t))
 
 (* p_int : int p *)
-fun p_int nil                 = NO (Region.botloc,fn () => "expecting integer but found end-of-file")
-  | p_int ((Integer i,r)::ts) = OK(i,r,ts)
-  | p_int ((t,r)::_)          = NO (#1 r, fn() => ("expecting integer but found token " ^ pp_comment_token t))
+fun p_int nil                   = NO (Region.botloc,fn () => "expecting integer but found end-of-file")
+  | p_int ((Integer i,r)::ts)   = OK(i,r,ts)
+  | p_int ((t,r:Region.reg)::_) = NO (#1 r, fn() => ("expecting integer but found token " ^ pp_comment_token t))
 
 (* Parse basetype (these occur as identifiers in token list from the lexer) *)
 fun p_basetype nil                    = NO (Region.botloc,fn () => "expecting basetype but found end-of-file")
@@ -193,7 +193,7 @@ fun p_basetype nil                    = NO (Region.botloc,fn () => "expecting ba
   | p_basetype ((IdT "double",r)::ts) = OK(TT.DoubleB,r,ts)
   | p_basetype ((IdT "bool",r)::ts)   = OK(TT.BoolB,r,ts)
   | p_basetype ((IdT "char",r)::ts)   = OK(TT.CharB,r,ts)
-  | p_basetype ((t,r)::_)             = NO (#1 r,fn() => ("expecting basetype (int,double,bool,char) but found token " ^ pp_comment_token t))
+  | p_basetype ((t,r:Region.reg)::_)  = NO (#1 r,fn() => ("expecting basetype (int,double,bool,char) but found token " ^ pp_comment_token t))
 
 (* Parse rank expression - currently rank variables aren't supported *)
 fun p_rank ts = ((p_int oo TT.rnk)) ts

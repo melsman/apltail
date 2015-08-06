@@ -7,6 +7,7 @@ signature LAILA = sig
   val unsafeAsserts : bool ref        (* Don't insert asserts for zipWith, etc. *)
   val statistics_p : bool ref         (* Print statistics *)
   val hoist_p : bool ref              (* Hoist optimization *)
+  val loopsplit_p : bool ref          (* Loop split optimization *)
 
   (* Monad encapsulating program construction *)
   type 'a M
@@ -31,12 +32,12 @@ signature LAILA = sig
  
   (* Values and Evaluation *)
   type value
-  val Iv       : int -> value
-  val unIv     : value -> int     (* may fail *)
+  val Iv       : Int32.int -> value
+  val unIv     : value -> Int32.int   (* may fail *)
   val Dv       : real -> value
-  val unDv     : value -> real    (* may fail *)
+  val unDv     : value -> real        (* may fail *)
   val Bv       : bool -> value
-  val unBv     : value -> bool    (* may fail *)
+  val unBv     : value -> bool        (* may fail *)
   val Vv       : value list -> value
   val unVv     : value -> value list  (* may fail *)
   val Uv       : value

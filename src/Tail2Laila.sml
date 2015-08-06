@@ -326,7 +326,7 @@ fun comp (E:env) (e : Tail.Exp.uexp) (k: lexp -> lexp Laila.M) : lexp Laila.M =
 and comp_each E f a t k =
     compFN E f (fn f =>
     compA E a (fn a =>
-    let val f = fn x => f [S x] >>= (Laila.ret o unS "each")
+    let val f = fn x => Laila.lett x >>= (fn x => f [S x] >>= (Laila.ret o unS "each"))
     in k $ A $ Laila.each (ltypeOf t) f a
     end))
 and unS s = fn S s => s | _ => die ("unS: " ^ s)
@@ -343,7 +343,7 @@ and compMA E (e : Tail.Exp.uexp) (k: Laila.mm -> lexp Laila.M) : lexp Laila.M =
                | _ => die ("compMA; e = " ^ Tail.pp_exp true e))
 and compV E (e : Tail.Exp.uexp) (k: int list -> lexp Laila.M) : lexp Laila.M =
     case e of
-        Tail.Exp.Vc(xs,_) => k(List.map (fn Tail.Exp.I x => x
+        Tail.Exp.Vc(xs,_) => k(List.map (fn Tail.Exp.I x => Int32.toInt x
                                  | _ => die "compV.expecting immediate integer") xs)
       | _ => die "compV.expecting immediate integer vector" 
 and compFN E (e : Tail.Exp.uexp) (k: (lexp list -> lexp Laila.M) -> lexp Laila.M) : lexp Laila.M =

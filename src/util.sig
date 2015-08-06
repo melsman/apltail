@@ -19,7 +19,7 @@ signature UTIL = sig
   val listContains : ''a -> ''a list -> bool
 
   (* Printing *)
-  val intToCString  : int -> string
+  val intToCString  : Int32.int -> string
   val realToCString : real -> string
   val realToTailString : real -> string
   val quote         : string -> string
@@ -28,8 +28,8 @@ signature UTIL = sig
 
 
   (* Minimum and maximum values *)
-  val minInt : int
-  val maxInt : int
+  val minInt : Int32.int
+  val maxInt : Int32.int
 
   (* File manipulation *)
   val readFile : string -> string

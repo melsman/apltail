@@ -16,7 +16,7 @@ local
                             | LRii of 'a
                             | NOii
 
-  type id_item = int identity_item * real identity_item * bool identity_item
+  type id_item = Int32.int identity_item * real identity_item * bool identity_item
                  
   fun id_item ii v =
       case ii of
@@ -103,7 +103,7 @@ local
   val op ++ = Util.plusAlist
   fun repair s = String.translate (fn #"-" => "~"
                                     | c => String.str c) s
-  fun StoI s = Int.fromString (repair s)
+  fun StoI s = Int32.fromString (repair s)
   fun StoD s = Real.fromString (repair s)
 in
 
@@ -533,7 +533,7 @@ fun compBackslash (r : AplAst.reg) : tagged_exp list -> tagged_exp M =
      | _ => compErr r "This type of left-argument to scan not supported yet"
 
 (* Compile power operator *)
-fun compPower benchFlag r f n =
+fun compPower (benchFlag:{bench:bool}) r f n =
     let
         fun getPowerScl () = if #bench benchFlag then bench else powerScl
         fun getCondScl () = if #bench benchFlag then (fn f => fn b => bench f (b2i b)) else condScl
@@ -750,25 +750,10 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
               end
             | SeqE ([],r) => compErr r "empty sequences not supported"
             | SeqE ([CommentE _],r) => compErr r "empty sequences not supported"
-            | SeqE (CommentE (tokens, r) :: (e as (AssignE(x,nil,e1,r1))) :: [],r2) =>
-                (* comp G (SeqE (e :: es,r)) k) *)
-                (case CommentParser.parseAnnotation tokens r of
-                     SOME (CommentParser.PComb.OK (annotation, r, _)) =>
-                        comp G e1 (fn (s1,G1) => 
-                           lets_annotated s1 annotation >>=
-                               (fn v => k(v, [(Var x, v)])))
-                   | SOME (CommentParser.PComb.NO (r, f)) => compError (f ()) (* Could not parse *)
-                   | NONE => comp G e k) (* Not an annotation, skip the comment *)
-            | SeqE (CommentE (tokens, r) :: (e as (AssignE(x,nil,e1,r1))) :: es,r2) =>
-                (* comp G (SeqE (e :: es,r)) k) *)
-                ( print (CommentParser.parseAndPrintAnnotation tokens r);
-                 case CommentParser.parseAnnotation tokens r of
-                     SOME (CommentParser.PComb.OK (annotation, r, _)) =>
-                        comp G e1 (fn (s1,G1) => 
-                           lets_annotated s1 annotation >>=
-                               (fn v => comp (G++G1++[(Var x,v)]) (SeqE(es,r)) k))
-                   | SOME (CommentParser.PComb.NO (r, f)) => compError (f ()) (* Could not parse *)
-                   | NONE => comp G (SeqE (e :: es, r)) k) (* Not an annotation, skip the comment *)
+            | SeqE (CommentE (tokens, r) :: (e as (AssignE _)) :: es,r2) => compAssign G k (SOME (tokens,r)) e es
+            | SeqE (e1 :: CommentE (tokens, r) :: (e2 as (AssignE _)) :: es,r2) => 
+                 comp G e1 (fn (s1, G1) => compAssign (G++G1) k (SOME (tokens,r)) e2 es)
+            | SeqE (e :: CommentE (tokens, r) :: es,r2) => comp G (SeqE (e::es,r)) k
             | SeqE (CommentE _ :: es,r) => comp G (SeqE (es,r)) k
             | SeqE ([e],_) => comp G e k
             | SeqE (e1::es,r) =>
@@ -1077,6 +1062,19 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                     noii))
         and compLam01 G e x     = comp (G++[(Symb L.Omega,x)])                  e (fn (s,_) => ret s)
         and compLam02 G e (x,y) = comp (G++[(Symb L.Omega,y),(Symb L.Alpha,x)]) e (fn (s,_) => ret s)
+        and compAssign G k (SOME (tokens,r)) (e as (AssignE(x,nil,e1,r1))) es =
+                (case CommentParser.parseAnnotation tokens r of
+                     SOME (CommentParser.PComb.OK (annotation, r, _)) =>
+                        comp G e1 (fn (s1,G1) => 
+                           lets_annotated s1 annotation >>=
+                               (case es of
+                                   [] => (fn v => k(v, [(Var x, v)]))
+                                 | _  => (fn v => comp (G++G1++[(Var x,v)]) (SeqE(es,r)) k)))
+                   | SOME (CommentParser.PComb.NO (r, f)) => compError (f ()) (* Could not parse *)
+                   | NONE => comp G (SeqE (e :: es,r)) k) (* Not an annotation, skip the comment *)
+          | compAssign G k (SOME e1) e2 es = compError "called compAssign without assignment op"
+          | compAssign G k NONE e es = compError "compAssign: case not implemented yet"
+
         val c : tagged_exp M = comp G0 e (fn (s,_) => ret s)
         val c' : DOUBLE M = c >>= (fn s =>
                                 case s of

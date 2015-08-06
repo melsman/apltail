@@ -56,10 +56,10 @@ fun log verbose f = if verbose then prln(f()) else ()
 
 
 (* Minimum and maximum values *)
-val minInt = case Int.minInt of
+val minInt = case Int32.minInt of
                  SOME i => i
                | NONE => raise Fail "Util.no minInt"
-val maxInt = case Int.maxInt of
+val maxInt = case Int32.maxInt of
                  SOME i => i
                | NONE => raise Fail "Util.no maxInt"
 

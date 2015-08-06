@@ -9,6 +9,7 @@ val enableComments = ref false
 val unsafeAsserts = ref false
 val statistics_p = ref false   (* Not used *)
 val hoist_p = ref false        (* Not used *)
+val loopsplit_p = ref false    (* Not used *)
 
 fun die s = raise Fail ("Laila." ^ s)
 
@@ -287,7 +288,7 @@ fun sprintfV (s, es) =
         val ty = Type.Char
         val tyv = Type.Vec ty
         val name = Name.new tyv
-        fun ssT ss = P.Decl(name, SOME(P.Alloc(tyv,P.I sz))) :: 
+        fun ssT ss = P.Decl(name, SOME(P.Alloc(tyv,P.I (Int32.fromInt sz)))) :: 
                      P.Sprintf(name,s,es) :: ss
     in (V(ty,P.strlen (P.Var name), fn i => ret(P.Subs(name,i))), ssT)
     end
@@ -464,7 +465,7 @@ fun concat v1 v2 =
       let open P
           val tyv = Type.Vec ty
           val name = Name.new tyv
-          val sz = I(List.length ts)
+          val sz = I(Int32.fromInt(List.length ts))
           fun ssT ss = Decl(name, SOME(Vect(tyv,ts))) :: ss
       in (V(ty,sz, fn i => ret(Subs(name,i))), ssT)
       end
@@ -595,7 +596,7 @@ fun concat v1 v2 =
       in check (List.length idxs)
        ; case P.unI n of
              SOME n =>  (* known number of dimensions *)
-             (if n <> List.length idxs then
+             (if Int32.toInt n <> List.length idxs then
                 die "trans2: wrong index vector length"
               else if n<2 then ret (sh,vs)
               else 
@@ -979,6 +980,8 @@ fun idxS (d:INT) (n:INT) (a as A(V(_,r,_),_)) (scalar: t -> 'b) (array: m -> 'b)
         (SOME d, SOME r) =>
         let fun tk n l = List.take(l,n)
             fun dr n l = List.drop(l,n)
+            val d = Int32.toInt d
+            val r = Int32.toInt r
             val () = if d < 1 orelse d > r then die "idxS.dimension index error"
                      else ()
             val iotar = List.tabulate (r, fn i => i+1)
