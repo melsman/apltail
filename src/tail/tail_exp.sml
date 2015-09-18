@@ -209,13 +209,19 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                  end
           end
 
+  (* Like unVcc and unSV combined 
+   * unVec0 : ty -> (bty, rnk) option
+   *)
   fun unVec0 t =
       case unVcc t of
           SOME (bt,r) => SOME(bt,r)
         | NONE => case unSV t of
                       SOME (bt,_) => SOME (bt,rnk 1)
                     | NONE => NONE
-                                  
+
+  (* Like unVec0, but also requires rank to be constant
+   * unVec : ty -> (bty, int) option
+   *)
   fun unVec t =
       case unVec0 t of
           NONE => NONE
@@ -244,7 +250,15 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                    end
       in case unVec t2 of
              SOME (bt2,r2) => (assert_sub opr t1 (Scl bt2); Vcc bt2 (rnk(r2+1)))
-           | NONE => case unS t1 of
+           | NONE => 
+               case unVec0 t2 of
+                   SOME (bt2, r2) =>
+                     let val rv = RnkVarCon (fn i => unifyR r2 (rnk(i+1)))
+                     in (assert_sub opr t1 (Scl bt2);
+                         Vcc bt2 rv)
+                     end
+                 | NONE =>
+                     case unS t1 of
                          SOME (bt1,_) => (assert_sub opr t2 (VecB bt1); VecB bt1)
                        | NONE => default()
       end

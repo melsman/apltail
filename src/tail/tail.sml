@@ -205,9 +205,13 @@ fun catenate e1 e2 =
     let fun cat () = Op_e("cat", [e1,e2])
         fun cons () = Op_e("cons",[e1,e2])
         fun snoc () = Op_e("snoc",[e1,e2])
+        fun consV () = Op_e("consV",[e1,e2])
+        fun snocV () = Op_e("snocV",[e1,e2])
         open Int
     in case (getStaticRank e1, getStaticRank e2) of
            (SOME 0, SOME 0) => Vc_e[e1,e2]
+         | (SOME 0, SOME 1) => consV ()
+         | (SOME 1, SOME 0) => snocV ()
          | (SOME i1, SOME i2) => if i2=i1+1 then cons()
                        else if i1=i2+1 then snoc()
                        else if i1=i2 then cat()
