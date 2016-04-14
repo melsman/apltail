@@ -1,5 +1,7 @@
-MLKIT=SML_LIB=/Users/mael/gits/mlkit /Users/mael/gits/mlkit/bin/mlkit
+#MLKIT=SML_LIB=/Users/mael/gits/mlkit /Users/mael/gits/mlkit/bin/mlkit
 MLCOMP ?= $(MLKIT) -mlb-path-map $(HOME)/.mlkit/mlb-path-map
+
+MLCOMP = mlkit
 
 #MLCOMP ?= mlton -mlb-path-map $(HOME)/.mlton/mlb-path-map
 

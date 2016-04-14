@@ -874,6 +874,12 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                                                        | s => compErrS r s "expects an integer argument to iota")
             | IdE(Symb L.Rtack,r) => compPrimFunMD k r (fn _ => ret, fn r => ret o #2) noii
             | IdE(Symb L.Ltack,r) => compPrimFunD k r (fn r => ret o #1) noii
+(*
+            | IdE(Symb L.Ring,r) => compPrimFunMD k r (fn r => fn Fs f => ret(Fs(fn [x] => f [x,x]
+                                                                                  | _ => compErr r "result function of monadic compose expects a single argument"))
+                                                                | s => compErrS r s "expects function as argument to monadic compose", 
+                                                       fn r => ret o #2) noii
+*)
             | IdE(Symb L.Trans,r) => compPrimFunMD k r (fn r =>
                                                         fn Ais a => ret(Ais(transpose a))
                                                          | Ads a => ret(Ads(transpose a))
