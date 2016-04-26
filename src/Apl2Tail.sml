@@ -565,6 +565,7 @@ fun compPower (benchFlag:{bench:bool}) r f n =
        (case classifyPower (Abs(zilde())) f of
             INT_C => compPower benchFlag r f n [Ais(each (ret o b2i) m)]
           | BOOL_C => doPower (getPower()) cond "boolean array" Abs unAbs m
+          | DOUBLE_C => compPower benchFlag r f n [Ads(each (ret o i2d o b2i) m)]
           | _ => compErr r "expecting boolean or integer array as result of power")
      | _ => compErr r "expecting scalar or array (boolean, integer, or double) as argument to power"
     end
@@ -662,6 +663,7 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
               in comp G e (fn (Ais a,_) => genericIndexing Is Ais a
                             | (Ads a,_) => genericIndexing Ds Ads a
                             | (Abs a,_) => genericIndexing Bs Abs a
+                            | (Acs a,_) => genericIndexing Cs Acs a
                             | (Ts ss, _) =>
                               compOpts G opts (fn ([SOME x],_) =>
                                                   (case Exp.T.unS (typeOf (toi x)) of
@@ -853,17 +855,21 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                            fun doDouble g =
                                each (fn x => (f[g x] >>= (fn Ds v => ret v
                                                                 | _ => compErr r "problem with each - expecting scalar double as function result")))
+                           fun doChar g =
+                               each (fn x => (f[g x] >>= (fn Cs v => ret v
+                                                                | _ => compErr r "problem with each - expecting scalar char as function result")))
                            fun classify' dummy g x =
                                case classifyEach dummy f of
                                    INT_C => ret(Ais(doInt g x))
                                  | BOOL_C => ret(Abs(doBool g x))
                                  | DOUBLE_C => ret(Ads(doDouble g x))
-                                 | UNKNOWN_C => compErr r "failed to classify each operation"
+                                 | CHAR_C => ret(Acs(doChar g x))
+                                 (*| UNKNOWN_C => compErr r "failed to classify each operation"*)
                        in ret(Fs (fn [Ais x] => classify' dummyIntS Is x
-                                    | [Ads x] => classify' dummyDoubleS Ds x
-                                    | [Abs x] => classify' dummyBoolS Bs x
-                                    | _ => compErr r "expecting array as right argument to each operation",
-                                   noii))
+                                   | [Ads x] => classify' dummyDoubleS Ds x
+                                   | [Abs x] => classify' dummyBoolS Bs x
+                                   | _ => compErr r "expecting array as right argument to each operation",
+                                  noii))
                        end
                      | _ => compErr r "expecting function as left argument to each operation",
                     noii), 
