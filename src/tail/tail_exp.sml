@@ -117,6 +117,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
          | Op of opr * uexp list * typ
          | Let of var * typ * uexp * uexp * typ
          | Fn of var * typ * uexp * typ
+         | Tuple of uexp list * typ
+         | Prj of int * uexp * typ
 
   (* Environments *)
   type env = (var * typ) list
@@ -619,6 +621,20 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                   in assert "fun" t' t0;
                      Fun(t,t')
                   end
+                | Tuple (es,t0) =>
+                  let val ts = List.map (ty E) es
+                      val t = Tup ts
+                  in assert "tuple expression" t t0
+                   ; t0
+                  end
+                | Prj(i,e,t0) =>
+                  let val t = ty E e
+                      val ti = case unTup t of
+                                   SOME ts => (List.nth(ts,i) handle _ => raise Fail "tuple index error")
+                                 | NONE => raise Fail "expecting tuple - hmm"
+                  in assert "tuple projection" ti t0
+                   ; t0
+                  end
                 | Op (opr, es, t0) => 
                   let val ts = List.map (ty E) es
                       val t = tyOp opr ts
@@ -641,6 +657,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | Op(_,_,t) => t
         | Let(_,_,_,_,t) => t
         | Fn(v,t,e,t') => Fun(t,t')
+        | Tuple(_,t) => t
+        | Prj(_,_,t) => t
 
   fun isShOpr t opr =
     case (opr       , unS t    , unSV t   , unVcc t  ) of
@@ -675,6 +693,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | Op(opr,es,t) => Op(prOpr t opr, List.map resolveShOpr es,t)
         | Let(v,t,e1,e2,t') => Let(v,t,resolveShOpr e1,resolveShOpr e2,t')
         | Fn(v,t,e,t') => Fn(v,t,resolveShOpr e,t')
+        | Tuple(es,t) => Tuple(List.map resolveShOpr es,t)
+        | Prj(i,e,t) => Prj(i,resolveShOpr e,t)
 
   fun Iff_e (c,e1,e2) =
       let val t0 = tyIff(typeOf c, typeOf e1, typeOf e2)
@@ -703,14 +723,33 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
       in Fn(v,t,e,t')
       end
 
+  fun Tuple_e es =
+      let val t = Tup (List.map typeOf es)
+      in Tuple(es,t)
+      end
+
+  fun unTuple e =
+      case e of
+          Tuple(es,_) => SOME es
+        | _ => NONE
+          
+  fun Prj_e (i,e) =
+      let val t = typeOf e
+          val t0 = case unTup t of
+                       SOME ts => (List.nth(ts,i) handle _ => raise Fail "Prj_e: tuple index error")
+                     | NONE => raise Fail "Prj_e: expecting tuple - hmm"
+      in Prj(i,e,t0)
+      end
+          
+                                 
   datatype bv = Ib of Int32.int
               | Db of real
               | Bb of bool
               | Cb of word
               | Fb of denv * var * typ * uexp * typ
+              | Tb of value list    
   withtype denv = (var * bv Apl.APLArray) list
-
-  type value = bv Apl.APLArray
+       and value = bv Apl.APLArray
 
   fun Dvalue v = Apl.scl (Db 0.0) (Db v)
   fun unDvalue _ = raise Fail "exp.unDvalue: not implemented"
@@ -755,8 +794,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | Bb false => "0"
         | Cb w => pr_char w
         | Fb _ => "fn"
-                      
-  fun pr_value v = Apl.pr (pr_bv,",") v
+        | Tb vs => "(" ^ String.concatWith "," (List.map pr_value vs) ^ ")"
+  and pr_value v = Apl.pr (pr_bv,",") v
 
   val emptyDEnv = nil
   val addDE = add
@@ -771,7 +810,9 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
     | unBb _ = raise Fail "exp.unBb"
   fun unFb (Fb b) = b
     | unFb _ = raise Fail "exp.unFb"
-
+  fun unTb (Tb vs) = vs
+    | unTb _ = raise Fail "exp.unTb"
+                     
   fun unBase s t fi fd fb fc =
       let val (bt,_) = unArr' ("unBase:" ^ s) t
       in if isInt bt then fi()
@@ -1017,6 +1058,9 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           end
         | Let (v,t,e1,e2,t') => eval (addDE DE v (eval DE e1)) e2
         | Fn (v,t,e,t') => Apl.scl (Ib ~1000) (Fb(DE,v,t,e,t'))
+        | Tuple (es,t) => Apl.scl (Ib ~1001) (Tb(List.map (eval DE) es))
+        | Prj (i,e,t) => (List.nth(unTb(Apl.unScl "prj" (eval DE e)),i)
+                          handle Subscript => raise Fail "prj index error")
   and unFb2 DE s e =
       let val (DE0,x,tx,e,_) = unFb(Apl.unScl (s ^ ", first function argument") (eval DE e))
           val (_,y,ty,e,t) = unFb(Apl.unScl (s ^ ", second function argument") (eval DE e))

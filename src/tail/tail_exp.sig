@@ -44,7 +44,9 @@ signature TAIL_EXP = sig
          | Op of opr * uexp list * typ
          | Let of var * typ * uexp * uexp * typ
          | Fn of var * typ * uexp * typ
-
+         | Tuple of uexp list * typ
+         | Prj of int * uexp * typ
+                                        
   (* Type environment *)
   type env
   val lookup   : env -> var -> typ option
@@ -66,7 +68,10 @@ signature TAIL_EXP = sig
   val Op_e     : opr * uexp list -> uexp
   val Let_e    : var * typ * uexp * uexp -> uexp
   val Fn_e     : var * typ * uexp -> uexp
-
+  val Tuple_e  : uexp list -> uexp
+  val Prj_e    : int * uexp -> uexp
+  val unTuple  : uexp -> uexp list option
+                                   
   (* Get the type of a TAIL-expression *)
   val typeOf   : uexp -> typ
 

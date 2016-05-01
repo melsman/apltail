@@ -22,6 +22,7 @@ datatype t = ArrT of bty * rnk
            | ST   of bty * rnk
            | SVT  of bty * rnk
            | FunT of typ * typ 
+           | TupT of typ list
            | TyvT of tv
 withtype typ = t uref
 
@@ -53,6 +54,7 @@ fun Vcc bt r = uref(VccT(bt,r))
 fun S   bt r = uref(ST(bt,r))
 fun SV  bt r = uref(SVT(bt,r))
 fun Fun (t1,t2) = uref(FunT(t1,t2))
+fun Tup ts = uref(TupT ts)
 
 fun Scl bt  = Arr bt rnk0
 fun VecB bt = Arr bt rnk1
@@ -82,6 +84,7 @@ and prT t =
       | ST (bt,r) => "S(" ^ prBty bt ^ "," ^ prRnk r ^ ")"
       | SVT (bt,r) => "SV(" ^ prBty bt ^ "," ^ prRnk r ^ ")"
       | FunT (t1,t2) => "(" ^ prType t1 ^ ")->" ^ prType t2
+      | TupT ts => "(" ^ String.concatWith " * " (List.map prType ts) ^ ")"
       | TyvT tv => tv
 and prType t = prT(!!t)
 
@@ -90,6 +93,7 @@ fun unVcc t = case !!t of VccT p => SOME p | _ => NONE
 fun unS   t = case !!t of ST p   => SOME p | _ => NONE
 fun unSV  t = case !!t of SVT p  => SOME p | _ => NONE
 fun unFun t = case !!t of FunT p => SOME p | _ => NONE
+fun unTup t = case !!t of TupT p => SOME p | _ => NONE
 
 fun comb f1 f2 t = case f1 t of SUCCESS => f2 t | x => x
 fun check f t = case f t of ERROR s => raise Fail s | SUCCESS => ()
@@ -128,8 +132,12 @@ and combT (t1,t2) =
       | (t as ST   (b1,r1), ST   (b2,r2)) => (unifB b1 b2; unifR r1 r2; t) 
       | (t as SVT  (b1,r1), SVT  (b2,r2)) => (unifB b1 b2; unifR r1 r2; t) 
       | (t as FunT (t1,t2), FunT (t1',t2')) => (unif t1 t1'; unif t2 t2'; t)
+      | (t as TupT ts, t' as TupT ts') => (unifs t t' ts ts'; t)
       | _ => raise Fail ("cannot unify " ^ prT t1 ^ " and " ^ prT t2)
 and unif t1 t2 = URef.unify combT (t1,t2)
+and unifs _ _ nil nil = ()
+  | unifs t0 t0' (t::ts) (t'::ts') = (unif t t'; unifs t0 t0' ts ts')
+  | unifs t0 t0' _ _ = raise Fail ("cannot unify tuple types " ^ prT t0 ^ " and " ^ prT t0')
 and combR (r1,r2) =
     case (r1,r2) of
         (R i1, R i2) => if i1 = i2 then r1

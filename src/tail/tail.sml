@@ -251,6 +251,19 @@ fun powerScl f e1 e2 = Op_e("powerScl",[mkFn1m f,e1,e2])
 fun bench f e1 e2 = Op_e("bench",[mkFn1m f,e1,e2])
 fun condScl f e1 e2 = Op_e("condScl",[mkFn1m f,e1,e2])
 
+type 'a tuple = uexp
+type nil = unit
+type ('a,'b) tupleIdx = int
+val empTuple = Tuple_e nil
+fun consTuple v t =
+    case unTuple t of
+        SOME l => Tuple_e(v::l)
+      | NONE => raise Fail "consTuple: cannot cons expression to non-tuple"
+fun Zero () = 0
+fun Succ i = i + 1
+fun prjTuple i e = Prj_e(i,e)
+fun powerN f e1 e2 = Op_e("power",[mkFn1m f,e1,e2])
+                        
 fun transpose e = Op_e("transp", [e])
 fun transpose2 e1 e2 = Op_e("transp2", [e1,e2])
 fun vreverse e = Op_e("vreverse", [e])
@@ -392,16 +405,18 @@ fun pp_exp (prtype:bool) e =
                     indent i @@ $"else " @@
                     indent i' @@ pp i' e2
                 end
-                | Vc(es,_) => $"[" @@ pps (i+1) es @@ $"]"
-                | Op (opr,nil,t) => $opr
-                | Op (opr,es,t) => $opr @@ maybePrType opr es t 
-                                    @@ $"(" @@ pps (i+1+size opr) es @@ $")"
-                | Let (v,ty,e1,e2,_) => $"let " @@ $(ppVar v) @@ $":" @@ $(prType ty) @@ $" = " @@ pp (i+2) e1 @@ $" in" @@ 
-                                         indent i @@ pp i e2
-                | Fn (v,t,e,_) =>
-                  (case lookForOp [v] e of
-                       SOME (opr,t) => $opr
-                     | NONE => $("fn " ^ ppVar v ^ ":" ^ prType t ^ " => ") @@ pp (i+2) e)
+              | Vc(es,_) => $"[" @@ pps (i+1) es @@ $"]"
+              | Op (opr,nil,t) => $opr
+              | Op (opr,es,t) => $opr @@ maybePrType opr es t 
+                                  @@ $"(" @@ pps (i+1+size opr) es @@ $")"
+              | Let (v,ty,e1,e2,_) => $"let " @@ $(ppVar v) @@ $":" @@ $(prType ty) @@ $" = " @@ pp (i+2) e1 @@ $" in" @@ 
+                                       indent i @@ pp i e2
+              | Fn (v,t,e,_) =>
+                (case lookForOp [v] e of
+                     SOME (opr,t) => $opr
+                   | NONE => $("fn " ^ ppVar v ^ ":" ^ prType t ^ " => ") @@ pp (i+2) e)
+              | Tuple (es,_) => $"(" @@ pps i es @@ $")"
+              | Prj(i,e,_) => $("Prj(" ^ Int.toString i ^ ",") @@ pp i e @@ $")"
         and pps i nil = $""
           | pps i [e] = pp i e
           | pps i (e::es) = pp i e @@ $"," @@ pps i es

@@ -169,6 +169,8 @@ fun optimize optlevel e =
                 let val E' = FM.add(v,{shape=NONE,value=NONE},E)
                 in Fn(v,t,opt E' e,t')
                 end
+              | Tuple(es,t) => Tuple (opts E es,t)
+              | Prj(i,e,t) => Prj (i,opt E e,t)
         and opts E es = List.map (opt E) es
         val initE = FM.empty
     in opt initE e
@@ -206,6 +208,8 @@ fun uses e =
       | Op(opr,es,_) => usess es
       | Let (_,_,e1,e2,_) => usess [e1,e2]
       | Fn (_,_,e,_) => bumpIE(uses e)
+      | Tuple(es,_) => usess es
+      | Prj(_,e,_) => uses e
 and usess nil = emptyIE
   | usess (e::es) = plusIE(uses e,usess es)
 
@@ -287,6 +291,14 @@ fun materialize (e:Exp.uexp) : Exp.uexp =
                 let val (e1',E1) = mat e1
                     val E = bumpME(remME(E1,v))
                 in (Fn (v,tv,e1',t), E)
+                end
+              | Tuple (es,t) =>
+                let val (es',Es) = ListPair.unzip (List.map mat es)
+                in (Tuple(es',t), plusME Es)
+                end
+              | Prj (i,e,t) =>
+                let val (e',E) = mat e
+                in (Prj(i,e',t), E)
                 end
     in #1 (mat e)
     end

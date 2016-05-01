@@ -1,5 +1,5 @@
 (** Type structure for TAIL programs. The interface is highly
-    imperative as types may be unified using the operations such as
+    imperative as types may be unified using operations such as
     relateR, relateR2, unifyR, unifyB, unify, and subtype.
 
       r ::=                          Ranks
@@ -17,6 +17,7 @@
              S_k(r)                     singleton type of base type b and value r
              SV_k(r)                    singleton one-element vector type containing the value r of type b
              t -> t                     function type
+             t1*...*tn                  tuple
 *)
 
 signature TAIL_TYPE = sig
@@ -55,7 +56,8 @@ signature TAIL_TYPE = sig
   val S        : bty -> rnk -> typ         (* singleton *)
   val SV       : bty -> rnk -> typ         (* singleton vector *)
   val Fun      : typ * typ -> typ
-
+  val Tup      : typ list -> typ
+                                  
   (* Type abbreviations *)
   val Int      : typ
   val Bool     : typ
@@ -72,7 +74,8 @@ signature TAIL_TYPE = sig
   val unSV     : typ -> (bty * rnk) option
   val unFun    : typ -> (typ * typ) option
   val unArr'   : typ -> (bty * rnk) option    (* also returns values for Vcc,S,SV *)
-
+  val unTup    : typ -> typ list option
+                                    
   val TyVar    : unit -> typ  (* create type variable *)
   val subtype  : typ -> typ -> unify_result (* is subtype *)
   val unify    : typ -> typ -> unify_result (* unify two type variables *)

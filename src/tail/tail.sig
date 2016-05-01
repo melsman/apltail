@@ -23,7 +23,7 @@ signature TAIL = sig
   val Char      : Char T
   val Vec       : 'a T -> 'a Vec T
   val prType    : 'a T -> string
-
+                              
   (* Monadic encapsulation of program construction. Allows for
      introducing target-language let-constructs using the lett and
      letm combinators below. 
@@ -224,6 +224,16 @@ signature TAIL = sig
   val powerScl  : ('a exp -> 'a exp M) -> INT -> 'a exp -> 'a exp
   val condScl   : ('a exp -> 'a exp M) -> BOOL -> 'a exp -> 'a exp
 
+  type 'a tuple
+  type nil
+  type ('a,'e) tupleIdx
+  val powerN    : ('a tuple -> 'a tuple M) -> INT -> 'a tuple -> 'a tuple
+  val empTuple  : nil tuple
+  val consTuple : 'a ndarray -> 'b tuple -> ('a->'b)tuple
+  val Zero      : unit -> ('a->'b,'a)tupleIdx
+  val Succ      : ('a,'e)tupleIdx -> ('a->'b,'e)tupleIdx            (* Succ(Zero()) : ('a->'b->'c,'b)tupleIdx *)
+  val prjTuple  : ('a,'e)tupleIdx -> 'a tuple -> 'e ndarray
+                                                
   val transpose : 'a ndarray -> 'a ndarray
   val transpose2 : Int Num tvector -> 'a ndarray -> 'a ndarray
 

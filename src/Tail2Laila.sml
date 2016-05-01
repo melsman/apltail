@@ -210,6 +210,8 @@ fun comp (E:env) (e : E.uexp) (k: lexp -> lexp L.M) : lexp L.M =
            in k $ FN (fn xs => comp (extendE(v::vs,xs,E)) e L.ret)
            end
          | E.Iff(e1,e2,e3,t) => die "comp: Iff not supported" 
+         | E.Tuple _ => die "comp.tuple: tuples not supported"
+         | E.Prj _ => die "comp.prj: tuples not supported"
          | E.Op("eachV", [f,a], t) => comp_each E f a t k
          | E.Op("each", [f,a], t) => comp_each E f a t k
          | E.Op("powerScl", [f,n,a], _) => 
