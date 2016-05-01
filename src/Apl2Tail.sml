@@ -414,16 +414,18 @@ fun circularOp (r : AplAst.reg) (x : INT) (y : DOUBLE) : DOUBLE =
             | SOME xi => compErr r ("unsupported left-argument (" ^ Int.toString xi ^
                                     ") to circular-function"))
 
-datatype classifier = BOOL_C | INT_C | DOUBLE_C | UNKNOWN_C
+datatype classifier = BOOL_C | INT_C | DOUBLE_C | CHAR_C | UNKNOWN_C
 local
   fun class v =
       case v of
           Is _ => INT_C
         | Bs _ => BOOL_C
         | Ds _ => DOUBLE_C
+        | Cs _ => CHAR_C
         | Abs _ => BOOL_C
         | Ais _ => INT_C
         | Ads _ => DOUBLE_C
+        | Acs _ => CHAR_C
         | _ => UNKNOWN_C
   fun classify (l: tagged_exp list) (f: tagged_exp list -> tagged_exp M) : classifier =
       case runHack (f l) of
@@ -864,7 +866,7 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                                  | BOOL_C => ret(Abs(doBool g x))
                                  | DOUBLE_C => ret(Ads(doDouble g x))
                                  | CHAR_C => ret(Acs(doChar g x))
-                                 (*| UNKNOWN_C => compErr r "failed to classify each operation"*)
+                                 | UNKNOWN_C => compErr r "failed to classify each operation"
                        in ret(Fs (fn [Ais x] => classify' dummyIntS Is x
                                    | [Ads x] => classify' dummyDoubleS Ds x
                                    | [Abs x] => classify' dummyBoolS Bs x
