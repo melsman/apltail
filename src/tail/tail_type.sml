@@ -23,8 +23,9 @@ datatype t = ArrT of bty * rnk
            | SVT  of bty * rnk
            | FunT of typ * typ 
            | TupT of typ list
-           | TyvT of tv
+           | TyvT of tv * prj list option
 withtype typ = t uref
+     and prj = int * t uref
 
 local
   fun newcount s =
@@ -34,7 +35,8 @@ local
 in fun RnkVarCon f : rnk = uref(Rv(newcount "'r" (),f))
    fun RnkVar ()   : rnk = RnkVarCon (fn _ => SUCCESS)
    fun TyVarB ()   : bty = uref(Bv(newcount "'b" ()))
-   fun TyVar ()    : typ = uref(TyvT(newcount "'a" ()))
+   fun TyVar ()    : typ = uref(TyvT(newcount "'a" (),NONE))
+   fun TyVarPrj (i,t) : typ = uref(TyvT(newcount "'t" (),SOME [(i,t)]))
 end
 
 val rnk0 = uref (R 0)
@@ -56,6 +58,8 @@ fun SV  bt r = uref(SVT(bt,r))
 fun Fun (t1,t2) = uref(FunT(t1,t2))
 fun Tup ts = uref(TupT ts)
 
+fun prj i t = TyVarPrj (i,t)            
+                 
 fun Scl bt  = Arr bt rnk0
 fun VecB bt = Arr bt rnk1
 val Int     = Scl IntB
@@ -85,7 +89,7 @@ and prT t =
       | SVT (bt,r) => "SV(" ^ prBty bt ^ "," ^ prRnk r ^ ")"
       | FunT (t1,t2) => "(" ^ prType t1 ^ ")->" ^ prType t2
       | TupT ts => "(" ^ String.concatWith " * " (List.map prType ts) ^ ")"
-      | TyvT tv => tv
+      | TyvT (tv,_) => tv
 and prType t = prT(!!t)
 
 fun unArr t = case !!t of ArrT p => SOME p | _ => NONE
@@ -125,8 +129,18 @@ fun combB (b1,b2) =
 and unifB b1 b2 = URef.unify combB (b1,b2)
 and combT (t1,t2) =
     case (t1,t2) of
-        (TyvT _, _) => t2
-      | (_, TyvT _) => t1
+        (TyvT (_,NONE), _) => t2
+      | (_, TyvT (_,NONE)) => t1
+      | (TyvT (v1,SOME prjs1), TyvT(_,SOME prjs2)) => TyvT(v1,SOME(unifPrjs prjs1 prjs2))
+      | (TyvT (_,SOME prjs), TupT ts) =>
+        (List.app (fn (i,t) =>
+                      if i < length ts then unif (List.nth(ts,i)) t
+                      else raise Fail ("cannot project " ^ Int.toString i ^
+                                       "th value from tuple of length " ^
+                                       Int.toString (length ts)))
+                  prjs;
+         t2)
+      | (TupT _, TyvT _) => combT (t2,t1)
       | (t as ArrT (b1,r1), ArrT (b2,r2)) => (unifB b1 b2; unifR r1 r2; t) 
       | (t as VccT (b1,r1), VccT (b2,r2)) => (unifB b1 b2; unifR r1 r2; t) 
       | (t as ST   (b1,r1), ST   (b2,r2)) => (unifB b1 b2; unifR r1 r2; t) 
@@ -134,6 +148,14 @@ and combT (t1,t2) =
       | (t as FunT (t1,t2), FunT (t1',t2')) => (unif t1 t1'; unif t2 t2'; t)
       | (t as TupT ts, t' as TupT ts') => (unifs t t' ts ts'; t)
       | _ => raise Fail ("cannot unify " ^ prT t1 ^ " and " ^ prT t2)
+and unifPrjs nil prjs2 = prjs2
+  | unifPrjs ((i1,t1)::prjs1) prjs2 =
+    (List.app(fn (i2,t2) => if i1=i2 then unif t1 t2
+                            else ()) prjs2;
+     if List.exists (fn (i2,_) => i1 = i2) prjs2 then
+       unifPrjs prjs1 prjs2
+     else unifPrjs prjs1 ((i1,t1)::prjs2))
+                                    
 and unif t1 t2 = URef.unify combT (t1,t2)
 and unifs _ _ nil nil = ()
   | unifs t0 t0' (t::ts) (t'::ts') = (unif t t'; unifs t0 t0' ts ts')
@@ -176,7 +198,13 @@ fun subtype t1 t2 =
                                   SOME btr2 => unif_btr btr1 btr2
                                 | NONE => unif t2 (VecB (#1 btr1))
                              )
-              | NONE => unif t1 t2
+              | NONE =>
+                case (unTup t1, unTup t2) of
+                    (SOME ts1, SOME ts2) =>
+                    (ListPair.appEq (fn (t1,t2) => subtype t1 t2) (ts1,ts2)
+                     handle ListPair.UnequalLengths =>
+                            raise Fail "cannot unify tuple types of different length")
+                  | _ => unif t1 t2
 
 fun join t1 t2 =
     case (unS t1, unS t2) of
@@ -188,7 +216,7 @@ fun join t1 t2 =
            | _ => (unifR r1 r2; t1))
       | (SOME(bt1,_), NONE) => join (Scl bt1) t2
       | (NONE, SOME(bt2,_)) => join t1 (Scl bt2)
-      | _ => 
+      | (NONE, NONE) => 
         case (unSV t1, unSV t2) of
             (SOME (bt1,r1), SOME (bt2,r2)) =>
             (unifB bt1 bt2;
@@ -198,7 +226,7 @@ fun join t1 t2 =
                | _ => (unifR r1 r2; t1))
           | (SOME(bt1,_), NONE) => join (Vcc bt1 (rnk 1)) t2
           | (NONE, SOME(bt2,_)) => join t1 (Vcc bt2 (rnk 1))
-          | _ => 
+          | (NONE, NONE) => 
             case (unVcc t1, unVcc t2) of
                 (SOME (bt1,r1), SOME (bt2,r2)) =>
                 (unifB bt1 bt2;
@@ -208,8 +236,13 @@ fun join t1 t2 =
                    | _ => (unifR r1 r2; t1))
               | (SOME(bt1,_), NONE) => join (VecB bt1) t2
               | (NONE, SOME(bt2,_)) => join t1 (VecB bt2)
-              | _ => (unif t1 t2; t1)
-
+              | (NONE, NONE) =>
+                (case (unTup t1, unTup t2) of
+                     (SOME ts1, SOME ts2) =>
+                     let val ts = ListPair.map (fn (t1,t2) => join t1 t2) (ts1,ts2)
+                     in Tup ts
+                     end
+                   | _ => (unif t1 t2; t1))
 
 fun wrap f x y = (f x y; SUCCESS) handle Fail s => ERROR s
 val unify = wrap unif

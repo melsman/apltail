@@ -233,7 +233,21 @@ signature TAIL = sig
   val Zero      : unit -> ('a->'b,'a)tupleIdx
   val Succ      : ('a,'e)tupleIdx -> ('a->'b,'e)tupleIdx            (* Succ(Zero()) : ('a->'b->'c,'b)tupleIdx *)
   val prjTuple  : ('a,'e)tupleIdx -> 'a tuple -> 'e ndarray
-                                                
+
+  structure Unsafe : sig
+    type utuple
+    type uexp
+    val letUtuple    : utuple -> utuple M
+    val upowerN      : (utuple -> utuple M) -> INT -> utuple -> utuple
+    val empUtuple    : utuple
+    val consUtuple   : uexp -> utuple -> utuple
+    val prjUtuple    : int -> utuple -> uexp   (* zero-indexed *)
+    val toUexp       : 'a exp -> uexp
+    val toUexpA      : 'a ndarray -> uexp
+    val fromUexp     : uexp -> 'a exp
+    val fromUexpA    : uexp -> 'a ndarray
+  end
+                          
   val transpose : 'a ndarray -> 'a ndarray
   val transpose2 : Int Num tvector -> 'a ndarray -> 'a ndarray
 

@@ -263,7 +263,28 @@ fun Zero () = 0
 fun Succ i = i + 1
 fun prjTuple i e = Prj_e(i,e)
 fun powerN f e1 e2 = Op_e("power",[mkFn1m f,e1,e2])
-                        
+
+structure Unsafe = struct
+type utuple = uexp
+type uexp = uexp
+fun letUtuple e = 
+    let val v = newVar()
+        val t = typeOf e
+    in fn f => Let_e(v,t,e,f(Var(v,t)))
+    end
+val upowerN = powerN
+val empUtuple = Tuple_e nil
+fun consUtuple v t =
+    case unTuple t of
+        SOME l => Tuple_e(v::l)
+      | NONE => raise Fail "consTuple: cannot cons expression to non-tuple"
+fun prjUtuple i e = Prj_e(i,e)
+val toUexp = fn x => x
+val toUexpA = fn x => x
+val fromUexp = fn x => x
+val fromUexpA = fn x => x
+end
+                         
 fun transpose e = Op_e("transp", [e])
 fun transpose2 e1 e2 = Op_e("transp2", [e1,e2])
 fun vreverse e = Op_e("vreverse", [e])

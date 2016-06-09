@@ -397,14 +397,21 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
            ; Arr bt r1
           end
         | ("power", [tf,tn,tv]) =>
-          let val (t1,t2) = 
-                  case unFun tf of
-                      SOME(t1,t2) => (t1,t2)
-                    | NONE => raise Fail "expecting function type" 
-          in assert_sub opr tn Int
-           ; assert opr t1 t2
-           ; assert_sub opr tv t2
-           ; t2
+          let
+              val () = assert_sub opr tn Int
+              val (t1,t2) = case unFun tf of
+                                SOME(t1,t2) => (t1,t2)
+                              | NONE => raise Fail "expecting function type"
+              val () = assert_sub opr t2 t1
+(*
+              val () = print ("power res type: " ^ prType tv ^ "\n")
+              val () = print ("power fun type: " ^ prType tf ^ "\n")
+*)
+              val t' = join tv t2
+(*
+              val () = print ("power t': " ^ prType t' ^ "\n")
+*)
+          in t'
           end
         | ("powerScl", [tf,tn,tv]) =>
           let val (t1,t2) = 
@@ -629,10 +636,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                   end
                 | Prj(i,e,t0) =>
                   let val t = ty E e
-                      val ti = case unTup t of
-                                   SOME ts => (List.nth(ts,i) handle _ => raise Fail "tuple index error")
-                                 | NONE => raise Fail "expecting tuple - hmm"
-                  in assert "tuple projection" ti t0
+                      val tupt = prj i t0
+                  in assert "tuple projection" t tupt
                    ; t0
                   end
                 | Op (opr, es, t0) => 
@@ -711,7 +716,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
       let val ts = List.map typeOf es
           val t = tyOp opr ts
       in Op(opr,es,t)
-      end handle Fail s => raise Fail ("Op_e: " ^ s)
+      end handle Fail s => raise Fail ("Op_e(" ^ opr ^ "): " ^ s)
 
   fun Let_e (v,t,e,e') =
       let val t' = typeOf e'
@@ -735,12 +740,11 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           
   fun Prj_e (i,e) =
       let val t = typeOf e
-          val t0 = case unTup t of
-                       SOME ts => (List.nth(ts,i) handle _ => raise Fail "Prj_e: tuple index error")
-                     | NONE => raise Fail "Prj_e: expecting tuple - hmm"
-      in Prj(i,e,t0)
+          val t0 = TyVar()
+          val tupt = prj i t0
+      in assert "Prj_e" t tupt
+       ; Prj(i,e,t0)
       end
-          
                                  
   datatype bv = Ib of Int32.int
               | Db of real

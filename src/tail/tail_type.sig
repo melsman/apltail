@@ -57,7 +57,8 @@ signature TAIL_TYPE = sig
   val SV       : bty -> rnk -> typ         (* singleton vector *)
   val Fun      : typ * typ -> typ
   val Tup      : typ list -> typ
-                                  
+  val prj      : int -> typ -> typ         (* takes the projection type as argument and returns the type of the tuple as a type variable *) 
+                                 
   (* Type abbreviations *)
   val Int      : typ
   val Bool     : typ

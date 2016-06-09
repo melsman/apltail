@@ -41,7 +41,7 @@ local
     | Ais of Int Num ndarray           (*   integer array *)
     | Ads of Double Num ndarray        (*   double array *)
     | Acs of Char ndarray              (*   char array *)
-    | Ts of tagged_exp list                     (*   tuple *)
+    | Ts of tagged_exp list            (*   tuple *)
     | Fs of (tagged_exp list -> tagged_exp M) * id_item  (*   function in-lining *)
 
   local
@@ -236,7 +236,8 @@ fun compCat (opr1 : Int Num ndarray -> Int Num ndarray -> Int Num ndarray)
   | (Ais a1, e2) => compCat opr1 opr2 opr3 opr4 r (Ads(each (ret o i2d) a1),e2)
   | (e1, Ais a2) => compCat opr1 opr2 opr3 opr4 r (e1,Ads(each (ret o i2d) a2))
 
-  | _ => compErr r "expects arrays of compatible shape"
+  | (e1,e2) => compErr r ("expects arrays of compatible shape - received " ^
+                          pp_tagged_exp e1 ^ " and " ^ pp_tagged_exp e2)
 
 (* Compile dyadic operation, perform scalar extension if necessary *)
 fun compOpr2' (opi : INT * INT -> INT)
@@ -414,7 +415,7 @@ fun circularOp (r : AplAst.reg) (x : INT) (y : DOUBLE) : DOUBLE =
             | SOME xi => compErr r ("unsupported left-argument (" ^ Int.toString xi ^
                                     ") to circular-function"))
 
-datatype classifier = BOOL_C | INT_C | DOUBLE_C | CHAR_C | UNKNOWN_C
+datatype classifier = BOOL_C | INT_C | DOUBLE_C | CHAR_C | TUPLE_C of classifier list | UNKNOWN_C 
 local
   fun class v =
       case v of
@@ -426,15 +427,25 @@ local
         | Ais _ => INT_C
         | Ads _ => DOUBLE_C
         | Acs _ => CHAR_C
+        | Ts vs => TUPLE_C(List.map class vs)
         | _ => UNKNOWN_C
   fun classify (l: tagged_exp list) (f: tagged_exp list -> tagged_exp M) : classifier =
       case runHack (f l) of
           SOME v => class v
         | NONE => UNKNOWN_C
 in
+  fun ppClass c =
+      case c of
+          BOOL_C => "BOOL_C"
+        | INT_C => "INT_C"
+        | DOUBLE_C => "DOUBLE_C"
+        | CHAR_C => "CHAR_C"
+        | TUPLE_C cs => "TUPLE_C(" ^ String.concatWith "," (List.map ppClass cs) ^ ")"
+        | UNKNOWN_C => "UNKNOWN_C"
 val dummyIntS = Is (I 0)
 val dummyBoolS = Bs (B false)
 val dummyDoubleS = Ds (D 0.0)
+val dummyCharS = Cs (C 0w32)
 
 (* Q: Shouldn't classify reduce try all combinations of boolean
       input-values to determine whether it always returns a boolean?
@@ -526,6 +537,8 @@ fun compPower (benchFlag:{bench:bool}) r f n =
         fun getCondScl () = if #bench benchFlag then (fn f => fn b => bench f (b2i b)) else condScl
         fun getPower () = if #bench benchFlag then compError "bench operators works only on scalar values"
                           else power
+        fun getPowerN () = if #bench benchFlag then compError "bench operators works only on scalar values"
+                           else Unsafe.upowerN
         fun unAis (Ais a) = SOME a
           | unAis _ = NONE
         fun unIs (Is i) = SOME i
@@ -539,6 +552,8 @@ fun compPower (benchFlag:{bench:bool}) r f n =
           | unAds _ = NONE
         fun unDs (Ds d) = SOME d
           | unDs _ = NONE
+        fun unTs (Ts es) = SOME es
+          | unTs _ = NONE
         fun doPower power cond ty g ung m =
             let fun h x = (f[g x] >>= (fn s => case ung s of SOME z => ret z
                                                            | NONE => compErrS r s ("expects " ^ ty ^ " as result of power")))
@@ -547,7 +562,83 @@ fun compPower (benchFlag:{bench:bool}) r f n =
                  | Bs b => ret(g(cond h b m))
                  | _ => compErrS r n "expects integer or boolean as right argument to power operator"
             end
+        fun doPowerTup power ty g ung ts (es:tagged_exp list) =  (* ts is a list of classification types, which may turn out to be useful *)
+            let fun packTexp (e,ut) =
+                    case e of
+                        Abs e => Unsafe.consUtuple(Unsafe.toUexpA e) ut
+                      | Ais e => Unsafe.consUtuple(Unsafe.toUexpA e) ut
+                      | Ads e => Unsafe.consUtuple(Unsafe.toUexpA e) ut
+                      | Acs e => Unsafe.consUtuple(Unsafe.toUexpA e) ut
+                      | Bs e => Unsafe.consUtuple(Unsafe.toUexp e) ut
+                      | Is e => Unsafe.consUtuple(Unsafe.toUexp e) ut
+                      | Ds e => Unsafe.consUtuple(Unsafe.toUexp e) ut
+                      | Cs e => Unsafe.consUtuple(Unsafe.toUexp e) ut
+                      | _ => compErr r "expects non-function and non-tuple in pack for the power operator"
+                fun pack es = List.foldr packTexp Unsafe.empUtuple es
+                fun unpack es ut =
+                    let fun unp i nil ut = nil
+                          | unp i (e::es) ut =
+                            let val v = Unsafe.prjUtuple i ut
+                                val v = case e of
+                                            Abs _ => Abs(Unsafe.fromUexpA v)
+                                          | Ais _ => Ais(Unsafe.fromUexpA v)
+                                          | Ads _ => Ads(Unsafe.fromUexpA v)
+                                          | Acs _ => Acs(Unsafe.fromUexpA v)
+                                          | Bs _ => Bs(Unsafe.fromUexp v)
+                                          | Is _ => Is(Unsafe.fromUexp v)
+                                          | Ds _ => Ds(Unsafe.fromUexp v)
+                                          | Cs _ => Cs(Unsafe.fromUexp v)
+                                          | _ => compErr r "expects non-function and non-tuple in unpack for the power operator"
+                            in v :: unp (i+1) es ut
+                            end
+                    in unp 0 es ut
+                    end
+                val g : Unsafe.utuple -> tagged_exp = g o (unpack es)
+                val ung : tagged_exp -> Unsafe.utuple option = Option.map pack o ung
+                fun h x = (f[g x] >>= (fn s => case ung s of SOME z => ret z
+                                                           | NONE => compErrS r s ("expects " ^ ty ^ " as result of power")))
+                val m = pack es
+            in case n of
+                   Is n => Unsafe.letUtuple(power h n m) >>= (ret o g)
+                 | Bs b => Unsafe.letUtuple(power h (b2i b) m) >>= (ret o g)
+                 | _ => compErrS r n "expects integer or boolean as right argument to power operator"
+            end
         fun cond f b a = (getPower()) f (b2i b) a
+        fun mkDummy e =
+            case e of
+                Ads _ => (Ads(zilde()), DOUBLE_C)
+              | Abs _ => (Abs(zilde()), BOOL_C)
+              | Ais _ => (Ais(zilde()), INT_C)
+              | Acs _ => (Acs(zilde()), CHAR_C)
+              | Is _ => (dummyIntS, INT_C)
+              | Bs _ => (dummyBoolS, BOOL_C)
+              | Ds _ => (dummyDoubleS, DOUBLE_C)
+              | Cs _ => (dummyCharS, CHAR_C)
+              | Ts es =>
+                let val (ds,ts) = mkDummies es
+                in (Ts ds, TUPLE_C ts)
+                end
+              | Fs _ => compErr r "mkDummy not supporting functions"
+        and mkDummies es =
+            let val ps = List.map mkDummy es
+                val ds = List.map #1 ps
+                val ts = List.map #2 ps
+            in (ds, ts)
+            end
+        fun lift_arg (t,te,e) =
+            if t = te then e
+            else case (t,te,e) of
+                     (DOUBLE_C,INT_C,Ais m) => Ads(each (ret o i2d) m)
+                   | (DOUBLE_C,INT_C,Is e) => Ds(i2d e)
+                   | (INT_C,BOOL_C,Abs m) => Ais(each (ret o b2i) m)
+                   | (INT_C,BOOL_C,Bs e) => Is(b2i e)
+                   | (DOUBLE_C,BOOL_C,m) => lift_arg(DOUBLE_C,INT_C,lift_arg(INT_C,BOOL_C,m))
+                   | _ => compErr r "lift_arg - failed to lift expression"
+        fun lift_args (ts,tes,es) =
+            case (ts,tes,es) of
+                (nil,nil,nil) => nil
+              | (t::ts,te::tes,e::es) => lift_arg(t,te,e) :: lift_args(ts,tes,es)
+              | _ => compErr r "lift_args - mismatch between number of results and number of arguments in power function"
     in
     fn [Ads m] => doPower (getPower()) cond "double array" Ads unAds m
      | [Ais m] => doPower (getPower()) cond "integer array" Ais unAis m
@@ -569,9 +660,17 @@ fun compPower (benchFlag:{bench:bool}) r f n =
           | BOOL_C => doPower (getPower()) cond "boolean array" Abs unAbs m
           | DOUBLE_C => compPower benchFlag r f n [Ads(each (ret o i2d o b2i) m)]
           | _ => compErr r "expecting boolean or integer array as result of power")
+     | [Ts es] =>
+       let val (dummies,argtypes) = mkDummies es
+       in case classifyPower (Ts dummies) f of
+              TUPLE_C ts => let val es = lift_args (ts,argtypes,es)
+                                (* val () = print ("Compiling powerN: " ^ String.concatWith "; " (List.map ppClass ts) ^ "\n") *)
+                            in doPowerTup (getPowerN()) "tuple" Ts unTs ts es
+                            end
+            | _ => compErr r "expecting tuple as result of power"
+       end
      | _ => compErr r "expecting scalar or array (boolean, integer, or double) as argument to power"
     end
-
 
 (* Both monadic and dyadic versions *)
 fun compPrimFunMD k r (mon,dya) ii =
@@ -691,6 +790,7 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                   fun pp p a = if v = "$Quad" then p a else a
                   fun contA p f a = letm (pp p a) >>= cont f
                   fun contS p f a = lett (pp p a) >>= cont f
+                  fun contT p f a = lett (pp p a) >>= cont f
 
               (* we should really modify the prety-printing functions
               so that they return 0 instead of returning the argument; also, here letm and lett should be applied to the argument before prety-printing...
@@ -866,6 +966,7 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                                  | BOOL_C => ret(Abs(doBool g x))
                                  | DOUBLE_C => ret(Ads(doDouble g x))
                                  | CHAR_C => ret(Acs(doChar g x))
+                                 | TUPLE_C _ => compErr r "failed to classify each operation - tuple not allowed"
                                  | UNKNOWN_C => compErr r "failed to classify each operation"
                        in ret(Fs (fn [Ais x] => classify' dummyIntS Is x
                                    | [Ads x] => classify' dummyDoubleS Ds x
