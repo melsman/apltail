@@ -445,7 +445,7 @@ fun pp_exp (prtype:bool) e =
                    | NONE => $("fn " ^ ppVar v ^ ":" ^ prType t ^ " => ") @@ pp (i+2) e)
               | Tuple (es,_) => $"(" @@ pps i es @@ $")"
               | Prj(i,e,_) =>
-                let val t = if prtype then
+                let val t = if (*prtype*) false then
                               let val ta = typeOf e
                                   val sz = case unTup ta of
                                                SOME ts => Int.toString(length ts)
