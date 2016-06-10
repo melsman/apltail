@@ -444,7 +444,17 @@ fun pp_exp (prtype:bool) e =
                      SOME (opr,t) => $opr
                    | NONE => $("fn " ^ ppVar v ^ ":" ^ prType t ^ " => ") @@ pp (i+2) e)
               | Tuple (es,_) => $"(" @@ pps i es @@ $")"
-              | Prj(i,e,_) => $("Prj(" ^ Int.toString i ^ ",") @@ pp i e @@ $")"
+              | Prj(i,e,_) =>
+                let val t = if prtype then
+                              let val ta = typeOf e
+                                  val sz = case unTup ta of
+                                               SOME ts => Int.toString(length ts)
+                                             | NONE => "arg_size_unknown"
+                              in "{" ^ sz ^ "}"
+                              end
+                            else ""
+                in $("Prj" ^ t ^ "(" ^ Int.toString i ^ ",") @@ pp i e @@ $")"
+                end
         and pps i nil = $""
           | pps i [e] = pp i e
           | pps i (e::es) = pp i e @@ $"," @@ pps i es
