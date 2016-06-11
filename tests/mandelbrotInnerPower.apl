@@ -29,8 +29,7 @@ mandelbrot ← {
     res ← (f ⍣ N) (0 0 0)                ⍝ perform N iteration of a single mandelbrot point
     res[3]
   }
-  g ← { ⍺ mandel1¨ ⍵ }
-  res ← cxA g cyA
+  res ← cxA mandel1¨ cyA
   res ÷ N
 }
 
