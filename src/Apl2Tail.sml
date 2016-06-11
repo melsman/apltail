@@ -454,7 +454,8 @@ val dummyCharS = Cs (C 0w32)
  *)
 
 val classifyReduce : (tagged_exp list -> tagged_exp M) -> classifier = classify [dummyBoolS,dummyBoolS]
-val classifyEach : tagged_exp -> (tagged_exp list -> tagged_exp M) -> classifier = fn x => classify [x]
+val classifyEachMonadic : tagged_exp -> (tagged_exp list -> tagged_exp M) -> classifier = fn x => classify [x]
+val classifyEachDyadic : (tagged_exp*tagged_exp) -> (tagged_exp list -> tagged_exp M) -> classifier = fn (x,y) => classify [x,y]
 val classifyPower : tagged_exp -> (tagged_exp list -> tagged_exp M) -> classifier = fn x => classify [x]
 end
 
@@ -659,7 +660,7 @@ fun compPower (benchFlag:{bench:bool}) r f n =
             INT_C => compPower benchFlag r f n [Ais(each (ret o b2i) m)]
           | BOOL_C => doPower (getPower()) cond "boolean array" Abs unAbs m
           | DOUBLE_C => compPower benchFlag r f n [Ads(each (ret o i2d o b2i) m)]
-          | _ => compErr r "expecting boolean or integer array as result of power")
+          | c => compErr r ("expecting boolean, integer, or double array as result of power - classified as " ^ ppClass c))
      | [Ts es] =>
        let val (dummies,argtypes) = mkDummies es
        in case classifyPower (Ts dummies) f of
@@ -757,7 +758,8 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                                           case findOpt 1 (List.map toI opts) of
                                               SOME (x,i,xs) => 
                                               (case findOpt 1 xs of
-                                                   NONE => k(idxS x i a scalar array, empty)
+                                                   NONE => (k(idxS x i a scalar array, empty)
+                                                             handle Fail s => compErr r s)
                                                  | SOME _ => compErr r "only simple indexing supported")
                                             | NONE => k(array a,empty)
                                       )
@@ -948,29 +950,60 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
             | IdE(Symb L.Nmatch,r) => compId G (Var "$tally",r) k
             | IdE(Symb L.Each,r) => 
               k(Fs (fn [Fs (f,_)] =>
-                       let fun doInt g =
-                               each (fn x => (f[g x] >>= (fn Is v => ret v
-                                                                | _ => compErr r "problem with each - expecting scalar int as function result")))
-                           fun doBool g =
-                               each (fn x => (f[g x] >>= (fn Bs v => ret v
-                                                                | _ => compErr r "problem with each - expecting scalar boolean as function result")))
-                           fun doDouble g =
-                               each (fn x => (f[g x] >>= (fn Ds v => ret v
-                                                                | _ => compErr r "problem with each - expecting scalar double as function result")))
-                           fun doChar g =
-                               each (fn x => (f[g x] >>= (fn Cs v => ret v
-                                                                | _ => compErr r "problem with each - expecting scalar char as function result")))
-                           fun classify' dummy g x =
-                               case classifyEach dummy f of
-                                   INT_C => ret(Ais(doInt g x))
-                                 | BOOL_C => ret(Abs(doBool g x))
-                                 | DOUBLE_C => ret(Ads(doDouble g x))
-                                 | CHAR_C => ret(Acs(doChar g x))
-                                 | TUPLE_C _ => compErr r "failed to classify each operation - tuple not allowed"
-                                 | UNKNOWN_C => compErr r "failed to classify each operation"
-                       in ret(Fs (fn [Ais x] => classify' dummyIntS Is x
-                                   | [Ads x] => classify' dummyDoubleS Ds x
-                                   | [Abs x] => classify' dummyBoolS Bs x
+                       let fun errScl r t = compErr r ("problem with each - expecting scalar " ^ t ^ " as function result")
+                           fun retI (Is v) = ret v
+                             | retI _ = errScl r "int"
+                           fun retB (Bs v) = ret v
+                             | retB _ = errScl r "bool"
+                           fun retD (Ds v) = ret v
+                             | retD _ = errScl r "double"
+                           fun retC (Cs v) = ret v
+                             | retC _ = errScl r "char"
+                           fun classifyM dummy g x =
+                               let fun doM g ret = each (fn x => (f[g x] >>= ret))
+                               in case classifyEachMonadic dummy f of
+                                      INT_C => ret(Ais(doM g retI x))
+                                    | BOOL_C => ret(Abs(doM g retB x))
+                                    | DOUBLE_C => ret(Ads(doM g retD x))
+                                    | CHAR_C => ret(Acs(doM g retC x))
+                                    | TUPLE_C _ => compErr r "failed to classify monadic each operation - tuple not allowed"
+                                    | UNKNOWN_C => compErr r "failed to classify monadic each operation"
+                               end
+                           fun classifyD (dummy1,dummy2) g1 g2 (xs,ys) =
+                               let fun doD g1 g2 ret (xs,ys) = zipWith (fn (x,y) => (f[g1 x,g2 y] >>= ret)) xs ys
+                               in case classifyEachDyadic (dummy1,dummy2) f of
+                                      INT_C => ret(Ais(doD g1 g2 retI (xs,ys)))
+                                    | BOOL_C => ret(Abs(doD g1 g2 retB (xs,ys)))
+                                    | DOUBLE_C => ret(Ads(doD g1 g2 retD (xs,ys)))
+                                    | CHAR_C => ret(Acs(doD g1 g2 retC (xs,ys)))
+                                    | TUPLE_C _ => compErr r "failed to classify dyadic each operation - tuple not allowed"
+                                    | UNKNOWN_C => compErr r "failed to classify dyadic each operation"
+                               end
+                       in ret(Fs (fn [Abs x] => classifyM dummyBoolS   Bs x
+                                   | [Ais x] => classifyM dummyIntS    Is x
+                                   | [Ads x] => classifyM dummyDoubleS Ds x
+                                   | [Acs x] => classifyM dummyCharS   Cs x
+
+                                   | [Abs x, Abs y] => classifyD (dummyBoolS,dummyBoolS)   Bs Bs (x,y)
+                                   | [Abs x, Ais y] => classifyD (dummyBoolS,dummyIntS)    Bs Is (x,y)
+                                   | [Abs x, Ads y] => classifyD (dummyBoolS,dummyDoubleS) Bs Ds (x,y)
+                                   | [Abs x, Acs y] => classifyD (dummyBoolS,dummyCharS)   Bs Cs (x,y)
+
+                                   | [Ais x, Abs y] => classifyD (dummyIntS,dummyBoolS)   Is Bs (x,y)
+                                   | [Ais x, Ais y] => classifyD (dummyIntS,dummyIntS)    Is Is (x,y)
+                                   | [Ais x, Ads y] => classifyD (dummyIntS,dummyDoubleS) Is Ds (x,y)
+                                   | [Ais x, Acs y] => classifyD (dummyIntS,dummyCharS)   Is Cs (x,y)
+
+                                   | [Ads x, Abs y] => classifyD (dummyDoubleS,dummyBoolS)   Ds Bs (x,y)
+                                   | [Ads x, Ais y] => classifyD (dummyDoubleS,dummyIntS)    Ds Is (x,y)
+                                   | [Ads x, Ads y] => classifyD (dummyDoubleS,dummyDoubleS) Ds Ds (x,y)
+                                   | [Ads x, Acs y] => classifyD (dummyDoubleS,dummyCharS)   Ds Cs (x,y)
+                                                                 
+                                   | [Acs x, Abs y] => classifyD (dummyCharS,dummyBoolS)   Cs Bs (x,y)
+                                   | [Acs x, Ais y] => classifyD (dummyCharS,dummyIntS)    Cs Is (x,y)
+                                   | [Acs x, Ads y] => classifyD (dummyCharS,dummyDoubleS) Cs Ds (x,y)
+                                   | [Acs x, Acs y] => classifyD (dummyCharS,dummyCharS)   Cs Cs (x,y)
+
                                    | _ => compErr r "expecting array as right argument to each operation",
                                   noii))
                        end
