@@ -116,7 +116,10 @@ fun compileAndRun (flags,files) =
                      end
              end
            | NONE => OS.Process.exit OS.Process.failure
-    end
+    end handle exn as IO.Io {name,function,cause} =>
+               (print ("Uncaught IO exception: Io{name=" ^ name ^ ", function=" ^ function ^ ", cause=" ^ General.exnMessage cause ^ "}\n");
+                raise exn)
+               
 
 val name = CommandLine.name()
 
