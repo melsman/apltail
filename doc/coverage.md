@@ -1,6 +1,6 @@
-## Coverage of the APL Compiler `aplt`
+## Coverage of the APLT Compiler
 
-This page documents the functionality of the APL2Tail compiler `aplt`.
+This page documents the functionality of the APLT compiler.
 
 ### Datatypes
 
@@ -26,6 +26,7 @@ are currently not supported.
 | ○ A           | Pi times         | Returns A with all elements multiplied by pi. |
 | ⍟ A           | Log              | Returns A with the natural logarithm applied to all elements. | 
 | ? A           | Random           | Returns random values between 0 and 1 (if the argument is 0) and otherwise between 0 and the argument (whole number). | 
+| ≢ A           | Tally            | Returns the size of the outer dimension of A. | 
 
 ### Dyadic Functions
 
@@ -73,7 +74,7 @@ are currently not supported.
 | Expression    | Name             | Meaning              | Notes         |
 |---------------|------------------|----------------------|---------------|
 | f . g         | Inner product    | Returns a dyadic function that performs the inner product of its arguments (using f and g). The arguments to the operator must be a dyadic function. | Certain limitations apply. |
-| f ⍣ n         | Power            | Returns a monadic function that iteratively applies f to its argument n times. | Parentheses may be needed to separate n from the argument to the resulting function. |
+| f ⍣ n         | Power            | Returns a monadic function that iteratively applies f to its argument n times. | Parentheses may be needed to separate n from the argument to the resulting function. The function f may take (and produce) a vector of arrays, which may be indexed in the body of f using array indexing. |
 
 ### Scalar extensions
 
@@ -109,6 +110,42 @@ Arrays of rank 2 are printed as matrices. Other arrays are printed
 using a flat representation, specifying both the shape vector and the
 underlying values.
 
+### Trains (points-free notation)
+
+APLT supports writing expressions in points-free (also called tacit) notation. For instance, the APL code
+
+```apl
+mean ← +/÷≢
+⎕ ← mean 2 37 4 1
+```
+results in the output `11`. APLT support both monadic and dyadic _Agh_ trains and monadic and dyadic _fgh_ trains.
+
+### Tuples of arrays
+
+APLT supports having tuples of arrays of different ranks and
+types. For instance, a tuple `c` of a vector, a pair (of two vectors), and
+a scalar, may be constructed as
+
+```apl
+a ← 1 2 4 3
+b ← 'hello'
+c ← a (b a) 4
+```
+
+Tuples, such as `c`, may be passed to functions and deconstructed using index notation:
+
+```apl
+f ← {
+  a1 ← +/⍵[1]
+  a2 ← ⊃⍴(⍵[2])[1]
+  a1 + a2 + ⍵[3]
+}
+⎕ ← f c   ⍝ --> [](19)
+```
+
+A particular use of this feature is in conjunction with the power
+operator. See the [powtup.apl](https://github.com/melsman/apltail/blob/master/tests/powtup.apl) test example.
+
 ### System Functions
 
 | Expression    | Name             | Meaning              | Notes         |
@@ -117,15 +154,27 @@ underlying values.
 | ⎕ReadIntVecFile file| READ INT VECTOR FROM FILE | Takes a filepath as parameter and returns a vector of integers | Fails in case the input file cannot be read or does not contain a sequence of integers separated by space characters. |
 
 
-### Using the aplt compiler
+### Using APLT
 
 Here is the output from executing `aplt` on the command-line:
 
-    bash-3.2$ ./aplt
-    Usage: ./aplt [-o ofile] [-c] [-v] [-noopt] [-p_types] file.apl...
-       -o file  : write TAIL program to file
-       -c       : compile only (no evaluation)
-       -noopt   : disable optimizations
-       -p_tail  : print TAIL program
-       -p_types : print types in TAIL code
-       -v       : verbose
+    bash-3.2$ aplt 
+    Usage: ../apltail/aplt [OPTIONS]... file.apl...
+     -o file        : write TAIL program to file
+     -oc file       : write LAILA program to file
+     -c             : compile only (no evaluation)
+     -noopt         : disable optimizations
+     -materialize   : disable materialization of arrays
+     -p_tail        : print TAIL program
+     -p_types       : print types in TAIL code
+     -p_laila       : print LAILA code
+     -s_parse       : stop after parsing
+     -s_tail        : stop after TAIL generation
+     -silent        : evaluation output only (unless there are errors)
+     -v             : verbose
+     -O n           : optimisation level (n>0 optimises double operations aggresively)
+     -comments      : write comments in generated C code
+     -unsafe        : don't include assert code in generated C code for array indexing
+     -stat_laila    : print statistics for LAILA code generation
+     -opt_hoist     : enable hoist optimization in LAILA code generation
+     -opt_loopsplit : enable loop split optimization in LAILA code generation
