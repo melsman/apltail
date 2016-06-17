@@ -6,7 +6,8 @@ This page documents the functionality of the APLT compiler.
 
 Supported datatypes include booleans, integers, doubles, and
 characters. Strings are represented as character arrays. Nested arrays
-are currently not supported.
+are currently not supported, except in a limited fashion for
+resembling tuples (see below).
 
 ### Monadic Functions
 
