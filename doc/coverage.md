@@ -42,7 +42,7 @@ are currently not supported.
 | B ⌊ A         | Minimum          | Pair-wise minimum of elements in B and A. | Scalar expansion supported. |
 | N ↑ A         | Take             | Returns the vector resulting from taking N elements from A (row-major order). | When N is negative, values are taken from the right. |
 | N ↓ A         | Drop             | Returns the vector resulting from dropping N elements from A (row-major order). | When N is negative, values are dropped from the right. |
-| N ⌽ A         | Rotate           | Returns the vector resulting from rotating values in A to the left N steps (row-major order). | When N is negative, values are right-rotated. |
+| ```apl N ⌽ A```         | Rotate           | Returns the vector resulting from rotating values in A to the left N steps (row-major order). | When N is negative, values are right-rotated. |
 | N ⊖ A         | Rotate last      | Returns the vector resulting from rotating values (in A) N steps along the last axis (column-major order). | When N is negative, values are rotated in the opposite directions. |
 | B , A         | Catenate         | Returns the vector resulting from catenating elements in B with elements in A (row-major order). | |
 | B ⍪ A         | Catenate last    | Returns the vector resulting from catenating elements in B with elements in A (column-major order). | |
