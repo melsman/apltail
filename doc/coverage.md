@@ -27,6 +27,7 @@ are currently not supported.
 | ⍟ A           | Log              | Returns A with the natural logarithm applied to all elements. | 
 | ? A           | Random           | Returns random values between 0 and 1 (if the argument is 0) and otherwise between 0 and the argument (whole number). | 
 | ≢ A           | Tally            | Returns the size of the outer dimension of A. | 
+| `≢ A`           | Tally            | Returns the size of the outer dimension of A. | 
 
 ### Dyadic Functions
 
