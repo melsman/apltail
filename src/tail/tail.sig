@@ -10,15 +10,16 @@ signature TAIL = sig
   structure Exp : TAIL_EXP
 
   (* Types (phantom types) *)
-  eqtype Int and Double and 'a Num  (* numeric types *)
-     and Bool                       (* booleans *)
-     and Char                       (* characters *)
-     and 'a Vec                     (* vectors *)
+  eqtype Int and Double and Complex and 'a Num  (* numeric types *)
+     and Bool                                   (* booleans *)
+     and Char                                   (* characters *)
+     and 'a Vec                                 (* vectors *)
 
   (* TAIL types (= TAIL_TYPE.typ) *)
   eqtype 'a T                       (* Type constructors *)
   val Int       : Int Num T
   val Double    : Double Num T
+  val Complex   : Complex Num T
   val Bool      : Bool T
   val Char      : Char T
   val Vec       : 'a T -> 'a Vec T
@@ -41,14 +42,17 @@ signature TAIL = sig
   type 'a NUM   = 'a Num exp        (* basic term types *)
   type INT      = Int NUM
   type DOUBLE   = Double NUM
+  type COMPLEX  = Complex NUM
   type BOOL     = Bool exp
   type CHAR     = Char exp
 
   val I         : Int32.int -> INT
   val D         : real -> DOUBLE
+  val X         : real*real -> COMPLEX
   val B         : bool -> BOOL
   val C         : word -> CHAR
   val %         : INT * INT -> INT
+  val d2x       : DOUBLE -> COMPLEX
   val i2d       : INT -> DOUBLE
   val b2i       : BOOL -> INT
   val If        : BOOL * 'a exp * 'a exp -> 'a exp
@@ -87,6 +91,8 @@ signature TAIL = sig
   val unIv      : Int Num value -> Int32.int
   val Dv        : real -> Double Num value
   val unDv      : Double Num value -> real
+  val Xv        : real*real -> Complex Num value
+  val unXv      : Complex Num value -> real*real
   val Bv        : bool -> Bool value
   val unBv      : Bool value -> bool
   val Vv        : 'a value list -> 'a Vec value
@@ -160,6 +166,16 @@ signature TAIL = sig
   val norb      : BOOL * BOOL -> BOOL
   val notb      : BOOL -> BOOL
 
+  val addx      : COMPLEX * COMPLEX -> COMPLEX
+  val subx      : COMPLEX * COMPLEX -> COMPLEX
+  val mulx      : COMPLEX * COMPLEX -> COMPLEX
+  val negx      : COMPLEX -> COMPLEX
+  val conjx     : COMPLEX -> COMPLEX
+  val rex       : COMPLEX -> DOUBLE
+  val imx       : COMPLEX -> DOUBLE
+  val injx      : DOUBLE * DOUBLE -> COMPLEX
+  val expx      : COMPLEX -> COMPLEX
+                                           
   val roll      : INT -> DOUBLE
 
   val ltc       : CHAR * CHAR -> BOOL
@@ -260,13 +276,16 @@ signature TAIL = sig
   val prArrI    : Int Num ndarray -> Int Num ndarray
   val prArrB    : Bool ndarray -> Bool ndarray
   val prArrD    : Double Num ndarray -> Double Num ndarray
+  val prArrX    : Complex Num ndarray -> Complex Num ndarray
   val prArrC    : Char ndarray -> Char ndarray
   val prSclI    : INT -> INT
   val prSclB    : BOOL -> BOOL
   val prSclD    : DOUBLE -> DOUBLE
+  val prSclX    : COMPLEX -> COMPLEX
   val prSclC    : CHAR -> CHAR
   val formatI   : INT -> Char ndarray
   val formatD   : DOUBLE -> Char ndarray
+  val formatX   : COMPLEX -> Char ndarray
 
   (* File access *)
   val readFile  : Char ndarray -> Char ndarray

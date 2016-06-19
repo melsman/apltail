@@ -13,6 +13,7 @@ datatype r = R of int
 withtype rnk = r uref
 datatype b = IntT
            | DoubleT
+           | ComplexT
            | BoolT
            | CharT
            | Bv of bv 
@@ -48,6 +49,7 @@ fun unRnk r = case !!r of R i => SOME i | _ => NONE
 
 val IntB    = uref IntT
 val DoubleB = uref DoubleT
+val ComplexB = uref ComplexT
 val BoolB   = uref BoolT
 val CharB   = uref CharT
 
@@ -64,6 +66,7 @@ fun Scl bt  = Arr bt rnk0
 fun VecB bt = Arr bt rnk1
 val Int     = Scl IntB
 val Double  = Scl DoubleB
+val Complex = Scl ComplexB
 val Bool    = Scl BoolB
 val Char    = Scl CharB
 
@@ -77,6 +80,7 @@ and prB b =
     case b of
         IntT => "int"
       | DoubleT => "double"
+      | ComplexT => "complex"
       | BoolT => "bool"
       | CharT => "char"
       | Bv bv => bv
@@ -102,10 +106,11 @@ fun unTup t = case !!t of TupT p => SOME p | _ => NONE
 fun comb f1 f2 t = case f1 t of SUCCESS => f2 t | x => x
 fun check f t = case f t of ERROR s => raise Fail s | SUCCESS => ()
 
-fun isInt    bt = case !!bt of IntT    => true | _ => false
-fun isDouble bt = case !!bt of DoubleT => true | _ => false
-fun isBool   bt = case !!bt of BoolT   => true | _ => false
-fun isChar   bt = case !!bt of CharT   => true | _ => false
+fun isInt     bt = case !!bt of IntT     => true | _ => false
+fun isDouble  bt = case !!bt of DoubleT  => true | _ => false
+fun isComplex bt = case !!bt of ComplexT => true | _ => false
+fun isBool    bt = case !!bt of BoolT    => true | _ => false
+fun isChar    bt = case !!bt of CharT    => true | _ => false
 
 fun Vec t =
     case unArr t of
@@ -123,6 +128,7 @@ fun combB (b1,b2) =
       | (_, Bv _) => b1
       | (IntT, IntT) => b1
       | (DoubleT, DoubleT) => b1
+      | (ComplexT, ComplexT) => b1
       | (BoolT, BoolT) => b1
       | (CharT, CharT) => b1
       | _ => raise Fail ("cannot unify " ^ prB b1 ^ " and " ^ prB b2)

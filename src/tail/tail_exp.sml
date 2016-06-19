@@ -1,4 +1,30 @@
 functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
+
+  structure Complex : sig
+    type t = real * real
+    val zero : t
+    val conj : t -> t
+    val neg : t -> t
+    val + : t * t -> t
+    val - : t * t -> t
+    val * : t * t -> t
+    val exp : t -> t
+  end = struct
+    type t = real * real
+    fun exp ((a,b):t) : t =
+        (* e^(a+i*b) = e^a * e^(i*b) = e^a * (cos(b) + i * sin(b)) *)
+        let val ea = Math.exp a
+        in (ea * Math.cos b,
+            ea * Math.sin b)
+        end
+    val op * = fn ((r1,i1):t,(r2,i2)) => (r1*r2-i1*i2,r1*i2+r2*i1)
+    val op - = fn ((r1,i1):t,(r2,i2)) => (r1-r2,i1-i2)
+    val op + = fn ((r1,i1):t,(r2,i2)) => (r1+r2,i1+i2)
+    val zero = (0.0,0.0)
+    fun neg v = zero - v
+    fun conj (a,b) : t = (a,~b)
+  end
+
   structure T = T
   open T
   type opr = string
@@ -110,6 +136,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
            Var of var * typ
          | I of Int32.int
          | D of real
+         | X of real * real
          | B of bool
          | C of word
          | Iff of uexp * uexp * uexp * typ
@@ -151,6 +178,9 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   fun isBinOpDDD opr =
       Util.listContains opr ["addd","subd","muld","divd","resd","maxd","mind","powd"]
 
+  fun isBinOpXXX opr =
+      Util.listContains opr ["addx","subx","mulx"]
+                        
   fun isBinOpIIB opr =
       Util.listContains opr ["lti","ltei","eqi","gti","gtei"]
 
@@ -501,6 +531,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           end
         | ("each", [tf,tv]) => type_each opr tf tv
         | ("eachV", [tf,tv]) => type_each opr tf tv
+        | ("d2x",[t]) => (assert_sub opr t Double; Complex)
         | ("i2d",[t]) => (assert_sub opr t Int; Double)
         | ("b2i",[t]) =>
           (assert_sub opr t Bool;
@@ -538,6 +569,12 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | ("cosh",[t]) => (assert opr Double t; Double)
         | ("sinh",[t]) => (assert opr Double t; Double)
         | ("tanh",[t]) => (assert opr Double t; Double)
+        | ("rex",[t]) => (assert opr Complex t; Double)
+        | ("imx",[t]) => (assert opr Complex t; Double)
+        | ("expx",[t]) => (assert opr Complex t; Complex)
+        | ("injx",[t1,t2]) => (assert opr Double t1; assert opr Double t2; Complex)
+        | ("negx",[t]) => (assert opr Complex t; Complex)
+        | ("conjx",[t]) => (assert opr Complex t; Complex)
         | ("roll",[t]) => (assert_sub opr t Int; Double)
         | ("iotaV",[t]) =>
           (case unS t of
@@ -564,10 +601,12 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | ("prSclI",[t]) => (assert_sub opr t Int; t)
         | ("prSclB",[t]) => (assert_sub opr t Bool; t)
         | ("prSclD",[t]) => (assert_sub opr t Double; t)
+        | ("prSclX",[t]) => (assert_sub opr t Complex; t)
         | ("prSclC",[t]) => (assert_sub opr t Char; t)
         | ("prArrI",[t]) => (assert_sub opr t (Arr IntB (RnkVar())); t)
         | ("prArrB",[t]) => (assert_sub opr t (Arr BoolB (RnkVar())); t)
         | ("prArrD",[t]) => (assert_sub opr t (Arr DoubleB (RnkVar())); t)
+        | ("prArrX",[t]) => (assert_sub opr t (Arr ComplexB (RnkVar())); t)
         | ("prArrC",[t]) => (assert_sub opr t (Arr CharB (RnkVar())); t)
         | ("formatI",[t]) => (assert_sub opr t Int; VecB CharB)
         | ("formatD",[t]) => (assert_sub opr t Double; VecB CharB)
@@ -577,6 +616,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | (_,[t1,t2]) =>
           if isBinOpIII opr then tyBin Int Int Int opr t1 t2
           else if isBinOpDDD opr then tyBin Double Double Double opr t1 t2
+          else if isBinOpXXX opr then tyBin Complex Complex Complex opr t1 t2
           else if isBinOpIIB opr then tyBin Int Int Bool opr t1 t2
           else if isBinOpDDB opr then tyBin Double Double Bool opr t1 t2
           else if isBinOpBBB opr then tyBin Bool Bool Bool opr t1 t2
@@ -603,6 +643,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                                   |  NONE => raise Fail ("Unknown variable " ^ Util.quote (ppVar v)))
                 | I n => (S IntB (rnk (Int32.toInt n)) handle _ => Int)
                 | D _ => Double
+                | X _ => Complex
                 | B true => S BoolB (rnk 1)
                 | B false => S BoolB (rnk 0)
                 | C _ => Char
@@ -654,6 +695,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           Var(_,t) => t
         | I i => (S IntB (rnk (Int32.toInt i)) handle _ => Int)
         | D _ => Double
+        | X _ => Complex
         | B true => S BoolB (rnk 1)
         | B false => S BoolB (rnk 0)
         | C _ => Char
@@ -691,6 +733,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           Var _ => e
         | I _ => e
         | D _ => e
+        | X _ => e
         | B _ => e
         | C _ => e
         | Iff(e1,e2,e3,t) => Iff(resolveShOpr e1,resolveShOpr e2,resolveShOpr e3,t)
@@ -748,6 +791,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                                  
   datatype bv = Ib of Int32.int
               | Db of real
+              | Xb of real * real
               | Bb of bool
               | Cb of word
               | Fb of denv * var * typ * uexp * typ
@@ -757,6 +801,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
 
   fun Dvalue v = Apl.scl (Db 0.0) (Db v)
   fun unDvalue _ = raise Fail "exp.unDvalue: not implemented"
+  fun Xvalue v = Apl.scl (Xb (0.0,0.0)) (Xb v)
+  fun unXvalue _ = raise Fail "exp.unXvalue: not implemented"
   val Uvalue = Dvalue 0.0
 
   fun pr_int i =
@@ -774,6 +820,9 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
              else s ^ ".0"
           end
 
+  fun pr_complex (r,i) =
+      pr_double r ^ "j" ^ pr_double i
+              
   fun wordToChar w =
       if w < 0w128 then
         let val c = Char.chr (Word.toInt w)
@@ -794,6 +843,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
       case b of
           Ib b => pr_int b
         | Db b => pr_double b
+        | Xb b => pr_complex b
         | Bb true => "1"
         | Bb false => "0"
         | Cb w => pr_char w
@@ -810,6 +860,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
     | unCb _ = raise Fail "exp.unCb"
   fun unDb (Db b) = b
     | unDb _ = raise Fail "exp.unDb"
+  fun unXb (Xb b) = b
+    | unXb _ = raise Fail "exp.unXb"
   fun unBb (Bb b) = b
     | unBb _ = raise Fail "exp.unBb"
   fun unFb (Fb b) = b
@@ -876,6 +928,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
              | NONE => raise Fail ("eval.cannot locate variable " ^ ppVar x))
         | I i => Apl.scl (Ib 0) (Ib i)
         | D d => Apl.scl (Db 0.0) (Db d)
+        | X d => Apl.scl (Xb (0.0,0.0)) (Xb d)
         | B b => Apl.scl (Bb false) (Bb b)
         | C w => Apl.scl (Cb 0w32) (Cb w)
         | Iff (e1,e2,e3,t) =>
@@ -895,6 +948,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           in case (opr,es) of
                  ("zilde", []) => Apl.zilde (default t)
                | ("pi", []) => Apl.scl (default t) (Db Math.pi)
+               | ("d2x", [e]) => Apl.liftU (Xb (0.0,0.0)) (fn Db r => Xb(r,0.0) | _ => raise Fail "eval:d2x") (eval DE e)
                | ("i2d", [e]) => Apl.liftU (Db 0.0) (fn Ib i => Db(i32d i) | _ => raise Fail "eval:i2d") (eval DE e)
                | ("b2i", [e]) => Apl.liftU (Ib 0) (fn Bb b => Ib(if b then 1 else 0) | _ => raise Fail "eval:b2i") (eval DE e)
                | ("negi", [e]) => Apl.liftU (Ib 0) (fn Ib i => Ib(~i) | _ => raise Fail "eval:negi") (eval DE e)
@@ -918,6 +972,14 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                | ("sinh", [e]) => Apl.liftU (Db 0.0) (fn Db d => Db(Math.sinh d) | _ => raise Fail "eval:sinh") (eval DE e)
                | ("cosh", [e]) => Apl.liftU (Db 0.0) (fn Db d => Db(Math.cosh d) | _ => raise Fail "eval:cosh") (eval DE e)
                | ("tanh", [e]) => Apl.liftU (Db 0.0) (fn Db d => Db(Math.tanh d) | _ => raise Fail "eval:tanh") (eval DE e)
+
+               | ("rex", [e]) => Apl.liftU (Db 0.0) (fn Xb (r,_) => Db r | _ => raise Fail "eval:rex") (eval DE e)
+               | ("imx", [e]) => Apl.liftU (Db 0.0) (fn Xb (_,i) => Db i | _ => raise Fail "eval:imx") (eval DE e)
+               | ("injx", [e1,e2]) => Apl.liftB (Xb (0.0,0.0)) (fn (Db r,Db i) => Xb (r,i) | _ => raise Fail "eval:injx") (eval DE e1, eval DE e2)
+               | ("expx", [e]) => Apl.liftU (Xb (0.0,0.0)) (fn Xb v => Xb (Complex.exp v) | _ => raise Fail "eval:expx") (eval DE e)
+               | ("negx", [e]) => Apl.liftU (Xb (0.0,0.0)) (fn Xb v => Xb (Complex.neg v) | _ => raise Fail "eval:negx") (eval DE e)
+               | ("conjx", [e]) => Apl.liftU (Xb (0.0,0.0)) (fn Xb v => Xb (Complex.conj v) | _ => raise Fail "eval:conjx") (eval DE e)
+
                | ("roll", [e]) => Apl.liftU (Db 0.0) (fn Ib i => Db(roll i) | _ => raise Fail "eval:roll") (eval DE e)
                | ("iota", [e]) => Apl.map (Ib 0) Ib (Apl.iota (Apl.map 0 unIb (eval DE e)))
                | ("reshape", [e1,e2]) =>
@@ -1021,13 +1083,16 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                | ("prArrI",[e]) => prArr (eval DE e)
                | ("prArrB",[e]) => prArr (eval DE e)
                | ("prArrD",[e]) => prArr (eval DE e)
+               | ("prArrX",[e]) => prArr (eval DE e)
                | ("prArrC",[e]) => prArrC (eval DE e)
                | ("prSclI",[e]) => prArr (eval DE e)
                | ("prSclB",[e]) => prArr (eval DE e)
                | ("prSclD",[e]) => prArr (eval DE e)
+               | ("prSclX",[e]) => prArr (eval DE e)
                | ("prSclC",[e]) => prArr (eval DE e)
                | ("formatI",[e]) => format pr_int unIb (eval DE e)
                | ("formatD",[e]) => format pr_double unDb (eval DE e)
+               | ("formatX",[e]) => format pr_complex unXb (eval DE e)
                | ("readFile",[e]) => fileVecReader (eval DE e) (List.map (Word.fromInt o Char.ord) o explode) 0w32 Cb 
                | ("readIntVecFile",[e]) =>
                  let fun scanner s =
@@ -1056,6 +1121,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                     else if isBinOpCCB opr then evalBinOpCCB opr v1 v2
                     else if isBinOpDDB opr then evalBinOpDDB opr v1 v2
                     else if isBinOpBBB opr then evalBinOpBBB opr v1 v2
+                    else if isBinOpXXX opr then evalBinOpXXX opr v1 v2
                     else tryShOpr()
                  end
                | (opr, _) => tryShOpr()
@@ -1153,6 +1219,14 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                       | "norb" => (fn (x,y) => not(x orelse y))
                       | _ => raise Fail ("evalBinOpBBB: unsupported bool*bool->bool operator " ^ opr)
       in Apl.liftB (Bb false) (fn (b1,b2) => Bb(fct(unBb b1, unBb b2))) (v1,v2)
+      end
+  and evalBinOpXXX opr v1 v2 =
+      let val fct = case opr of
+                        "addx" => Complex.+
+                      | "subx" => Complex.-
+                      | "mulx" => Complex.*
+                      | _ => raise Fail ("evalBinOpXXX: unsupported complex*complex->complex operator " ^ opr)
+      in Apl.liftB (Xb (0.0,0.0)) (fn (b1,b2) => Xb(fct(unXb b1, unXb b2))) (v1,v2)
       end
 
 end

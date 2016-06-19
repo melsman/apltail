@@ -7,9 +7,11 @@
              i                          immediate rank
       k ::=                          Base types
              bv                         base type variable
+             bool                       boolean
              int                        integer
              double                     double
-             bool                       boolean
+             complex                    complex
+             char                       character
       t ::=                          Types
              tv                         type variable
              [k]r                       array type with base type b and rank r
@@ -40,9 +42,11 @@ signature TAIL_TYPE = sig
   val IntB     : bty
   val BoolB    : bty
   val DoubleB  : bty
+  val ComplexB : bty
   val CharB    : bty
   val isInt    : bty -> bool
   val isDouble : bty -> bool
+  val isComplex: bty -> bool
   val isBool   : bty -> bool
   val isChar   : bty -> bool
   val TyVarB   : unit -> bty    (* generate new base type variable *)
@@ -63,6 +67,7 @@ signature TAIL_TYPE = sig
   val Int      : typ
   val Bool     : typ
   val Double   : typ
+  val Complex  : typ
   val Char     : typ
   val Scl      : bty -> typ                (* [bty]0 *)
   val VecB     : bty -> typ                (* [bty]1 *)

@@ -37,6 +37,7 @@ signature TAIL_EXP = sig
            Var of var * typ
          | I of Int32.int
          | D of real
+         | X of real * real
          | B of bool
          | C of word
          | Iff of uexp * uexp * uexp * typ
@@ -82,6 +83,8 @@ signature TAIL_EXP = sig
   val addDE    : denv -> var -> value -> denv
   val Dvalue   : real -> value
   val unDvalue : value -> real
+  val Xvalue   : real * real -> value
+  val unXvalue : value -> real * real
   val Uvalue   : value          (* = Dvalue 0.0 ? *)
 
   (* Evaluate an expression in the given environment *)

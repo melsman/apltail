@@ -13,7 +13,7 @@ FILES=src/flags.sml src/flags.mlb src/aplt.sml src/aplt.mlb \
   $(shell ls -1 src/laila/*.sig src/laila/*.sml src/laila/*.mlb)
 
 SMACKAGE ?= $(HOME)/.smackage/lib
-APLPARSE_LIB ?= $(SMACKAGE)/aplparse/v2.7
+APLPARSE_LIB ?= $(SMACKAGE)/aplparse/v2.8
 
 .PHONY: all
 all: aplt

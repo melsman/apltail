@@ -194,6 +194,7 @@ fun comp (E:env) (e : E.uexp) (k: lexp -> lexp L.M) : lexp L.M =
     in case e of
            E.I i => kS $ L.I i
          | E.D d => kS $ L.D d
+         | E.X _ => die "complex numbers not implemented"
          | E.B b => kS $ L.B b
          | E.C c => kS $ L.C c
          | E.Var(v,t) => 

@@ -11,6 +11,7 @@ open TailType
 open Exp
 type Int = unit
 type Double = unit
+type Complex = unit
 type 'a Num = unit
 type Bool = unit
 type Char = unit
@@ -89,6 +90,17 @@ val nandb = binOp "nandb"
 val norb  = binOp "norb"
 fun notb x = Op_e("notb",[x])
 
+val addx = binOp "addx"
+val subx = binOp "subx"
+val mulx = binOp "mulx"
+fun negx x = Op_e("negx",[x])
+fun conjx x = Op_e("conjx",[x])
+val injx = binOp "injx"
+fun expx x = Op_e("expx",[x])
+fun rex x = Op_e("rex",[x])
+fun imx x = Op_e("imx",[x])
+fun d2x x = Op_e("d2x",[x])
+                 
 fun roll x = Op_e("roll",[x])
 
 val ltc  = binOp "ltc"
@@ -115,6 +127,7 @@ type 'a tvector = uexp
 type 'a NUM = uexp
 type INT = uexp
 type DOUBLE = uexp
+type COMPLEX = uexp
 type BOOL = uexp
 type CHAR = uexp
 
@@ -146,6 +159,8 @@ fun Iv _ = die "Iv"
 fun unIv _ = die "unIv"
 val Dv = Exp.Dvalue
 val unDv = Exp.unDvalue
+val Xv = Exp.Xvalue
+val unXv = Exp.unXvalue
 fun Bv _ = die "Bv"
 fun unBv _ = die "unBv"
 fun Vv _ = die "Vv"
@@ -317,12 +332,15 @@ val prArrI = pr "prArrI"
 val prArrB = pr "prArrB"
 val prArrD = pr "prArrD"
 val prArrC = pr "prArrC"
+val prArrX = pr "prArrX"
 val prSclI = pr "prSclI"
 val prSclB = pr "prSclB"
 val prSclD = pr "prSclD"
 val prSclC = pr "prSclC"
+val prSclX = pr "prSclX"
 val formatI = pr "formatI"
 val formatD = pr "formatD"
+val formatX = pr "formatX"
 end
 
 fun prInstanceLists opr es t =
@@ -423,6 +441,7 @@ fun pp_exp (prtype:bool) e =
                 Var (v,_) => $(ppVar v)
               | I i => $(Util.intToCString i)
               | D r => $(Util.realToTailString r)
+              | X (re,im) => $(Util.realToTailString re ^ "j" ^ Util.realToTailString im)
               | B true => $"tt"
               | B false => $"ff"
               | C w => $("'" ^ pr_char w ^ "'")

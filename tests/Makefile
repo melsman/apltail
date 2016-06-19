@@ -9,7 +9,7 @@ TESTS=test test1 test2 test3 test4 test5 test6 test7 test9 test10	\
       idx tup binaryops fib10 sierpinski idxassign format		\
       readdoublevecfile squad expd reduce transpose vowels train0	\
       train trains1 trainatop tally inv inv3 mandelbrot powtup          \
-      mandelbrotN
+      mandelbrotN cmplx compose
 
 APLFILES=$(TESTS:%=%.apl)
 TLFILES=$(APLFILES:%.apl=%.tl)
