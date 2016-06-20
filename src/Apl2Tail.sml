@@ -378,9 +378,28 @@ fun compOpr1' (opi : INT -> INT)
           | s => err()
     in F
     end
-        
+
 fun compOpr1 opi opd opx r : tagged_exp -> tagged_exp M =
     compOpr1' opi opd opx (fn () => compErr r "expects numeric array argument")
+
+(* compile monadic operator where the complex operation returns a double value *)              
+fun compOpr1xd (opi : INT -> INT)
+               (opd : DOUBLE -> DOUBLE)
+               (opx : COMPLEX -> DOUBLE)
+               r
+             : tagged_exp -> tagged_exp M =
+    let val rec F =
+         fn Is i => ret(Is(opi i))
+          | Ds d => ret(Ds(opd d))
+          | Xs x => ret(Ds(opx x))
+          | Bs b => F(Is(b2i b))
+          | Ais a => ret(Ais(each (ret o opi) a))
+          | Ads a => ret(Ads(each (ret o opd) a))
+          | Axs a => ret(Ads(each (ret o opx) a))
+          | Abs a => F(Ais(each (ret o b2i) a))
+          | s => compErr r "expects numeric array argument"
+    in F
+    end
 
 (* Compile monadic operator working on Integers *)
 fun compOpr1II (opi : INT -> INT) (err : unit -> unit) : tagged_exp -> tagged_exp M =
@@ -1279,7 +1298,7 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                                                            compOpr2d divd) (Rii 1,Rii 1.0,NOii,NOii)
             | IdE(Symb L.Pow,r)      => compPrimFunMD k r (compOpr1d (fn x => expd x) expx,
                                                            compOpr2d powd) (Rii 1, Rii 1.0, NOii, Rii (1.0,0.0))
-            | IdE(Symb L.Pipe,r)     => compPrimFunMD k r (compOpr1 absi absd (fn _ => compErr r "expecting non-complex number to operation"),
+            | IdE(Symb L.Pipe,r)     => compPrimFunMD k r (compOpr1xd absi absd magnx,
                                                            compOpr2 resi resd (fn _ => compErr r "expecting non-complex number to operation")) (Lii 0,Lii 0.0,NOii,Lii(0.0,0.0))
             | IdE(Symb L.Max,r)      => compPrimFunMD k r (compOpr1i (fn x => x) ceil,
                                                            compOpr2 (Util.uncurry maxi) (Util.uncurry maxd) (fn _ => compErr r "expecting non-complex number to operation"))

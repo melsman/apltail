@@ -4,6 +4,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
     type t = real * real
     val zero : t
     val conj : t -> t
+    val magn : t -> real
     val neg : t -> t
     val + : t * t -> t
     val - : t * t -> t
@@ -11,6 +12,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
     val exp : t -> t
   end = struct
     type t = real * real
+    fun magn ((a,b):t) : real = Math.sqrt (a*a+b*b)
     fun exp ((a,b):t) : t =
         (* e^(a+i*b) = e^a * e^(i*b) = e^a * (cos(b) + i * sin(b)) *)
         let val ea = Math.exp a
@@ -575,6 +577,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | ("injx",[t1,t2]) => (assert opr Double t1; assert opr Double t2; Complex)
         | ("negx",[t]) => (assert opr Complex t; Complex)
         | ("conjx",[t]) => (assert opr Complex t; Complex)
+        | ("magnx",[t]) => (assert opr Complex t; Double)
         | ("roll",[t]) => (assert_sub opr t Int; Double)
         | ("iotaV",[t]) =>
           (case unS t of
@@ -979,6 +982,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                | ("expx", [e]) => Apl.liftU (Xb (0.0,0.0)) (fn Xb v => Xb (Complex.exp v) | _ => raise Fail "eval:expx") (eval DE e)
                | ("negx", [e]) => Apl.liftU (Xb (0.0,0.0)) (fn Xb v => Xb (Complex.neg v) | _ => raise Fail "eval:negx") (eval DE e)
                | ("conjx", [e]) => Apl.liftU (Xb (0.0,0.0)) (fn Xb v => Xb (Complex.conj v) | _ => raise Fail "eval:conjx") (eval DE e)
+               | ("magnx", [e]) => Apl.liftU (Db 0.0) (fn Xb v => Db (Complex.magn v) | _ => raise Fail "eval:magnx") (eval DE e)
 
                | ("roll", [e]) => Apl.liftU (Db 0.0) (fn Ib i => Db(roll i) | _ => raise Fail "eval:roll") (eval DE e)
                | ("iota", [e]) => Apl.map (Ib 0) Ib (Apl.iota (Apl.map 0 unIb (eval DE e)))

@@ -171,6 +171,7 @@ signature TAIL = sig
   val mulx      : COMPLEX * COMPLEX -> COMPLEX
   val negx      : COMPLEX -> COMPLEX
   val conjx     : COMPLEX -> COMPLEX
+  val magnx     : COMPLEX -> DOUBLE
   val rex       : COMPLEX -> DOUBLE
   val imx       : COMPLEX -> DOUBLE
   val injx      : DOUBLE * DOUBLE -> COMPLEX

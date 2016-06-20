@@ -95,6 +95,7 @@ val subx = binOp "subx"
 val mulx = binOp "mulx"
 fun negx x = Op_e("negx",[x])
 fun conjx x = Op_e("conjx",[x])
+fun magnx x = Op_e("magnx",[x])
 val injx = binOp "injx"
 fun expx x = Op_e("expx",[x])
 fun rex x = Op_e("rex",[x])
