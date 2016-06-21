@@ -363,17 +363,17 @@ fun compCompare' (opi : INT * INT -> BOOL)
 (* Compile monadic operator with numeric argument *)
 fun compOpr1' (opi : INT -> INT)
               (opd : DOUBLE -> DOUBLE)
-              (opx : COMPLEX -> COMPLEX)
+              (opx : COMPLEX -> COMPLEX M)
               (err : unit -> tagged_exp M)
              : tagged_exp -> tagged_exp M =
     let val rec F =
          fn Is i => ret(Is(opi i))
           | Ds d => ret(Ds(opd d))
-          | Xs x => ret(Xs(opx x))
+          | Xs x => opx x >>= (ret o Xs)
           | Bs b => F(Is(b2i b))
           | Ais a => ret(Ais(each (ret o opi) a))
           | Ads a => ret(Ads(each (ret o opd) a))
-          | Axs a => ret(Axs(each (ret o opx) a))
+          | Axs a => ret(Axs(each opx a))
           | Abs a => F(Ais(each (ret o b2i) a))
           | s => err()
     in F
@@ -391,7 +391,7 @@ fun compOpr1xd (opi : INT -> INT)
     let val rec F =
          fn Is i => ret(Is(opi i))
           | Ds d => ret(Ds(opd d))
-          | Xs x => ret(Ds(opx x))
+          | Xs x => lett x >>= (fn x => ret(Ds(opx x)))
           | Bs b => F(Is(b2i b))
           | Ais a => ret(Ais(each (ret o opi) a))
           | Ads a => ret(Ads(each (ret o opd) a))
@@ -401,6 +401,15 @@ fun compOpr1xd (opi : INT -> INT)
     in F
     end
 
+fun magnx c = (* assume c is let-bound *)
+    powd(addd(muld(rex c,rex c),muld(imx c,imx c)),D 0.5)
+
+fun conjx c =
+    lett c >>= (fn c => ret(injx(rex c,negd(imx c))))
+
+fun negx c =
+    lett c >>= (fn c => ret(injx(negd(rex c),negd(imx c))))
+         
 (* Compile monadic operator working on Integers *)
 fun compOpr1II (opi : INT -> INT) (err : unit -> unit) : tagged_exp -> tagged_exp M =
     let fun er _ = (err(); raise Fail "compOpr1II.impossible: the error-function supplied should raise an exception")
