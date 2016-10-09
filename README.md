@@ -1,8 +1,7 @@
 ## apltail: An APL Compiler targeting a Typed Array Intermediate Language
 
 This software implements an APL compiler in Standard ML. The compiler
-targets a [typed array intermediate
-language](http://www.elsman.com/pdf/array14_final.pdf) [1]. The
+targets a [typed array intermediate language](http://www.elsman.com/pdf/array14_final.pdf) [1]. The
 executable also contains an interpreter for TAIL and a compiler from
 TAIL into C.
 
@@ -22,9 +21,9 @@ f ← {5+⍵}    ⍝ Function adding 5 to its argument (⍵)
 
 Here is what happens when the program is compiled and executed:
 
-    bash-3.2$ ./aplt -p_tail prelude.apl tests/test.apl
-    [Reading file: ../prelude.apl]
-    [Reading file: test.apl]
+    bash-3.2$ ./aplt -p_tail lib/prelude.apl tests/test.apl
+    [Reading file: lib/prelude.apl]
+    [Reading file: tests/test.apl]
     Resulting program:
     let v0:<int>30 = iotaV(30) in
     i2d(reduce(addi,0,eachV(fn v1:[int]0 => addi(5,v1),v0)))
@@ -43,7 +42,8 @@ signal ← {¯50⌈50⌊50×(diff 0,⍵)÷0.01+⍵}
 
 Here is the result of compiling and evaluating it:
 
-    bash-3.2$ ./aplt -p_tail tests/signal.apl
+    bash-3.2$ ./aplt -p_tail lib/prelude.apl tests/signal.apl
+    [Reading file: lib/prelude.apl]
     [Reading file: tests/signal.apl]
     Resulting program:
     let v0:<int>100 = iotaV(100) in
@@ -72,7 +72,8 @@ c ← b, ⍉ a2
 
 Here is the result of compiling and evaluating it:
 
-    bash-3.2$ ./aplt -p_tail tests/test15.apl
+    bash-3.2$ ./aplt -p_tail lib/prelude.apl tests/test15.apl
+    [Reading file: lib/prelude.apl]
     [Reading file: tests/test15.apl]
     Resulting program:
     let v0:[int]2 = reshape([3,2],iotaV(5)) in
@@ -103,8 +104,8 @@ c ← a +.× b
 Here is the result of compiling and evaluating the example using the
 [prelude](/prelude.apl) definition of inner product:
 
-    bash-3.2$ ./aplt -p_tail prelude.apl tests/test13.apl
-    [Reading file: prelude.apl]
+    bash-3.2$ ./aplt -p_tail lib/prelude.apl tests/test13.apl
+    [Reading file: lib/prelude.apl]
     [Reading file: tests/test13.apl]
     Resulting program:
     let v0:[int]2 = reshape([3,2],iotaV(5)) in
@@ -118,8 +119,8 @@ Here is the result of compiling and evaluating the example using the
 
 Without optimizations, the compilation results in a slightly larger output:
 
-    bash-3.2$ ./aplt -p_tail -noopt prelude.apl tests/test13.apl
-    [Reading file: prelude.apl]
+    bash-3.2$ ./aplt -p_tail -noopt lib/prelude.apl tests/test13.apl
+    [Reading file: lib/prelude.apl]
     [Reading file: tests/test13.apl]
     Resulting program:
     let v0:[int]2 = reshape([3,2],iotaV(5)) in
@@ -142,15 +143,13 @@ Without optimizations, the compilation results in a slightly larger output:
 
 ## Try it!
 
-The software makes use of the SML [unicode
-library](https://github.com/melsman/unicode) library for lexing and
+The software makes use of the SML [unicode library](https://github.com/melsman/unicode) library for lexing and
 the [aplparse](https://github.com/melsman/aplparse) project for
 parsing. It also uses parts of the
 [kitlib](https://github.com/melsman/kitlib) library. The software is
 setup to make use of
 [Smackage](https://github.com/standardml/smackage). This means that
-you need to [get Smackage working on your
-system](http://www.elsman.com/lessons/2014/10/02/getting-started-with-smackage/)
+you need to [get Smackage working on your system](http://www.elsman.com/lessons/2014/10/02/getting-started-with-smackage)
 and add the following lines to your `sources.local` file in your
 `$(HOME)/.smackage` directory:
 
