@@ -369,6 +369,7 @@ fun prInstanceLists opr es t =
            ("each", [tf,ta]) => wrap [bt ta,bt t] [rnk t]
          | ("eachV", [tf,ta]) => wrap [bt ta,bt t] [len t] 
          | ("reduce", [tf,te,ta]) => wrap [bt te] [rnk t]
+         | ("scan", [tf,te]) => wrap [bt te] [rnk t]
          | ("idxS", [_,_,ta]) => wrap [bt ta] [rnk t]
          | ("idx", [_,_,ta]) => wrap [bt ta] [rnk t]
          | ("compress", [_,ta]) => wrap [bt ta] [rnk t]
