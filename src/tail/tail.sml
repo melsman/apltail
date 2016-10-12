@@ -200,7 +200,7 @@ fun each f e = Op_e("each",[mkFn1m f,e])
 fun red f n e = Op_e("red",[mkFn2 f,n,e])
 fun mif (b,e1,e2) = If(b,e1,e2)
 fun zipWith f e1 e2 = Op_e("zipWith",[mkFn2m f,e1,e2])
-fun scan f e2 = Op_e("scan",[mkFn2m f,e2])
+fun scan f en e2 = Op_e("scan",[mkFn2m f,en,e2])
 fun getStaticRank e =
     let val t = typeOf e
     in case unS t of
@@ -369,7 +369,7 @@ fun prInstanceLists opr es t =
            ("each", [tf,ta]) => wrap [bt ta,bt t] [rnk t]
          | ("eachV", [tf,ta]) => wrap [bt ta,bt t] [len t] 
          | ("reduce", [tf,te,ta]) => wrap [bt te] [rnk t]
-         | ("scan", [tf,te]) => wrap [bt te] [rnk t]
+         | ("scan", [tf,te,ta]) => wrap [bt te] [rnk t]
          | ("idxS", [_,_,ta]) => wrap [bt ta] [rnk t]
          | ("idx", [_,_,ta]) => wrap [bt ta] [rnk t]
          | ("compress", [_,ta]) => wrap [bt ta] [rnk t]

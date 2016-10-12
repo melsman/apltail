@@ -611,34 +611,39 @@ fun compSlash (r : AplAst.reg) : tagged_exp list -> tagged_exp M =
 fun compBackslash (r : AplAst.reg) : tagged_exp list -> tagged_exp M =
     fn [Fs (f,ii)] =>
        ret(Fs (fn [Axs arr] => ret(Axs(scan (fn (x,y) =>
-                                           (f[Xs x,Xs y] >>= (fn Xs z => ret z
+                                                (f[Xs x,Xs y] >>= (fn Xs z => ret z
                                                                   | _ => compErr r "expecting complex number as result of function applied to scan")))
-                                           arr))
-                 | [Ads arr] => ret(Ads(scan (fn (x,y) =>
-                                           (f[Ds x,Ds y] >>= (fn Ds z => ret z
-                                                                  | _ => compErr r "expecting double as result of function applied to scan")))
-                                           arr))
-                 | [Ais arr] => ret(Ais(scan (fn (x,y) =>
-                                           (f[Is x,Is y] >>= (fn Is z => ret z
-                                                                  | _ => compErr r "expecting integer as result of function applied to scan")))
-                                                        arr))
-                 | [Abs arr] =>
-                   (case classifyReduce f of
-                        INT_C =>
-                        let val x = each (ret o b2i) arr
-                        in ret(Ais(scan (fn (x,y) =>
-                                            (f[Is x,Is y] >>= (fn Is z => ret z
-                                                              | _ => compErr r "expecting integer as result of function applied to scan")))
-                                        x))
-                        end
-                      | BOOL_C => 
-                        ret(Abs(scan (fn (x,y) =>
-                                         (f[Bs x,Bs y] >>= (fn Bs z => ret z
-                                                           | _ => compErr r "expecting boolean as result of function applied to scan")))
-                                     arr))
-                      | _ => compErr r "expecting function as argument to scan that returns either an integer or a boolean")
-                 | _ => compErr r "Only arrays of integers, doubles, and complex numbers are supported as arguments to scan",noii))
-     | _ => compErr r "This type of left-argument to scan not supported yet"
+                                            (X(id_item_complex ii))
+                                            arr))
+              | [Ads arr] => ret(Ads(scan (fn (x,y) =>
+                                              (f[Ds x,Ds y] >>= (fn Ds z => ret z
+                                                                | _ => compErr r "expecting double as result of function applied to scan")))
+                                          (D(id_item_double ii))
+                                          arr))
+              | [Ais arr] => ret(Ais(scan (fn (x,y) =>
+                                              (f[Is x,Is y] >>= (fn Is z => ret z
+                                                                | _ => compErr r "expecting integer as result of function applied to scan")))
+                                          (I(id_item_int ii))
+                                          arr))
+              | [Abs arr] =>
+                (case classifyReduce f of
+                     INT_C =>
+                     let val x = each (ret o b2i) arr
+                     in ret(Ais(scan (fn (x,y) =>
+                                         (f[Is x,Is y] >>= (fn Is z => ret z
+                                                           | _ => compErr r "expecting integer as result of function applied to scan")))
+                                     (I(id_item_int ii))
+                                     x))
+                     end
+                   | BOOL_C => 
+                     ret(Abs(scan (fn (x,y) =>
+                                      (f[Bs x,Bs y] >>= (fn Bs z => ret z
+                                                        | _ => compErr r "expecting boolean as result of function applied to scan")))
+                                  (B(id_item_bool ii))
+                                  arr))
+                   | _ => compErr r "expecting function as argument to scan that returns either an integer or a boolean")
+              | _ => compErr r "Only arrays of integers, doubles, and complex numbers are supported as arguments to scan",noii))
+  | _ => compErr r "This type of left-argument to scan not supported yet"
 
 (* Compile power operator *)
 fun compPower (benchFlag:{bench:bool}) r f n =

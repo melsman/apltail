@@ -264,7 +264,7 @@ fun comp (E:env) (e : E.uexp) (k: lexp -> lexp L.M) : lexp L.M =
            (compS E d (fn d =>
             compA E r (fn r =>
             compA E a (fn a => L.replicate (d, r, a) >>= kA))))
-         | E.Op("scan", [f,a], t) =>
+         | E.Op("scan", [f,en,a], t) =>  (* neutral element not used by this backend *)
            (compFN E f (fn f =>
             compA E a (fn a =>
             let val f = fn (x,y) => f [S x,S y] >>= (L.ret o unS "scan")

@@ -208,7 +208,7 @@ signature TAIL = sig
 
   val zipWith   : ('a exp * 'b exp -> 'c exp M) -> 'a ndarray -> 'b ndarray -> 'c ndarray
 
-  val scan      : ('a exp * 'b exp -> 'a exp M) -> 'b ndarray -> 'a ndarray
+  val scan      : ('a exp * 'b exp -> 'a exp M) -> 'a exp -> 'b ndarray -> 'a ndarray
 
   val catenate  : 'a ndarray -> 'a ndarray -> 'a ndarray
   val catenate_first : 'a ndarray -> 'a ndarray -> 'a ndarray
