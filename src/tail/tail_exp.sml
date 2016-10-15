@@ -505,6 +505,17 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
            ; assertR "idxS" rv' r
            ; Arr bta rv
           end
+(*
+        | ("idx", [tsi,tis,ta]) =>
+          let val (bta,r) = unArr' "idx array argument" ta
+              val (btsi,si) = unS' "idx offset argument" tsi
+              val (btis,ris) = unArr' "idx index argument" tis
+          in assertB "idx expects offset argument to be an integer" btsi IntB
+           ; assertB "idx expects integer vector index argument" btis IntB
+           ; assertR "idx expects vector index argument" ris (rnk 1)
+           ; Arr bta r 
+          end
+*)
         | ("idxassign", [tis,ta,tv]) =>
           let val (bta,ra) = unArr' "idxassign array argument" ta
               val btv = unScl "idxassign value element" tv
@@ -1042,6 +1053,14 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                      val a = eval DE a
                  in Apl.idxS(x,i,a)
                  end
+(*
+               | ("idx", [x,i,a]) =>
+                 let val x = Apl.map 0 unIb (eval DE x)
+                     val i = Apl.map 0 unIb (eval DE i)
+                     val a = eval DE a
+                 in Apl.idx(x,i,a)
+                 end
+*)
                | ("idxassign", [is,a,v]) =>
                  let val is = Apl.map 0 unIb (eval DE is)
                      val a = eval DE a

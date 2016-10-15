@@ -893,18 +893,23 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
                     | toi (Is i) = i
                     | toi s = compErrS r s "expects a simple index (toi) "
                   fun findOpt n (NONE::xs) = findOpt (n+1) xs
-                    | findOpt n (SOME(Is e)::xs) = SOME(n,e,xs)
-                    | findOpt n (SOME s::xs) = compErrS r s ("expects a simple index")
+                    | findOpt n (SOME x::xs) = SOME(n,x,xs)
                     | findOpt n nil = NONE
                   fun genericIndexing scalar array a =
                       compOpts G opts (fn (opts,_) =>
-                                          case findOpt 1 (List.map toI opts) of
-                                              SOME (x,i,xs) => 
-                                              (case findOpt 1 xs of
-                                                   NONE => (k(idxS x i a scalar array, empty)
-                                                             handle Fail s => compErr r s)
-                                                 | SOME _ => compErr r "only simple indexing supported")
-                                            | NONE => k(array a,empty)
+                                          let val opts = List.map toI opts
+                                              datatype ('a,'b) k = SC of 'a | AR of 'b
+                                              fun loop a opts =
+                                                  case a of
+                                                      SC s => scalar s
+                                                    | AR a => 
+                                                      case findOpt 1 opts of
+                                                          SOME (x,Is i,xs) => loop (idxS x i a SC AR) xs
+                                                        | SOME (x,Ais is,xs) => loop (AR(idx x is a)) xs
+                                                        | SOME (_,s,_) => compErrS r s ("expects an integer vector or an integer as index")
+                                                        | NONE => array a
+                                          in k(loop (AR a) opts,empty) handle Fail s => compErr r s
+                                          end
                                       )
               in comp G e (fn (Ais a,_) => genericIndexing Is Ais a
                             | (Ads a,_) => genericIndexing Ds Ads a

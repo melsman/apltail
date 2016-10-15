@@ -511,6 +511,7 @@ fun idxS  (x: int APLArray, n: int APLArray, a: 'a APLArray) : 'a APLArray =
     in idx (comp 1) a
     end
 *)
+
 fun idxassign (is: Int32.int APLArray, a : 'a APLArray, v : 'a) : unit =
     let val is = alist (#2 is)
         val is = L.map (fn x => x - 1) is
@@ -518,7 +519,7 @@ fun idxassign (is: Int32.int APLArray, a : 'a APLArray, v : 'a) : unit =
         val i = fromSh "idxassign" sh is
     in A.update (#2 a, i, v)
     end
-
+        
 fun pr (p,sep) (a: 'a APLArray) : string =
     let fun prv sep p s e v =
             s ^ String.concatWith sep (L.map p v) ^ e

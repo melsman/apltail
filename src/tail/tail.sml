@@ -254,7 +254,9 @@ fun idxS x ei ea s a =
          | NONE => die "rank error: idxS not supported for arguments of unknown rank"
     end
 
-fun idx x eis ea = Op_e("idx",[I x,eis,ea])
+fun idx x eis ea = each (fn ei => ret(idxS x ei ea (fn x => x) (fn _ => raise Fail "tail.idx expecting scalar"))) eis
+
+(*Op_e("idx",[I x,eis,ea])*)
 fun idxassign is a v = 
     case a of
         Var (var,_) => Op_e("idxassign",[is,a,v]) before mutableVar var := true

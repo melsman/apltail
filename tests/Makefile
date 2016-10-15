@@ -9,7 +9,7 @@ TESTS=test test1 test2 test3 test4 test5 test6 test7 test9 test10	\
       idx tup binaryops fib10 sierpinski idxassign format		\
       readdoublevecfile squad expd reduce transpose vowels train0	\
       train trains1 trainatop tally inv inv3 mandelbrot powtup          \
-      mandelbrotN cmplx compose streak sum35
+      mandelbrotN cmplx compose streak sum35 anagram
 
 APLFILES=$(TESTS:%=%.apl)
 TLFILES=$(APLFILES:%.apl=%.tl)
@@ -86,7 +86,7 @@ CTESTS=test test1 test2 test3 test4 test5 test6 test7 test9 test10	\
        tup circ abcd dtransp tax binaryops pi blackscholes idx		\
        idxassign format readintvecfile readdoublevecfile squad expd	\
        reduce transpose sierpinski sierpinski0 vowels train0 train	\
-       trains1 trainatop tally sum35
+       trains1 trainatop tally sum35 anagram
 
 #      readfile \
 #      

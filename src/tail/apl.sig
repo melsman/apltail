@@ -44,6 +44,7 @@ signature APL = sig
   val replicate : Int32.int APLArray * 'a APLArray -> 'a APLArray
   val idxassign : Int32.int APLArray * 'a APLArray * 'a -> unit
   val idxS      : Int32.int APLArray * Int32.int APLArray * 'a APLArray -> 'a APLArray
+(*  val idx       : Int32.int APLArray * Int32.int APLArray * 'a APLArray -> 'a APLArray *)
 
   val pr        : ('a -> string) * string -> 'a APLArray -> string
 end
