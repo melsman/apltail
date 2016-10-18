@@ -107,7 +107,7 @@ c/%.c: %.apl Makefile
 	$(APLT) -materialize -opt_hoist -opt_loopsplit -c -O 2 -oc $@ $(PRELUDE) $<
 
 c/%.exe: c/%.c
-	gcc -I ../include --std=c99 -O3 -o $@ -lm $<
+	gcc -I ../include --std=c99 -O3 -o $@ $< -lm
 
 %.outc: c/%.exe
 	$< > $@
