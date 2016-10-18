@@ -65,6 +65,7 @@ test: $(RESFILES)
 	@echo "Tests succeeded:   `grep "OK" $(RESFILES) | wc -l` /`grep "Test" $(RESFILES) | wc -l`"
 	@echo "Test errors:       `grep "ERR" $(RESFILES) | wc -l` /`grep "Test" $(RESFILES) | wc -l`"
 	@echo "-------------------------------------"
+	@exit `grep "ERR" $(RESFILES) | wc -l`
 
 outv: $(OUTVFILES)
 
@@ -100,6 +101,7 @@ testc: $(CRESFILES)
 	@echo "Tests succeeded:   `grep "OK" $(CRESFILES) | wc -l` /`grep "Test" $(CRESFILES) | wc -l`"
 	@echo "Test errors:       `grep "ERR" $(CRESFILES) | wc -l` /`grep "Test" $(CRESFILES) | wc -l`"
 	@echo "----------------------------------------------------"
+	@exit `grep "ERR" $(CRESFILES) | wc -l`
 
 c/%.c: %.apl Makefile
 	$(APLT) -materialize -opt_hoist -opt_loopsplit -c -O 2 -oc $@ $(PRELUDE) $<

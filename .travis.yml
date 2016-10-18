@@ -35,3 +35,4 @@ install:
 
 script:
  - make test
+ - make -C tests testc
