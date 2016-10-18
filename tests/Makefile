@@ -89,8 +89,7 @@ CTESTS=test test1 test2 test3 test4 test5 test6 test7 test9 test10	\
        reduce transpose sierpinski sierpinski0 vowels train0 train	\
        trains1 trainatop tally sum35 anagram
 
-#      readfile \
-#      
+#      readfile
 
 CRESFILES=$(CTESTS:%=%.resc)
 
