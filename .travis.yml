@@ -6,8 +6,6 @@ addons:
   apt:
     packages:
     - libgmp-dev
-    - libffi6
-    - libffi4
     - libc6:i386
 
 before_install:
