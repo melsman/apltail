@@ -9,6 +9,12 @@ See [the compilation scheme](doc/comp.md).
 
 See also the [coverage page](doc/coverage.md).
 
+## Statistics
+
+[![Issue Stats](http://issuestats.com/github/melsman/apltail/badge/pr)](http://issuestats.com/github/melsman/apltail)
+[![Issue Stats](http://issuestats.com/github/melsman/apltail/badge/issue)](http://issuestats.com/github/melsman/apltail)
+[![Build Status](https://travis-ci.org/melsman/apltail.svg?branch=master)](https://travis-ci.org/melsman/apltail)
+
 ## An example
 
 Consider the following program:
