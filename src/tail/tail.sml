@@ -369,7 +369,8 @@ fun prInstanceLists opr es t =
         val none = ""
     in case (opr, ts) of
            ("each", [tf,ta]) => wrap [bt ta,bt t] [rnk t]
-         | ("eachV", [tf,ta]) => wrap [bt ta,bt t] [len t] 
+         | ("eachV", [tf,ta]) => wrap [bt ta,bt t] [len t]
+         | ("zilde", nil) => wrap [bt t] [rnk t]
          | ("reduce", [tf,te,ta]) => wrap [bt te] [rnk t]
          | ("scan", [tf,te,ta]) => wrap [bt te] [rnk t]
          | ("idxS", [_,_,ta]) => wrap [bt ta] [rnk t]
@@ -457,7 +458,7 @@ fun pp_exp (prtype:bool) e =
                     indent i' @@ pp i' e2
                 end
               | Vc(es,_) => $"[" @@ pps (i+1) es @@ $"]"
-              | Op (opr,nil,t) => $opr
+(*              | Op (opr,nil,t) => $opr @@ maybePrType opr nil t *)
               | Op (opr,es,t) => $opr @@ maybePrType opr es t 
                                   @@ $"(" @@ pps (i+1+size opr) es @@ $")"
               | Let (v,ty,e1,e2,_) => $"let " @@ $(ppVar v) @@ $":" @@ $(prType ty) @@ $" = " @@ pp (i+2) e1 @@ $" in" @@ 
