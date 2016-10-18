@@ -5,13 +5,14 @@ sudo: false
 addons:
   apt:
     packages:
-    - mlton
     - libgmp-dev
     - libffi6
     - libffi4
     - libc6:i386
 
 before_install:
+ - sudo apt-get -qq update
+ - sudo apt-get install -y mlton
  - git clone git://github.com/standardml/smackage
  - cd smackage
  - make mlton
