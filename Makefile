@@ -1,7 +1,7 @@
 #MLKIT=SML_LIB=/Users/mael/gits/mlkit /Users/mael/gits/mlkit/bin/mlkit
-MLCOMP ?= $(MLKIT) -mlb-path-map $(HOME)/.mlkit/mlb-path-map
+#MLCOMP ?= $(MLKIT) -mlb-path-map $(HOME)/.mlkit/mlb-path-map
 
-MLCOMP = mlkit
+MLCOMP ?= mlkit
 
 #MLCOMP ?= mlton -mlb-path-map $(HOME)/.mlton/mlb-path-map
 
@@ -21,6 +21,10 @@ all: aplt
 aplt: src/aplt.mlb $(FILES) src/aplt.sml
 	APLPARSE_LIB=$(APLPARSE_LIB) $(MLCOMP) -output $@ $<
 #	$(MLCOMP) -mlb-path-var 'APLPARSE_LIB $(APLPARSE_LIB)' -output $@ $<
+
+.PHONY: aplt-mlton
+aplt-mlton: src/aplt.mlb
+	$(MLCOMP) -mlb-path-var 'APLPARSE_LIB $(APLPARSE_LIB)' -output aplt $<
 
 .PHONY: install
 install:

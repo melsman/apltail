@@ -1,0 +1,38 @@
+language: c
+
+sudo: false
+
+addons:
+  apt:
+    packages:
+    - mlton
+    - libgmp-dev
+    - libffi6
+    - libffi4
+    - libc6:i386
+
+before_install:
+ - git clone git://github.com/standardml/smackage
+ - cd smackage
+ - make mlton
+ - bin/smackage refresh
+ - export PATH=$HOME/.smackage/bin:$PATH
+ - bin/smackage get smackage
+ - bin/smackage make smackage mlton
+ - bin/smackage make smackage install
+ - cd $HOME
+ - rm -rf $HOME/smackage
+ - mkdir -p $HOME/.mlton
+ - echo "SMACKAGE $HOME/.smackage/lib" > $HOME/.mlton/mlb-path-map
+ - echo "aplparse git git://github.com/melsman/aplparse.git" >> $HOME/.smackage/sources.local
+ - echo "kitlib git git://github.com/melsman/kitlib.git" >> $HOME/.smackage/sources.local
+ - smackage refresh
+ - smackage get aplparse
+ - smackage get kitlib
+ 
+install:
+ - make test
+
+script:
+ - export MLCOMP="mlton -mlb-path-map $HOME/.mlton/mlb-path-map"
+ - make aplt-mlton
