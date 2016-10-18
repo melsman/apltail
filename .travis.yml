@@ -19,7 +19,7 @@ before_install:
  - bin/smackage get smackage
  - bin/smackage make smackage mlton
  - bin/smackage make smackage install
- - cd $HOME
+ - cd ..
  - rm -rf $HOME/smackage
  - mkdir -p $HOME/.mlton
  - echo "SMACKAGE $HOME/.smackage/lib" > $HOME/.mlton/mlb-path-map
@@ -30,8 +30,6 @@ before_install:
  - smackage get kitlib
  
 install:
- - make test
-
-script:
  - export MLCOMP="mlton -mlb-path-map $HOME/.mlton/mlb-path-map"
  - make aplt-mlton
+ - make test
