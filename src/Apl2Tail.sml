@@ -346,6 +346,8 @@ fun compCompare (opi : INT * INT -> BOOL)
   | (e1, Is i2) => compCompare opi opd opc r (e1,Ds(i2d i2))
   | (Ais a1, e2) => compCompare opi opd opc r (Ads(each (ret o i2d) a1),e2)
   | (e1, Ais a2) => compCompare opi opd opc r (e1,Ads(each (ret o i2d) a2))
+  | (Abs a1, e2) => compCompare opi opd opc r (Ais(each (ret o b2i) a1),e2)
+  | (e1, Abs a2) => compCompare opi opd opc r (e1,Ais(each (ret o b2i) a2))
   | _ => compErr r "expects comparable argument arrays"
 
 fun compCompare' (opi : INT * INT -> BOOL)
