@@ -377,6 +377,7 @@ fun prInstanceLists opr es t =
          | ("idx", [_,_,ta]) => wrap [bt ta] [rnk t]
          | ("compress", [_,ta]) => wrap [bt ta] [rnk t]
          | ("replicate", [_,ta]) => wrap [bt ta] [rnk t]
+         | ("rav", [ta]) => wrap [bt ta] [rnk ta] 
          | ("shape", [ta]) => wrap [bt ta] [rnk ta] 
          | ("shapeV", [ta]) => wrap [bt ta] [len ta] 
          | ("take", [_,ta]) => wrap [bt ta] [rnk ta]
