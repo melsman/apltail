@@ -228,6 +228,8 @@ signature TAIL = sig
   val vrotate   : INT -> 'a ndarray -> 'a ndarray
   val reshape   : Int Num tvector -> 'a ndarray -> 'a ndarray
   val shape     : 'a ndarray -> Int Num tvector
+  val gradeUp   : 'a ndarray -> Int Num ndarray
+  val gradeDown : 'a ndarray -> Int Num ndarray
 
   val reduce    : ('a exp * 'a exp -> 'a exp M) -> 'a exp -> 'a ndarray -> ('a exp -> 'b) -> ('a ndarray -> 'b) -> 'b
 

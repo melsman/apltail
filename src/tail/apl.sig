@@ -21,6 +21,8 @@ signature APL = sig
   val power     : ('a APLArray -> 'a APLArray) -> Int32.int APLArray -> 'a APLArray -> 'a APLArray
   val reduce    : ('a APLArray * 'a APLArray -> 'a APLArray) -> 'a APLArray -> 'a APLArray -> 'a APLArray
   val scan      : ('a APLArray * 'a APLArray -> 'a APLArray) -> 'a APLArray -> 'a APLArray
+  val gradeUp   : ('a * 'a -> bool) -> 'a APLArray -> Int32.int APLArray
+  val gradeDown : ('a * 'a -> bool) -> 'a APLArray -> Int32.int APLArray
   val catenate  : 'a APLArray * 'a APLArray -> 'a APLArray
   val cons      : 'a APLArray * 'a APLArray -> 'a APLArray
   val snoc      : 'a APLArray * 'a APLArray -> 'a APLArray

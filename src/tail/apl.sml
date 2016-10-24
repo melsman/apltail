@@ -97,6 +97,24 @@ fun ravel (a : 'a APLArray) : 'a APLArray =
     in (V.fromList[A.length vs], vs, #3 a)
     end
 
+fun grade (lt: 'a * 'a -> bool) (a : 'a APLArray) : Int32.int APLArray =
+    let val vs : 'a list = alist (#2 a)
+        fun mapi i f nil = nil
+          | mapi i f (x::xs) = f (x,i)::mapi (Int32.+(i,1)) f xs
+        val vs : ('a*Int32.int) list = mapi 1 (fn p => p) vs
+        fun lti (x,y) = Int32.compare
+        fun order (x:'a*Int32.int,y:'a*Int32.int) : order =
+            if lt(#1 x,#1 y) then LESS
+            else if lt(#1 y,#1 x) then GREATER
+            else Int32.compare(#2 x,#2 y)
+        val vs_sorted : ('a*Int32.int) list = Listsort.sort order vs
+        val is = List.map #2 vs_sorted
+    in (V.fromList[ListInt32.length is], A.fromList is, Int32.fromInt 0)
+    end
+
+fun gradeUp lt a = grade lt a
+fun gradeDown gt a = grade gt a
+        
 fun first (a : 'a APLArray) : 'a APLArray =
     let val vs = #2 a
         val v = if A.length vs > 0 then A.sub(vs,0) else #3 a

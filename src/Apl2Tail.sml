@@ -472,6 +472,13 @@ fun compOpr1b opb r : tagged_exp -> tagged_exp M =
   | Abs a => ret(Abs(each (ret o opb) a))
   | s => compErrS r s "expects boolean array argument"
 
+fun compOprV2IV s opb opi opc opd r : tagged_exp -> tagged_exp M =
+    fn Abs bs => ret(Ais(opb bs))
+     | Ais is => ret(Ais(opi is))
+     | Acs is => ret(Ais(opc is))
+     | Ads is => ret(Ais(opd is))
+     | s => compErrS r s "expects gradable vector argument"
+                  
 (* Compile the circular operator (○) *)
 fun circularOp (r : AplAst.reg) (x : INT) (y : DOUBLE) : DOUBLE = 
     case Exp.T.unS (typeOf x) of
@@ -1362,6 +1369,8 @@ fun compileAst flags (G0 : env) (e : AplAst.exp) : (unit, Double Num) prog =
             | IdE(Symb L.Nand,r)     => compPrimFunD k r (compBoolOp nandb) (NOii,NOii,NOii,NOii)
             | IdE(Symb L.Nor,r)      => compPrimFunD k r (compBoolOp norb) (NOii,NOii,NOii,NOii)
             | IdE(Symb L.Tilde,r)    => compPrimFunM k r (compOpr1b notb)
+            | IdE(Symb L.Gradeup,r)  => compPrimFunM k r (compOprV2IV "gradeUp" gradeUp gradeUp gradeUp gradeUp)
+            | IdE(Symb L.Gradedown,r)  => compPrimFunM k r (compOprV2IV "gradeDown" gradeDown gradeDown gradeDown gradeDown)                                       
             | e                      => compError (pr_exp e ^ " not implemented")
         and comps G nil k = k(nil,empty)
           | comps G (e::es) k = comp G e (fn (s,G1) => comps (G++G1) es (fn (ss,G2) => k(s::ss,G1++G2)))

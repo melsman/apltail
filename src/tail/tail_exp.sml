@@ -361,6 +361,12 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
            | SOME (bt,r) => (assertB (opr ^ " elements") bt1 bt; Vcc bt2 r)
       end
 
+  fun tyGradeUpDown opr t =
+      let val (_,r) = unArr' (opr ^ " argument") t
+      in assertR opr r (rnk 1)
+       ; VecB IntB
+      end
+      
   fun tyOp opr ts =
       case (opr, ts) of
           ("zilde", nil) => tyVc nil
@@ -370,6 +376,8 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
            case unS t of
                SOME (_,n) => Vcc IntB n
              | NONE => VecB IntB)
+        | ("gradeUp", [t]) => tyGradeUpDown opr t
+        | ("gradeDown", [t]) => tyGradeUpDown opr t
         | ("shape", [t]) =>
           (case unVec0 t of
                SOME (_,n) => SV IntB n
@@ -1023,6 +1031,24 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                  in Apl.transpose(Apl.vrotate(v1,Apl.transpose(eval DE e2)))
                  end
                | ("vreverse", [e]) => Apl.vreverse (eval DE e)
+               | ("gradeUp", [e]) =>
+                 let fun lt (Ib i1, Ib i2) = Int32.<(i1,i2)
+                       | lt (Cb c1, Cb c2) = Word.<(c1,c2)
+                       | lt (Bb false, Bb true) = true
+                       | lt (Bb _, Bb _) = false
+                       | lt (Db r1, Db r2) = Real.<(r1,r2)
+                       | lt _ = raise Fail ("apl.eval.lt" ^ opr ^ " expects scalar, non-complex argument arrays")
+                 in Apl.map (Ib 0) Ib (Apl.gradeUp lt (eval DE e))
+                 end
+               | ("gradeDown", [e]) =>
+                 let fun gt (Ib i1, Ib i2) = Int32.>(i1,i2)
+                       | gt (Cb c1, Cb c2) = Word.>(c1,c2)
+                       | gt (Bb true, Bb false) = true
+                       | gt (Bb _, Bb _) = false
+                       | gt (Db r1, Db r2) = Real.>(r1,r2)
+                       | gt _ = raise Fail ("apl.eval.lt" ^ opr ^ " expects scalar, non-complex argument arrays")
+                 in Apl.map (Ib 0) Ib (Apl.gradeDown gt (eval DE e))
+                 end
                | ("first", [e]) => Apl.first (eval DE e)
                | ("mem", [e]) => eval DE e
                | ("memScl", [e]) => eval DE e

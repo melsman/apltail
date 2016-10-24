@@ -237,6 +237,8 @@ fun mem e = Op_e("mem",[e])
 fun memScl e = Op_e("memScl",[e])
 fun reshape e1 e2 = Op_e("reshape", [e1,e2])
 fun shape e = Op_e("shape",[e])
+fun gradeUp e = Op_e("gradeUp",[e])
+fun gradeDown e = Op_e("gradeDown",[e])
 fun reduce f e1 e2 s a =
     case getStaticRank e2 of
         SOME 0 => s e2
@@ -378,6 +380,8 @@ fun prInstanceLists opr es t =
          | ("compress", [_,ta]) => wrap [bt ta] [rnk t]
          | ("replicate", [_,ta]) => wrap [bt ta] [rnk t]
          | ("rav", [ta]) => wrap [bt ta] [rnk ta] 
+         | ("gradeUp", [ta]) => wrap [bt ta] [] 
+         | ("gradeDown", [ta]) => wrap [bt ta] [] 
          | ("shape", [ta]) => wrap [bt ta] [rnk ta] 
          | ("shapeV", [ta]) => wrap [bt ta] [len ta] 
          | ("take", [_,ta]) => wrap [bt ta] [rnk ta]

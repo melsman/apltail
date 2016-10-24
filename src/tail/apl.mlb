@@ -1,4 +1,5 @@
 local $(SML_LIB)/basis/basis.mlb
+      $(SMACKAGE)/kitlib/v1/listsort/listsort.mlb
 in apl.sig
    apl.sml
 end
