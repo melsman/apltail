@@ -707,27 +707,37 @@ fun compPower (benchFlag:{bench:bool}) r f n =
                       | Ds e => Unsafe.consUtuple(Unsafe.toUexp e) ut
                       | Xs e => Unsafe.consUtuple(Unsafe.toUexp e) ut
                       | Cs e => Unsafe.consUtuple(Unsafe.toUexp e) ut
-                      | _ => compErr r "expects non-function and non-tuple in pack for the power operator"
+                      | Ts nil => ut
+                      | Ts (e::es) => packTexp(e,packTexp(Ts es,ut))
+                      | _ => compErr r ("expects non-function in pack for the power operator - got " ^ pp_tagged_exp e)
                 fun pack es = List.foldr packTexp Unsafe.empUtuple es
                 fun unpack es ut =
-                    let fun unp i nil ut = nil
-                          | unp i (e::es) ut =
-                            let val v = Unsafe.prjUtuple i ut
-                                val v = case e of
-                                            Abs _ => Abs(Unsafe.fromUexpA v)
-                                          | Ais _ => Ais(Unsafe.fromUexpA v)
-                                          | Ads _ => Ads(Unsafe.fromUexpA v)
-                                          | Axs _ => Axs(Unsafe.fromUexpA v)
-                                          | Acs _ => Acs(Unsafe.fromUexpA v)
-                                          | Bs _ => Bs(Unsafe.fromUexp v)
-                                          | Is _ => Is(Unsafe.fromUexp v)
-                                          | Ds _ => Ds(Unsafe.fromUexp v)
-                                          | Xs _ => Xs(Unsafe.fromUexp v)
-                                          | Cs _ => Cs(Unsafe.fromUexp v)
-                                          | _ => compErr r "expects non-function and non-tuple in unpack for the power operator"
-                            in v :: unp (i+1) es ut
+                    let fun unp i e ut =
+                            let fun getA C = (C(Unsafe.fromUexpA(Unsafe.prjUtuple i ut)),i+1)
+                                fun getS C = (C(Unsafe.fromUexp(Unsafe.prjUtuple i ut)),i+1)
+                            in case e of
+                                   Abs _ => getA Abs
+                                 | Ais _ => getA Ais
+                                 | Ads _ => getA Ads
+                                 | Axs _ => getA Axs
+                                 | Acs _ => getA Acs
+                                 | Bs _ => getS Bs
+                                 | Is _ => getS Is
+                                 | Ds _ => getS Ds
+                                 | Xs _ => getS Xs
+                                 | Cs _ => getS Cs
+                                 | Ts es => let val (vs,i) = unps i es ut
+                                            in (Ts vs,i)
+                                            end
+                                 | _ => compErr r ("expects non-function in unpack for the power operator - got " ^ pp_tagged_exp e)
                             end
-                    in unp 0 es ut
+                        and unps i nil ut = (nil,i)
+                          | unps i (e::es) ut =
+                            let val (v,i) = unp i e ut
+                                val (vs,i) = unps i es ut
+                            in (v::vs,i)
+                            end
+                    in #1(unps 0 es ut)
                     end
                 val g : Unsafe.utuple -> tagged_exp = g o (unpack es)
                 val ung : tagged_exp -> Unsafe.utuple option = Option.map pack o ung

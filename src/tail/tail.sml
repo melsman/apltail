@@ -462,6 +462,7 @@ fun pp_exp (prtype:bool) e =
                     indent i @@ $"else " @@
                     indent i' @@ pp i' e2
                 end
+              | Vc(nil,t) => pp i (Op("zilde",[],t))
               | Vc(es,_) => $"[" @@ pps (i+1) es @@ $"]"
 (*              | Op (opr,nil,t) => $opr @@ maybePrType opr nil t *)
               | Op (opr,es,t) => $opr @@ maybePrType opr es t 
