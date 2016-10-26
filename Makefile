@@ -17,10 +17,28 @@ APLPARSE_LIB ?= $(SMACKAGE)/aplparse/v2.8
 PREFIX ?= .
 DESTDIR ?= $(PREFIX)/dist
 
+GIT_VERSION := $(shell git --no-pager describe --tags --always --dirty)
+GIT_DATE := $(firstword $(shell git --no-pager show --date=short --format="%ad" --name-only))
+PLATFORM := $(shell uname -pmrs)
+
 .PHONY: all
 all: aplt
 
-aplt: src/aplt.mlb $(FILES) src/aplt.sml
+# Use temp file src/version~ to ensure regeneration of src/version.sml
+# whenever (and only when) the git version changes...
+.PHONY: force
+src/version~: force
+	@echo '$(GIT_VERSION) $(GIT_DATE)' | cmp -s - $@ || echo '$(GIT_VERSION) $(GIT_DATE)' > $@
+
+src/version.sml: src/version~
+	@echo "structure Version = struct\n\
+   val version = \"$(GIT_VERSION)\"\n\
+   val date = \"$(GIT_DATE)\"\n\
+   val platform = \"$(PLATFORM)\"\nend" > $@
+	@echo Generated file $@
+	@echo Git version $(GIT_VERSION) $(GIT_DATE)
+
+aplt: src/aplt.mlb $(FILES) src/aplt.sml src/version.sml
 	APLPARSE_LIB=$(APLPARSE_LIB) $(MLCOMP) -output $@ $<
 #	$(MLCOMP) -mlb-path-var 'APLPARSE_LIB $(APLPARSE_LIB)' -output $@ $<
 
@@ -62,5 +80,5 @@ clean: Makefile
 	find . -name '*~' | xargs rm -f
 	find . -name 'MLB' | xargs rm -rf
 	find . -name 'run' | xargs rm -f
-	rm -f aplt
+	rm -f aplt src/version.sml
 	$(MAKE) -C tests clean

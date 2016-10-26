@@ -29,6 +29,7 @@ install:
 - export MLCOMP="mlton -mlb-path-map $HOME/.mlton/mlb-path-map"
 - make aplt-mlton
 - DISTPOSTFIX=$TRAVIS_OS_NAME make dist
+- ./aplt
 script:
 - make test
 - make -C tests testc

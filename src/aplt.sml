@@ -123,7 +123,14 @@ fun compileAndRun (flags,files) =
 
 val name = CommandLine.name()
 
+fun version() =
+    String.concatWith "\n"
+                      ["APLtail version: " ^ Version.version,
+                       "Version date: " ^ Version.date,
+                       "Platform: " ^ Version.platform]
+                           
 fun usage() =
+    version() ^ "\n\n" ^
     "Usage: " ^ name ^ " [OPTIONS]... file.apl...\n" ^
     " -o file        : write TAIL program to file\n" ^
     " -oc file       : write LAILA program to file\n" ^

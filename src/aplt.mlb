@@ -8,5 +8,6 @@ local
    in Tail2Laila.sml
    end
    $(APLPARSE_LIB)/aplparse.mlb
+   version.sml
 in aplt.sml
 end
