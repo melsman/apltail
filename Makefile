@@ -45,7 +45,7 @@ dist:
 	cp -p aplt dist/apltail/bin/
 	cp -p lib/prelude.apl dist/apltail/lib/
 	cp -p include/apl.h dist/apltail/include/
-	cp -p tests/Makefile tests/*.{out.ok,apl} tests/read{,intvec,doublevec}file.txt dist/apltail/tests/
+	cp -p tests/Makefile tests/*.out.ok tests/*.apl tests/*.txt dist/apltail/tests/
 	cp -p MIT_LICENSE.md dist/apltail/doc/MIT_LICENSE
 	cp -p doc/README_BIN dist/apltail/doc/README
 	(cd dist; tar -czf apltail.tgz apltail)
