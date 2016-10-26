@@ -17,22 +17,22 @@ TLFILES=$(APLFILES:%.apl=%.tl)
 RESFILES=$(APLFILES:%.apl=%.res) $(APLFILES:%.apl=%.resn)
 OUTVFILES=$(APLFILES:%.apl=%.outv)
 
-PRELUDE=../lib/prelude.apl
-APLT=../aplt
+PRELUDE?=../lib/prelude.apl
+APLT?=../aplt
 
 .PHONY: all
 all: $(TLFILES) test
 
-%.tl: %.apl Makefile ../aplt
+%.tl: %.apl Makefile
 	$(APLT) -s_tail -c -o $@ $(PRELUDE) $<
 
-%.out: %.apl Makefile ../aplt
+%.out: %.apl Makefile
 	$(APLT) -s_tail -silent $(PRELUDE) $< > $@
 
-%.outn: %.apl Makefile ../aplt
+%.outn: %.apl Makefile
 	$(APLT) -s_tail -noopt -silent $(PRELUDE) $< > $@
 
-%.outv: %.apl Makefile ../aplt
+%.outv: %.apl Makefile
 	$(APLT) -s_tail -p_tail -p_types -noopt $(PRELUDE) $< > $@
 
 %.res: %.out

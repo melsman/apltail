@@ -1,38 +1,36 @@
 language: c
-
 sudo: true
-
-addons:
-  apt:
-    packages:
-    - libgmp-dev
-    - libc6:i386
-
 before_install:
- - sudo apt-get -qq update
- - sudo apt-get install -y mlton
- - git clone git://github.com/standardml/smackage
- - cd smackage
- - make mlton
- - bin/smackage refresh
- - export PATH=$HOME/.smackage/bin:$PATH
- - bin/smackage get smackage
- - bin/smackage make smackage mlton
- - bin/smackage make smackage install
- - cd ..
- - rm -rf $HOME/smackage
- - mkdir -p $HOME/.mlton
- - echo "SMACKAGE $HOME/.smackage/lib" > $HOME/.mlton/mlb-path-map
- - echo "aplparse git git://github.com/melsman/aplparse.git" >> $HOME/.smackage/sources.local
- - echo "kitlib git git://github.com/melsman/kitlib.git" >> $HOME/.smackage/sources.local
- - smackage refresh
- - smackage get aplparse
- - smackage get kitlib
- 
+- sudo apt-get -qq update
+- sudo apt-get install -y mlton
+- git clone git://github.com/standardml/smackage
+- cd smackage
+- make mlton
+- bin/smackage refresh
+- export PATH=$HOME/.smackage/bin:$PATH
+- bin/smackage get smackage
+- bin/smackage make smackage mlton
+- bin/smackage make smackage install
+- cd ..
+- rm -rf $HOME/smackage
+- mkdir -p $HOME/.mlton
+- echo "SMACKAGE $HOME/.smackage/lib" > $HOME/.mlton/mlb-path-map
+- echo "aplparse git git://github.com/melsman/aplparse.git" >> $HOME/.smackage/sources.local
+- echo "kitlib git git://github.com/melsman/kitlib.git" >> $HOME/.smackage/sources.local
+- smackage refresh
+- smackage get aplparse
+- smackage get kitlib
 install:
- - export MLCOMP="mlton -mlb-path-map $HOME/.mlton/mlb-path-map"
- - make aplt-mlton
-
+- export MLCOMP="mlton -mlb-path-map $HOME/.mlton/mlb-path-map"
+- make aplt-mlton
+- make dist
 script:
- - make test
- - make -C tests testc
+- make test
+- make -C tests testc
+deploy:
+  provider: releases
+  api_key:
+    secure: fOdxFuZH6zvsT1sLTNdn4BwJGLi3HABCj8zQ0ElnP/60ETjk571ExnuVE0jWxdukYi4LNx2YYsrG7yALbu1gyLr/apaEuTrPoZ2XxHiMKsu6zYwjDCsLpEdv8OSL6PCI81YP/iS2pDUbjtqOwggcwD7QKRHidsR32tAv07SIads=
+  file: dist/apltail.tgz
+  on:
+    repo: melsman/apltail

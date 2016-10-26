@@ -14,6 +14,8 @@ FILES=src/flags.sml src/flags.mlb src/aplt.sml src/aplt.mlb \
 
 SMACKAGE ?= $(HOME)/.smackage/lib
 APLPARSE_LIB ?= $(SMACKAGE)/aplparse/v2.8
+PREFIX ?= .
+DESTDIR ?= $(PREFIX)/dist
 
 .PHONY: all
 all: aplt
@@ -29,6 +31,24 @@ aplt-mlton: src/aplt.mlb
 .PHONY: install
 install:
 	cp -p aplt $(DESTDIR)/bin/
+
+.PHONY: dist
+dist:
+	rm -rf dist
+	mkdir dist
+	mkdir dist/apltail
+	mkdir dist/apltail/bin
+	mkdir dist/apltail/lib
+	mkdir dist/apltail/include
+	mkdir dist/apltail/tests
+	mkdir dist/apltail/doc
+	cp -p aplt dist/apltail/bin/
+	cp -p lib/prelude.apl dist/apltail/lib/
+	cp -p include/apl.h dist/apltail/include/
+	cp -p tests/Makefile tests/*.{out.ok,apl} tests/read{,intvec,doublevec}file.txt dist/apltail/tests/
+	cp -p MIT_LICENSE.md dist/apltail/doc/MIT_LICENSE
+	cp -p doc/README_BIN dist/apltail/doc/README
+	(cd dist; tar -czf apltail.tgz apltail)
 
 .PHONY: test
 test: aplt Makefile
