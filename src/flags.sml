@@ -29,7 +29,7 @@ fun runargs {unaries: string list,
               | f :: rest => 
                 if isFlag f then loop rest ((f,NONE)::acc)
                 else run(rev acc, args)
-              | nil => (print(usage () ^ "\n"); OS.Process.exit OS.Process.failure)
+              | nil => (print(usage () ^ "\n"); OS.Process.exit OS.Process.success)
     in loop (CommandLine.arguments()) nil
     end
 
