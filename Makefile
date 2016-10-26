@@ -43,7 +43,7 @@ aplt: src/aplt.mlb $(FILES) src/aplt.sml src/version.sml
 #	$(MLCOMP) -mlb-path-var 'APLPARSE_LIB $(APLPARSE_LIB)' -output $@ $<
 
 .PHONY: aplt-mlton
-aplt-mlton: src/aplt.mlb
+aplt-mlton: src/aplt.mlb src/version.sml
 	$(MLCOMP) -mlb-path-var 'APLPARSE_LIB $(APLPARSE_LIB)' -output aplt $<
 
 .PHONY: install
