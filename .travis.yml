@@ -37,7 +37,7 @@ deploy:
   provider: releases
   api_key:
     secure: fOdxFuZH6zvsT1sLTNdn4BwJGLi3HABCj8zQ0ElnP/60ETjk571ExnuVE0jWxdukYi4LNx2YYsrG7yALbu1gyLr/apaEuTrPoZ2XxHiMKsu6zYwjDCsLpEdv8OSL6PCI81YP/iS2pDUbjtqOwggcwD7QKRHidsR32tAv07SIads=
-  file: dist/apltail-$DISTPOSTFIX.tgz
+  file: dist/apltail-$TRAVIS_OS_NAME.tgz
   skip_cleanup: true
   on:
     tags: true
