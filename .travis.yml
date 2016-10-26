@@ -1,8 +1,13 @@
 language: c
+os:
+ - linux
+ - osx
 sudo: true
 before_install:
-- sudo apt-get -qq update
-- sudo apt-get install -y mlton
+- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update ; fi
+- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install mlton ; fi
+- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -qq update ; fi
+- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -y mlton ; fi
 - git clone git://github.com/standardml/smackage
 - cd smackage
 - make mlton
@@ -23,7 +28,7 @@ before_install:
 install:
 - export MLCOMP="mlton -mlb-path-map $HOME/.mlton/mlb-path-map"
 - make aplt-mlton
-- make dist
+- DISTPOSTFIX=$TRAVIS_OS_NAME make dist
 script:
 - make test
 - make -C tests testc
@@ -31,7 +36,7 @@ deploy:
   provider: releases
   api_key:
     secure: fOdxFuZH6zvsT1sLTNdn4BwJGLi3HABCj8zQ0ElnP/60ETjk571ExnuVE0jWxdukYi4LNx2YYsrG7yALbu1gyLr/apaEuTrPoZ2XxHiMKsu6zYwjDCsLpEdv8OSL6PCI81YP/iS2pDUbjtqOwggcwD7QKRHidsR32tAv07SIads=
-  file: dist/apltail.tgz
+  file: dist/apltail-$DISTPOSTFIX.tgz
   skip_cleanup: true
   on:
     tags: true

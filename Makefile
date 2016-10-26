@@ -32,23 +32,26 @@ aplt-mlton: src/aplt.mlb
 install:
 	cp -p aplt $(DESTDIR)/bin/
 
+DISTPOSTFIX?=linux
+DISTNAME=apltail-$(DISTPOSTFIX)
+
 .PHONY: dist
 dist:
 	rm -rf dist
 	mkdir dist
-	mkdir dist/apltail
-	mkdir dist/apltail/bin
-	mkdir dist/apltail/lib
-	mkdir dist/apltail/include
-	mkdir dist/apltail/tests
-	mkdir dist/apltail/doc
-	cp -p aplt dist/apltail/bin/
-	cp -p lib/prelude.apl dist/apltail/lib/
-	cp -p include/apl.h dist/apltail/include/
-	cp -p tests/Makefile tests/*.out.ok tests/*.apl tests/*.txt dist/apltail/tests/
-	cp -p MIT_LICENSE.md dist/apltail/doc/MIT_LICENSE
-	cp -p doc/README_BIN dist/apltail/doc/README
-	(cd dist; tar -czf apltail.tgz apltail)
+	mkdir dist/$(DISTNAME)
+	mkdir dist/$(DISTNAME)/bin
+	mkdir dist/$(DISTNAME)/lib
+	mkdir dist/$(DISTNAME)/include
+	mkdir dist/$(DISTNAME)/tests
+	mkdir dist/$(DISTNAME)/doc
+	cp -p aplt dist/$(DISTNAME)/bin/
+	cp -p lib/prelude.apl dist/$(DISTNAME)/lib/
+	cp -p include/apl.h dist/$(DISTNAME)/include/
+	cp -p tests/Makefile tests/*.out.ok tests/*.apl tests/*.txt dist/$(DISTNAME)/tests/
+	cp -p MIT_LICENSE.md dist/$(DISTNAME)/doc/MIT_LICENSE
+	cp -p doc/README_BIN dist/$(DISTNAME)/doc/README
+	(cd dist; tar -czf $(DISTNAME).tgz $(DISTNAME))
 
 .PHONY: test
 test: aplt Makefile
