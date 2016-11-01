@@ -283,7 +283,6 @@ fun Zero () = 0
 fun Succ i = i + 1
 fun prjTuple i e = Prj_e(i,e)
 fun powerN f e1 e2 = Op_e("power",[mkFn1m f,e1,e2])
-
 structure Unsafe = struct
 type utuple = uexp
 type uexp = uexp

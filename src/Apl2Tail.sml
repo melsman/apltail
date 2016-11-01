@@ -291,10 +291,10 @@ fun compOpr2' (opi : INT * INT -> INT)
           | (Xs x1, Axs a2)  => ret(Axs(each (fn x => ret(opx(x1,x)))a2))
           | (Bs b1, e2)      => F(Is(b2i b1),e2)
           | (e1, Bs b2)      => F(e1,Is(b2i b2))
-          | (Is i1, e2)      => F(Ds(i2d i1),e2)
-          | (e1, Is i2)      => F(e1,Ds(i2d i2))
           | (Abs a1, e2)     => F(Ais(each (ret o b2i) a1),e2)
           | (e1, Abs a2)     => F(e1,Ais(each (ret o b2i) a2))
+          | (Is i1, e2)      => F(Ds(i2d i1),e2)
+          | (e1, Is i2)      => F(e1,Ds(i2d i2))
           | (Ais a1, e2)     => F(Ads(each (ret o i2d) a1),e2)
           | (e1, Ais a2)     => F(e1,Ads(each (ret o i2d) a2))
           | (Ds d1, e2)      => F(Xs(d2x d1),e2)
@@ -657,12 +657,14 @@ fun compBackslash (r : AplAst.reg) : tagged_exp list -> tagged_exp M =
 (* Compile power operator *)
 fun compPower (benchFlag:{bench:bool}) r f n =
     let
+        val power = fn a => (power a handle Fail s => compErr r s )
+        val upowerN = fn a => (Unsafe.upowerN a handle Fail s => compErr r s)
         fun getPowerScl () = if #bench benchFlag then bench else powerScl
         fun getCondScl () = if #bench benchFlag then (fn f => fn b => bench f (b2i b)) else condScl
         fun getPower () = if #bench benchFlag then compError "bench operators works only on scalar values"
                           else power
         fun getPowerN () = if #bench benchFlag then compError "bench operators works only on scalar values"
-                           else Unsafe.upowerN
+                           else upowerN
         fun unAis (Ais a) = SOME a
           | unAis _ = NONE
         fun unIs (Is i) = SOME i
@@ -785,7 +787,7 @@ fun compPower (benchFlag:{bench:bool}) r f n =
                    | (DOUBLE_C,BOOL_C,m) => lift_arg(DOUBLE_C,INT_C,lift_arg(INT_C,BOOL_C,m))
                    | (COMPLEX_C,INT_C,m) => lift_arg(COMPLEX_C,DOUBLE_C,lift_arg(DOUBLE_C,INT_C,m))
                    | (COMPLEX_C,BOOL_C,m) => lift_arg(COMPLEX_C,INT_C,lift_arg(INT_C,BOOL_C,m))
-                   | _ => compErr r "lift_arg - failed to lift expression"
+                   | _ => compErr r ("cannot lift expression of class " ^ ppClass te ^ " to expression of class " ^ ppClass t)
         fun lift_args (ts,tes,es) =
             case (ts,tes,es) of
                 (nil,nil,nil) => nil

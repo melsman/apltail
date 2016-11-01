@@ -163,6 +163,7 @@ and unifPrjs nil prjs2 = prjs2
      else unifPrjs prjs1 ((i1,t1)::prjs2))
                                     
 and unif t1 t2 = URef.unify combT (t1,t2)
+                            handle Fail s => raise Fail (s ^ " when trying to unify " ^ prT (URef.!! t1) ^ " and " ^ prT (URef.!! t2))
 and unifs _ _ nil nil = ()
   | unifs t0 t0' (t::ts) (t'::ts') = (unif t t'; unifs t0 t0' ts ts')
   | unifs t0 t0' _ _ = raise Fail ("cannot unify tuple types " ^ prT t0 ^ " and " ^ prT t0')

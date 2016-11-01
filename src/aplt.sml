@@ -136,7 +136,7 @@ fun usage() =
     " -oc file       : write LAILA program to file\n" ^
     " -c             : compile only (no evaluation)\n" ^
     " -noopt         : disable optimizations\n" ^
-    " -materialize   : disable materialization of arrays\n" ^
+    " -materialize   : enable materialization of arrays\n" ^
     " -p_tail        : print TAIL program\n" ^
     " -p_types       : print types in TAIL code\n" ^
     " -p_laila       : print LAILA code\n" ^
