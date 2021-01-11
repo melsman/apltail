@@ -1,18 +1,16 @@
 language: c
-dist: xenial
 os:
  - linux
  - osx
+addons:
+  apt:
+    packages: mlton make
+  homebrew:
+    packages: mlton mlkit
 sudo: true
 before_install:
- - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update ; fi
- - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then rm -f /usr/local/include/c++ ; fi
- - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install mlkit ; fi
- - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install mlton ; fi
  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then curl -L -o smlpkg-bin-dist-darwin.tgz https://github.com/diku-dk/smlpkg/releases/download/v0.1.3/smlpkg-bin-dist-darwin.tgz ; fi
  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then tar xzf smlpkg-bin-dist-darwin.tgz ; fi
- - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -qq update ; fi
- - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -y mlton make ; fi
  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then curl -L -o smlpkg-bin-dist-linux.tgz https://github.com/diku-dk/smlpkg/releases/download/v0.1.3/smlpkg-bin-dist-linux.tgz ; fi
  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then tar xzf smlpkg-bin-dist-linux.tgz ; fi
 install:
