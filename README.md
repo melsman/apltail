@@ -1,7 +1,7 @@
 ## apltail: An APL Compiler targeting a Typed Array Intermediate Language
 
 This software implements an APL compiler in Standard ML. The compiler
-targets a [typed array intermediate language](http://www.elsman.com/pdf/array14_final.pdf) [1]. The
+targets a [typed array intermediate language](http://elsman.com/pdf/array14_final.pdf) [1]. The
 executable also contains an interpreter for TAIL and a compiler from
 TAIL into C.
 
@@ -181,5 +181,5 @@ This software is published under the [MIT License](MIT_LICENSE.md).
 a Typed Intermediate Language__. In _ACM SIGPLAN International
 Workshop on Libraries, Languages and Compilers for Array Programming
 (ARRAY'14)_. Edinburgh, UK. June,
-2014. [pdf](http://www.elsman.com/pdf/array14_final.pdf),
-[bibtex](http://www.elsman.com//pdf/array14_final.bibtex.txt).
+2014. [pdf](http://elsman.com/pdf/array14_final.pdf),
+[bibtex](http://elsman.com//pdf/array14_final.bibtex.txt).
