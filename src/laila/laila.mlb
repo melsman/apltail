@@ -1,6 +1,6 @@
 local
    $(SML_LIB)/basis/basis.mlb
-   $(SMACKAGE)/kitlib/v1/uref/uref.mlb
+   ../lib/github.com/diku-dk/sml-uref/uref.mlb
    ../util.mlb
    ../statistics.mlb
 in

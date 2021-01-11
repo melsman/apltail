@@ -1,9 +1,9 @@
 #MLKIT=SML_LIB=/Users/mael/gits/mlkit /Users/mael/gits/mlkit/bin/mlkit
-#MLCOMP ?= $(MLKIT) -mlb-path-map $(HOME)/.mlkit/mlb-path-map
 
-MLCOMP ?= mlkit
+#MLCOMP ?= mlkit
 
-#MLCOMP ?= mlton -mlb-path-map $(HOME)/.mlton/mlb-path-map
+MLCOMP ?= mlton
+SMLPKG ?= smlpkg
 
 FILES=src/flags.sml src/flags.mlb src/aplt.sml src/aplt.mlb \
   src/apl2tail.mlb src/Apl2Tail.sml src/Tail2Laila.sml \
@@ -12,8 +12,6 @@ FILES=src/flags.sml src/flags.mlb src/aplt.sml src/aplt.mlb \
   $(shell ls -1 src/il/*.sig src/il/*.sml src/il/*.mlb) \
   $(shell ls -1 src/laila/*.sig src/laila/*.sml src/laila/*.mlb)
 
-SMACKAGE ?= $(HOME)/.smackage/lib
-APLPARSE_LIB ?= $(SMACKAGE)/aplparse/v2.8
 PREFIX ?= .
 DESTDIR ?= $(PREFIX)/dist
 
@@ -39,12 +37,7 @@ src/version.sml: src/version~
 	@echo Git version $(GIT_VERSION) $(GIT_DATE)
 
 aplt: src/aplt.mlb $(FILES) src/aplt.sml src/version.sml
-	APLPARSE_LIB=$(APLPARSE_LIB) $(MLCOMP) -output $@ $<
-#	$(MLCOMP) -mlb-path-var 'APLPARSE_LIB $(APLPARSE_LIB)' -output $@ $<
-
-.PHONY: aplt-mlton
-aplt-mlton: src/aplt.mlb src/version.sml
-	$(MLCOMP) -mlb-path-var 'APLPARSE_LIB $(APLPARSE_LIB)' -output aplt $<
+	$(MLCOMP) -output $@ $<
 
 .PHONY: install
 install:
@@ -74,6 +67,10 @@ dist:
 .PHONY: test
 test: aplt Makefile
 	$(MAKE) -C tests test
+
+.PHONY: prepare
+prepare:
+	(cd src; $(SMLPKG) sync)
 
 .PHONY: clean
 clean: Makefile

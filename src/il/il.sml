@@ -37,7 +37,7 @@ datatype value =
        | BoolV of bool
        | CharV of word
        | ArrV of value option ref vector
-datatype Unop = Neg | I2D | D2I | B2I | Not | Floor | Ceil | Ln | Sin | Cos | Tan | Expd | Sqrt | Roll | Now | Strlen 
+datatype Unop = Neg | I2D | D2I | B2I | Not | Floor | Ceil | Ln | Sin | Cos | Tan | Expd | Sqrt | Roll | Now | Strlen
 datatype Binop = Add | Sub | Mul | Divv | Modv | Resi | Mini | Maxi | Mind | Maxd | Lt | Lteq | Eq | Andb | Orb | Xorb | Powd | Ori | Andi | Xori | Shli | Shri | Shari
 datatype Exp =
          Var of Name.t
@@ -51,7 +51,7 @@ datatype Exp =
        | Vect of Type * Exp list
        | Binop of Binop * Exp * Exp
        | Unop of Unop * Exp
-                
+
 datatype Stmt = For of Exp * Name.t * Block  (* name is a binding occurence *)
               | Ifs of Exp * Block * Block
               | Assign of Name.t * Exp
@@ -200,7 +200,7 @@ signature PROGRAM = sig
   val eqb   : e * e -> e
   val neqb  : e * e -> e
 
-  val i2d   : e -> e   (* miscellaneous operations *) 
+  val i2d   : e -> e   (* miscellaneous operations *)
   val d2i   : e -> e
   val b2i   : e -> e
   val ceil  : e -> e
@@ -251,7 +251,7 @@ signature PROGRAM = sig
   (* static evaluation *)
   datatype info = EqI of bool * e
                 | LtI of e
-                | GtEqI of e 
+                | GtEqI of e
   type env = (Name.t * info) list
 
   (* static evaluation *)
@@ -312,7 +312,7 @@ in
         | F => false
         | Var _ => false
         | I _ => false
-        | D _ => false        
+        | D _ => false
         | C _ => false
         | Subs _ => false
         | Vect (_,nil) => false
@@ -322,14 +322,14 @@ in
   structure N = NameSet
   fun uses e acc =
       case e of
-         Var n => N.insert (acc,n)
+         Var n => N.insert (n,acc)
        | I _ => acc
        | D _ => acc
        | T => acc
        | F => acc
        | C _ => acc
        | If(e0,e1,e2) => uses e0 (uses e1 (uses e2 acc))
-       | Subs (n,e) => uses e (N.insert (acc,n))
+       | Subs (n,e) => uses e (N.insert (n,acc))
        | Alloc (_,e) => uses e acc
        | Vect (t,es) => usess es acc
        | Binop(_,e1,e2) => uses e1 (uses e2 acc)
@@ -351,7 +351,7 @@ in
         | IL.Decl(n,_) => N.empty
         | IL.Assign(n,_) => N.singleton n
         | IL.AssignArr(n,_,_) => N.singleton n
-        | IL.For(_,n,body) => N.remove (defs_ss body,n)
+        | IL.For(_,n,body) => N.remove (n,defs_ss body)
         | IL.Ifs(_,ss1,ss2) => N.union(defs_ss ss1,defs_ss ss2)
         | IL.Printf _ => N.empty
         | IL.Sprintf (n,_,_) => N.singleton n
@@ -372,7 +372,7 @@ in
         | IL.Decl(n,NONE) => N.empty
         | IL.Assign(n,e) => uses e N.empty
         | IL.AssignArr(n,e1,e2) => uses e1 (uses e2 (N.singleton n))
-        | IL.For(e,n,body) => uses e (N.remove(uses_ss body,n))
+        | IL.For(e,n,body) => uses e (N.remove(n,uses_ss body))
         | IL.Ifs(e,ss1,ss2) => uses e (N.union(uses_ss ss1,uses_ss ss2))
         | IL.Printf(_,es) => usess es N.empty
         | IL.Sprintf(n,_,es) => usess es N.empty                      (* notice: n is not used by the statement *)
@@ -414,23 +414,23 @@ in
 
   fun If(IL.T,b,c) = b
     | If(IL.F,b,c) = c
-    | If(a,b,c) = 
-      let fun default() = 
-              if IL.eq(b,c) then b 
+    | If(a,b,c) =
+      let fun default() =
+              if IL.eq(b,c) then b
               else if IL.eq(b, IL.T) andalso IL.eq(a,c) then a
               else if IL.eq(c, IL.F) andalso IL.eq(a,b) then a
               else if IL.eq(b, IL.F) andalso IL.eq(a,c) then IL.F
               else if IL.eq(c, IL.T) andalso IL.eq(a,b) then IL.T
-              else 
+              else
                 case c of
                   IL.If(d,e,f) => if eq(a,d) then If(a,b,f) else IL.If(a,b,c)
                 | _ => IL.If(a,b,c)
       in case a of
-           IL.Binop(Eq,IL.If(x,y,z),e) => 
+           IL.Binop(Eq,IL.If(x,y,z),e) =>
            (* If(If(x,y,z)==y,s,t) => If(x,s,t) and S(z)<>S(y), for all S *)
            if eq(y,e) andalso nevereq(z,y) then If(x,b,c)
            else default()
-         | IL.Binop(Eq,c',b') => if eq(c,c') andalso eq(b,b') then c 
+         | IL.Binop(Eq,c',b') => if eq(c,c') andalso eq(b,b') then c
                                  else default()
          | _ => default()
       end
@@ -444,7 +444,7 @@ in
   fun unD (IL.D n) = SOME n
     | unD _ = NONE
   fun B true = T
-    | B false = F 
+    | B false = F
   fun unB T = SOME true
     | unB F = SOME false
     | unB _ = NONE
@@ -465,7 +465,7 @@ in
                         | NONE => 0.0
           in (SOME(IL.D(if neg then Real.-(a,d) else Real.+(a,d))), fn x => x)
           end
-        | IL.Binop(IL.Add,a,b) => 
+        | IL.Binop(IL.Add,a,b) =>
           let val (acc, f) = comp0 neg a acc
               val (acc, g) = comp0 neg b acc
           in (acc, f o g)
@@ -474,7 +474,7 @@ in
           let val (acc, f) = comp0 neg a acc
               val (acc, g) = comp0 (Bool.not neg) b acc
           in (acc, f o g)
-          end        
+          end
         | IL.Var _ => (acc, fn x => Binop(if neg then IL.Sub else IL.Add, x, t))
         | _ => raise Fail "no"
 
@@ -490,8 +490,8 @@ in
   and a        - (IL.I 0) = a
     | (IL.I a) - (IL.I b) = I(Int32.-(a,b))
     | (IL.D a) - (IL.D b) = D(Real.-(a,b))
-    | (Binop(Sub,IL.I a,b)) - (IL.I c) = I(Int32.-(a,c)) - b 
-    | (Binop(Sub,a,IL.I b)) - (IL.I c) = a - I(Int32.+(b,c)) 
+    | (Binop(Sub,IL.I a,b)) - (IL.I c) = I(Int32.-(a,c)) - b
+    | (Binop(Sub,a,IL.I b)) - (IL.I c) = a - I(Int32.+(b,c))
     | (IL.If(x,y,z)) - (IL.I a) = If(x,y-(I a),z-(I a))
     | (Binop(Add,a,IL.I b)) - (IL.I c) = a + (I (Int32.-(b,c)))
     | (Binop(Add,IL.I a,b)) - (IL.I c) = I (Int32.-(a,c)) + b
@@ -551,7 +551,7 @@ in
       end
 
   fun mini (IL.I a, IL.I b) = I(if a < b then a else b)
-    | mini (y as IL.I d, x as IL.If(a,IL.I b,IL.I c)) = 
+    | mini (y as IL.I d, x as IL.If(a,IL.I b,IL.I c)) =
       if Int32.<=(b,d) andalso Int32.<=(c,d) then x else
       if Int32.<=(d,b) andalso Int32.<=(d,c) then y else Binop(Mini,y,x)
     | mini (a, b) = if eq(a,b) then a else Binop(Mini,a,b)
@@ -560,7 +560,7 @@ in
     | mind (a, b) = if eq(a,b) then a else Binop(Mind,a,b)
 
   fun maxi (IL.I a, IL.I b) = I(if a > b then a else b)
-    | maxi (x as IL.If(a,IL.I b,IL.I c), y as IL.I d) = 
+    | maxi (x as IL.If(a,IL.I b,IL.I c), y as IL.I d) =
       if Int32.>=(b,d) andalso Int32.>=(c,d) then x else
       if Int32.>=(d,b) andalso Int32.>=(d,c) then y else Binop(Maxi,x,y)
     | maxi (a, b) = if eq(a,b) then a else Binop(Maxi,a,b)
@@ -575,8 +575,8 @@ in
       in case b of
              IL.D x => if Real.==(x,0.5) then sqrt a
                        else default()
-           | _ => 
-             if optlevel() > 0 then 
+           | _ =>
+             if optlevel() > 0 then
                case (a,b) of
                    (IL.D a,IL.D b) => IL.D(Math.pow(a,b))
                  | _ => default()
@@ -646,8 +646,8 @@ in
     | (Binop(Mul,IL.I 2,_)) == (IL.I 1) = IL.F
     | (IL.Binop(Add,IL.I a,b)) == (IL.I c) = b == I(Int32.-(c,a))
     | (IL.Binop(Add,a,IL.I b)) == (IL.I c) = a == I(Int32.-(c,b))
-    | a == b = 
-      if eq(a,b) then IL.T 
+    | a == b =
+      if eq(a,b) then IL.T
       else
         case a of
           IL.If(e,x,y) =>
@@ -657,7 +657,7 @@ in
                   IL.If(e',x',y') => if eq(x,x') andalso eq(y,y') andalso nevereq(x,y) then e == e'
                                      else Binop(Eq,a,b)
                 | _ => Binop(Eq,a,b))
-        | _ => case b of 
+        | _ => case b of
                  IL.If _ => b == a
                | _ => Binop(Eq,a,b)
 
@@ -754,7 +754,7 @@ fun Ifs(e,ss1,ss2) ss =
     | _ =>
       case (ss1, ss2) of
         (nil, nil) => ss
-      | _ => 
+      | _ =>
         if IL.eq_ss(ss1, ss2) then ss1 @ ss
         else IL.Ifs(e,ss1,ss2) :: ss
 
@@ -762,7 +762,7 @@ fun ForOptimize optimize (e,n,body) ss =
     case e of
       IL.I 0 => optimize ss
     | IL.I 1 => optimize (IL.Decl(n,SOME(IL.I 0)) :: body @ ss)
-    | _ => 
+    | _ =>
       let fun default() = IL.For (e,n,body) :: optimize ss
       in if isEmp body then optimize ss
          else (*
@@ -781,15 +781,15 @@ fun ForOptimize optimize (e,n,body) ss =
 
 val For = ForOptimize (fn x => x)
 
-local open IL infix := ::= 
+local open IL infix := ::=
 in
-  fun n := e = 
+  fun n := e =
      if IL.eq(e, Var n) then empty
      else Assign(n,e)
-  fun (n,i) ::= e = AssignArr(n, i, e)      
+  fun (n,i) ::= e = AssignArr(n, i, e)
 end
 
-fun defs ss : N.set = 
+fun defs ss : N.set =
     case ss of
       nil => N.empty
     | s::ss =>
@@ -798,16 +798,16 @@ fun defs ss : N.set =
       | IL.Ret e => N.empty
       | IL.Halt _ => N.empty
       | IL.Free n => defs ss
-      | IL.Decl(n,e) => N.remove (defs ss,n)
-      | IL.Assign(n,e) => N.insert (defs ss,n)
+      | IL.Decl(n,e) => N.remove (n,defs ss)
+      | IL.Assign(n,e) => N.insert (n,defs ss)
       | IL.AssignArr(n,e0,e) => defs ss
       | IL.For(e,n,body) =>
-        let val ns = N.remove (defs body,n)
+        let val ns = N.remove (n,defs body)
         in N.union (ns,defs ss)
         end
       | IL.Ifs(e,ss1,ss2) => N.union(N.union(defs ss1,defs ss2),defs ss)
       | IL.Printf _ => defs ss
-      | IL.Sprintf (n,_,_) => N.insert(defs ss,n)
+      | IL.Sprintf (n,_,_) => N.insert(n,defs ss)
       | IL.ReadIntVecFile (n1,n2,_) => N.union(defs ss,N.fromList[n1,n2])
       | IL.ReadDoubleVecFile (n1,n2,_) => N.union(defs ss,N.fromList[n1,n2])
       | IL.Comment _ => defs ss
@@ -817,9 +817,9 @@ fun rm_declsU U ss =
           | rm (s::ss) =
             let val (ss,U) = rm ss
                 fun uds_s s = N.union(uses_s s,defs_s s)
-            in case s of 
+            in case s of
                  IL.Decl (n,_) =>
-                 if N.member(U,n) then
+                 if N.member(n,U) then
                    (s::ss,N.union(U,uds_s s))
                  else (ss,U)
                | _ => (s::ss,N.union(U,uds_s s))
@@ -838,7 +838,7 @@ fun rm_decls0 ss =
 infix ::=
 datatype info = EqI of bool * e   (* true ==> e *must* be inlined *)
               | LtI of e
-              | GtEqI of e 
+              | GtEqI of e
 
 fun names_info (EqI(_,e)) = uses e N.empty
   | names_info (LtI e) = uses e N.empty
@@ -846,14 +846,14 @@ fun names_info (EqI(_,e)) = uses e N.empty
 
 type env = (Name.t * info) list
 val env_empty : env = nil
-fun names_env E = 
+fun names_env E =
   foldl (fn ((n,i),a) => N.union(N.singleton n, N.union(a,names_info i))) N.empty E
 fun assert_name (E, n) =
-    if N.member(names_env E,n) then raise Fail ("assert_name:" ^ Name.pr n)
+    if N.member(n,names_env E) then raise Fail ("assert_name:" ^ Name.pr n)
     else ()
 fun dom (E:env) = N.fromList(map #1 E)
 fun env_cut E names =
-    List.filter (fn (n,i) => Bool.not(N.member (names,n)) andalso 
+    List.filter (fn (n,i) => Bool.not(N.member (n,names)) andalso
                              N.isEmpty(N.intersect(names,names_info i))) E
 fun env_lookeq E n =
     case E of nil => NONE
@@ -912,7 +912,7 @@ fun eq E0 e1 e2 =
               | (_, _ :: E) => look E e d
               | _ => NONE
     in case e2 of
-           IL.I d => (case look E0 e1 d of 
+           IL.I d => (case look E0 e1 d of
                           SOME b => B b
                         | _ => default())
          | _ => default()
@@ -932,8 +932,8 @@ fun se_e (E:env) (e:e) : e =
     | IL.If(e0,e1,e2) => If(se_e E e0, se_e E e1, se_e E e2)
     | IL.Subs(n,e) =>
       let val e = se_e E e
-      in case (env_lookeq E n, e) of 
-             (SOME (_,IL.Vect(_,es)), IL.I i) => 
+      in case (env_lookeq E n, e) of
+             (SOME (_,IL.Vect(_,es)), IL.I i) =>
              (List.nth (es,Int32.toInt i) handle _ => raise Fail "se_e: Subs")
            | _ => Subs(n,e)
       end
@@ -987,19 +987,19 @@ fun se_ss (E:env) (ss:ss) : ss =
         IL.Nop => se_ss E ss
       | IL.Ret e => Ret(se_e E e)::nil  (* ss2 is dead *)
       | IL.Halt str => Halt str::nil    (* ss2 is dead *)
-      | IL.Free n => 
+      | IL.Free n =>
         let val ss = se_ss E ss
         in Free n :: ss
         end
       | IL.Decl(n,SOME e) =>
         let val e = se_e E e
 	    (* val () = assert_name(E,n) *)
-            val E2 = 
+            val E2 =
                 case (IL.Name.typeOf n, e) of
                     (IL.Vec _, IL.Vect _) => (n,EqI(true,e))::E
                   | (IL.Vec _, _) => E
                   | (IL.Int, IL.Binop(IL.Modv, _, e)) => (n, LtI e)::E
-                  | (IL.Int, IL.Binop(IL.Add, e, IL.Var n')) => 
+                  | (IL.Int, IL.Binop(IL.Add, e, IL.Var n')) =>
                     if env_gteq0 E n' then (n, GtEqI e)::E else E
                   | _ => if simpleExp e then (n,EqI(true,e))::E
                          else case e of IL.Binop(IL.Mul,a,b) => (n,EqI(false,e))::E
@@ -1025,7 +1025,7 @@ fun se_ss (E:env) (ss:ss) : ss =
         end
       | IL.AssignArr(n,e0,e) =>
         let val e0 = se_e E e0
-            val e = se_e E e                    
+            val e = se_e E e
             val ss = se_ss E ss
         in ((n,e0) ::= e) :: ss
         end
@@ -1074,23 +1074,23 @@ and peep ss =
     case ss of
       (s1 as IL.Decl(n,NONE)) :: (s2 as IL.Assign(n',e')) :: ss' =>
       ((* Util.prln ("peep candidate: " ^ Name.pr n ^ ", " ^ Name.pr n'); *)
-       if n = n' then 
+       if n = n' then
          ((*Util.prln ("peep: " ^ Name.pr n);*)
           peep(IL.Decl(n,SOME e') :: ss'))
        else peep(s2::s1::ss'))
     | IL.Decl(n,SOME e) :: IL.Assign(n',e') :: ss' =>
-       if n = n' then 
+       if n = n' then
          peep(IL.Decl(n,SOME(se_e [(n,EqI(true,e))] e')) :: ss')
        else ss
     | IL.Assign(n,e) :: IL.Assign(n',e') :: ss' =>
-       if n = n' then 
+       if n = n' then
          peep((n := (se_e [(n,EqI(true,e))] e')) :: ss')
        else ss
     | s :: IL.Nop :: ss => peep (s::ss)
     | IL.Nop :: ss => peep ss
-    | (s1 as IL.Decl(n,NONE)) :: (s2 as IL.Decl(_,SOME _)) :: ss' => 
+    | (s1 as IL.Decl(n,NONE)) :: (s2 as IL.Decl(_,SOME _)) :: ss' =>
       peep(s2::s1::ss')
-    | (s1 as IL.Decl(n,NONE)) :: (s2 as IL.Comment _) :: ss' => 
+    | (s1 as IL.Decl(n,NONE)) :: (s2 as IL.Comment _) :: ss' =>
       peep(s2::s1::ss')
     | _ => ss
 
@@ -1127,14 +1127,14 @@ fun ren E nil = nil
         let val n' = ren_n n
             val E' = (n,n')::E
         in IL.Decl(n',NONE) :: ren E' ss
-        end        
+        end
       | IL.Nop => ren E ss
       | IL.Ret e => Ret(ren_e E e)::nil  (* ss2 is dead *)
       | IL.Halt str => Halt str::nil     (* ss2 is dead *)
       | IL.Free n => Free (look E n) :: ren E ss
       | IL.Assign(n,e) => IL.Assign(look E n,ren_e E e) :: ren E ss
       | IL.AssignArr(n,e0,e) => IL.AssignArr(look E n,ren_e E e0,ren_e E e) :: ren E ss
-      | IL.For(e,n,body) => 
+      | IL.For(e,n,body) =>
         let val n' = ren_n n
             val E' = (n,n')::E
         in IL.For(ren_e E e,n',ren E' body) :: ren E ss
@@ -1147,8 +1147,8 @@ fun ren E nil = nil
       | IL.ReadDoubleVecFile(n1,n2,e) =>
         ReadDoubleVecFile(look E n1, look E n2, ren_e E e) :: ren E ss
       | IL.Comment s => Comment s :: ren E ss
-  
+
 fun rename ss = ren nil ss
-          
+
 
 end

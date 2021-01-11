@@ -34,7 +34,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   type var = {id : string,
               mutable : bool ref}
   local val idCounter = ref 0
-  in fun newVar() = 
+  in fun newVar() =
          { id = "v" ^ Int.toString (!idCounter),
            mutable = ref false}
          before idCounter := !idCounter + 1
@@ -43,9 +43,9 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                          else #id v
   end
 
-  structure FM = OrderFinMap(struct type t = var 
-                                    fun compare (v1:t,v2:t) = String.compare(#id v1,#id v2)
-                             end)
+  structure FM = OrderMap(struct type t = var
+                                 fun compare (v1:t,v2:t) = String.compare(#id v1,#id v2)
+                          end)
 
   fun i32d i =
       case Real.fromString(Int32.toString i) of
@@ -61,7 +61,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | NONE =>
           case unS t of
               SOME (bt,_) => bt
-            | NONE => 
+            | NONE =>
               let val bt = TyVarB()
               in case unify t (Arr bt (rnk 0)) of
                      ERROR s' => raise Fail (s' ^ " in " ^ s)
@@ -69,7 +69,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
               end
 
   fun unUnaryFun s ty =
-      let fun err t = 
+      let fun err t =
               raise Fail ("expected function type, but got " ^ prType t)
       in case unFun ty of
              SOME (t1,t2) =>
@@ -79,7 +79,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
       end
 
   fun unBinFun s ty =
-      let fun err t = 
+      let fun err t =
               raise Fail ("expected function type, but got " ^ prType t)
       in case unFun ty of
              SOME (t1,t) =>
@@ -97,18 +97,18 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | NONE =>
       case unVcc t of
           SOME (bt,_) => (bt,rnk 1)
-        | NONE => 
+        | NONE =>
       case unSV t of
           SOME (bt,_) => (bt,rnk 1)
         | NONE =>
       case unS t of
           SOME (bt,_) => (bt,rnk 0)
-        | NONE => 
+        | NONE =>
           let val tv = TyVarB()
               val r = RnkVar()
           in case unify t (Arr tv r) of
                  SUCCESS => (tv,r)
-               | ERROR _ => 
+               | ERROR _ =>
                  raise Fail ("expecting array type, but got "
                              ^ prType t ^ " in " ^ s)
           end
@@ -121,7 +121,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
               val r = RnkVar()
           in case unify t (S tv r) of
                  SUCCESS => (tv,r)
-               | ERROR _ => 
+               | ERROR _ =>
                  raise Fail ("expecting singleton type, but got "
                              ^ prType t ^ " in " ^ s)
           end
@@ -171,7 +171,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   val assert = assert0 unify
   val assertR = assert0 unifyR
   val assertB = assert0 unifyB
-  
+
   val assert_sub = assert0 subtype
 
   fun isBinOpIII opr =
@@ -182,7 +182,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
 
   fun isBinOpXXX opr =
       Util.listContains opr ["addx","subx","mulx"]
-                        
+
   fun isBinOpIIB opr =
       Util.listContains opr ["lti","ltei","eqi","gti","gtei"]
 
@@ -216,17 +216,17 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   fun tyVc ts =
       case ts of
           nil => Vcc (TyVarB()) (rnk 0)
-        | _ => 
+        | _ =>
           let val oneInt = List.foldl (fn (e,a) => a orelse isInt' e) false ts
               val oneBool = List.foldl (fn (e,a) => a orelse isBool' e) false ts
               val t1 = hd ts
-              val btOpt = if oneInt then 
+              val btOpt = if oneInt then
                             (List.app (fn t => assert_sub "vector" t Int) ts;
                              SOME IntB)
                           else if oneBool then
                             (List.app (fn t => assert_sub "vector" t Bool) ts;
                              SOME BoolB)
-                          else 
+                          else
                             (List.app (fn t => assert "vector" t t1) (tl ts);
                              NONE)
           in case btOpt of
@@ -236,7 +236,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                                   SOME (bt,r) => SV bt r
                                 | NONE => Vcc bt (rnk 1))
                     | _ => Vcc bt (rnk(length ts)))
-               | NONE => 
+               | NONE =>
                  let val (bt,r) = unArr' "vector expression" t1
                      val () = assertR "vector expression" r (rnk 0)
                  in Arr bt (rnk 1)                    (* vector type *)
@@ -249,7 +249,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | NONE => case unSV t of
                       SOME (bt,_) => SOME (bt,rnk 1)
                     | NONE => NONE
-                                  
+
   fun unVec t =
       case unVec0 t of
           NONE => NONE
@@ -284,7 +284,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
       end
 
   fun type_first sh t =
-      let fun default() = 
+      let fun default() =
               if sh then raise Fail "firstV expects argument of shape type"
               else let val (bt,_) = unArr' "disclose argument" t
                    in Arr bt (rnk 0)
@@ -318,7 +318,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
       let fun default () =
               if sh then raise Fail "dropV expects arguments of singleton type and shape type"
               else let val (bt,r) = unArr' "drop" t2;
-                   in assert_sub "first argument to drop" t1 Int; 
+                   in assert_sub "first argument to drop" t1 Int;
                       Arr bt r
                    end
       in case (unSii t1, unVec t2) of
@@ -329,15 +329,15 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
   fun type_take sh t1 t2 =
       let fun default () =
               if sh then raise Fail "takeV expects arguments of singleton and shape types"
-              else (assert "take" t2 (Arr(TyVarB())(RnkVar()));            
+              else (assert "take" t2 (Arr(TyVarB())(RnkVar()));
                     t2)
       in case unSii t1 of
              SOME i => (case unArr t2 of
-                            SOME (bt, r) => 
+                            SOME (bt, r) =>
                             (case unRnk r of
                                  SOME 1 => Vcc bt (rnk(abs i))
                                | _ => default())
-                          | NONE => 
+                          | NONE =>
                             case unVcc t2 of
                                 SOME (bt,_) => Vcc bt (rnk(abs i))
                               | NONE => case unSV t2 of
@@ -352,7 +352,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           fun default() =
               if opr = "eachV" then
                 raise Fail (opr ^ " expects argument as a sized vector type")
-              else let val (bt,r) = unArr' opr tv                  
+              else let val (bt,r) = unArr' opr tv
                    in assertB (opr ^ " elements") bt1 bt;
                       Arr bt2 r
                    end
@@ -366,7 +366,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
       in assertR opr r (rnk 1)
        ; VecB IntB
       end
-      
+
   fun tyOp opr ts =
       case (opr, ts) of
           ("zilde", nil) => tyVc nil
@@ -381,7 +381,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | ("shape", [t]) =>
           (case unVec0 t of
                SOME (_,n) => SV IntB n
-             | NONE => 
+             | NONE =>
                let val (_,r) = unArr' "shape argument" t
                in Vcc IntB r
                end)
@@ -395,7 +395,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | ("takeV",[t1,t2]) => type_take true t1 t2
         | ("drop",[t1,t2]) => type_drop false t1 t2
         | ("dropV",[t1,t2]) => type_drop true t1 t2
-        | ("rav",[t]) => 
+        | ("rav",[t]) =>
           let val (bt,_) = unArr' "argument to ravel" t
           in Arr bt (rnk 1)
           end
@@ -454,10 +454,10 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           in t'
           end
         | ("powerScl", [tf,tn,tv]) =>
-          let val (t1,t2) = 
+          let val (t1,t2) =
                   case unFun tf of
                       SOME(t1,t2) => (t1,t2)
-                    | NONE => raise Fail "expecting function type" 
+                    | NONE => raise Fail "expecting function type"
           in assert_sub opr tn Int
            ; assert opr t1 t2
            ; assert_sub opr tv t2
@@ -465,10 +465,10 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
            ; t2
           end
         | ("bench", [tf,tn,tv]) =>
-          let val (t1,t2) = 
+          let val (t1,t2) =
                   case unFun tf of
                       SOME(t1,t2) => (t1,t2)
-                    | NONE => raise Fail "expecting function type" 
+                    | NONE => raise Fail "expecting function type"
           in assert_sub opr tn Int
            ; assert opr t1 t2
            ; assert_sub opr tv t2
@@ -476,10 +476,10 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
            ; t2
           end
         | ("condScl", [tf,tb,tv]) =>
-          let val (t1,t2) = 
+          let val (t1,t2) =
                   case unFun tf of
                       SOME(t1,t2) => (t1,t2)
-                    | NONE => raise Fail "expecting function type" 
+                    | NONE => raise Fail "expecting function type"
           in assert_sub opr tb Bool
            ; assert opr t1 t2
            ; assert_sub opr tv t2
@@ -521,7 +521,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           in assertB "idx expects offset argument to be an integer" btsi IntB
            ; assertB "idx expects integer vector index argument" btis IntB
            ; assertR "idx expects vector index argument" ris (rnk 1)
-           ; Arr bta r 
+           ; Arr bta r
           end
 *)
         | ("idxassign", [tis,ta,tv]) =>
@@ -564,7 +564,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           (case unS t of
                SOME(bt,r) => (assertB opr bt BoolB; S IntB r)
              | NONE => raise Fail (opr ^ " expects argument of singleton integer type"))
-        | ("negi",[t]) => 
+        | ("negi",[t]) =>
           let fun default() = (assert_sub opr t Int; Int)
           in case unSii t of
                  NONE => default()
@@ -603,7 +603,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           (case unS t of
                SOME (bt, r) => (assertB opr IntB bt; Vcc IntB r)
              | NONE => raise Fail (opr ^ " expects argument of singleton type"))
-        | ("shapeV", [t]) => 
+        | ("shapeV", [t]) =>
           (case unVec0 t of
                SOME (_,n) => SV IntB n
              | NONE => raise Fail "shapeV expects argument of sized vector type")
@@ -612,12 +612,12 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                SOME _ => t1
              | NONE => raise Fail (opr ^ " expects argument to be a sized vector type"))
         | ("vrotateV",[t1,t2]) =>
-          (assert_sub opr t1 Int;           
+          (assert_sub opr t1 Int;
            case unVcc t2 of
                SOME _ => t2
              | NONE => raise Fail (opr ^ " expects second argument to be a sized vector type"))
         | ("rotateV",[t1,t2]) =>
-          (assert_sub opr t1 Int;           
+          (assert_sub opr t1 Int;
            case unVcc t2 of
                SOME _ => t2
              | NONE => raise Fail (opr ^ " expects second argument to be a sized vector type"))
@@ -646,7 +646,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
           else if isBinOpCCB opr then tyBin Char Char Bool opr t1 t2
           else raise Fail ("binary operator " ^ Util.quote opr ^ " not supported")
         | _ => raise Fail ("operator " ^ Util.quote opr ^ ", with "
-                           ^ Int.toString (length ts) 
+                           ^ Int.toString (length ts)
                            ^ " arguments, not supported")
   and tyBin t1 t2 t3 opr t1' t2' =
       (assert_sub ("first argument to " ^ opr) t1' t1;
@@ -704,7 +704,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                   in assert "tuple projection" t tupt
                    ; t0
                   end
-                | Op (opr, es, t0) => 
+                | Op (opr, es, t0) =>
                   let val ts = List.map (ty E) es
                       val t = tyOp opr ts
                   in assert_sub opr t t0
@@ -771,7 +771,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
       let val t0 = tyIff(typeOf c, typeOf e1, typeOf e2)
       in Iff(c,e1,e2,t0)
       end handle Fail s => raise Fail ("Iff_e: " ^ s)
-         
+
   fun Vc_e es =
       let val ts = List.map typeOf es
           val t = tyVc ts
@@ -803,7 +803,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
       case e of
           Tuple(es,_) => SOME es
         | _ => NONE
-          
+
   fun Prj_e (i,e) =
       let val t = typeOf e
           val t0 = TyVar()
@@ -811,14 +811,14 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
       in assert "Prj_e" t tupt
        ; Prj(i,e,t0)
       end
-                                 
+
   datatype bv = Ib of Int32.int
               | Db of real
               | Xb of real * real
               | Bb of bool
               | Cb of word
               | Fb of denv * var * typ * uexp * typ
-              | Tb of value list    
+              | Tb of value list
   withtype denv = (var * bv Apl.APLArray) list
        and value = bv Apl.APLArray
 
@@ -837,7 +837,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
       if d < 0.0 then "-" ^ pr_double (~d)
       else
         if Real.==(d,Real.posInf) then "HUGE_VAL"
-        else 
+        else
           let val s = Real.toString d
           in if CharVector.exists (fn c => c = #".") s then s
              else s ^ ".0"
@@ -845,7 +845,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
 
   fun pr_complex (r,i) =
       pr_double r ^ "j" ^ pr_double i
-              
+
   fun wordToChar w =
       if w < 0w128 then
         let val c = Char.chr (Word.toInt w)
@@ -891,14 +891,14 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
     | unFb _ = raise Fail "exp.unFb"
   fun unTb (Tb vs) = vs
     | unTb _ = raise Fail "exp.unTb"
-                     
+
   fun unBase s t fi fd fb fc =
       let val (bt,_) = unArr' ("unBase:" ^ s) t
       in if isInt bt then fi()
          else if isDouble bt then fd()
          else if isBool bt then fb()
          else if isChar bt then fc()
-         else fi() (*raise Fail ("exp.unBase: expecting base type: " ^ s) *) 
+         else fi() (*raise Fail ("exp.unBase: expecting base type: " ^ s) *)
                    (* an unused zilde results in a type variable not being unified... *)
       end
 
@@ -924,11 +924,11 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
     | roll i = real (Random.range (0,Int32.toInt i) (!rgen)) handle _ => raise Fail "TailExp.roll"
 
   fun fileVecReader fname (f: string -> 'a list) (d: 'a) (g : 'a -> 'b) : 'b Apl.APLArray =
-      let val v = Apl.map #" " (fn Cb w => wordToChar w 
+      let val v = Apl.map #" " (fn Cb w => wordToChar w
                                  | _ => raise Fail "eval:fileVecReader") fname
           fun finally x f g =
               (f x before g x) handle ? => (g x; raise ?)
-          fun readFile fname = 
+          fun readFile fname =
               finally (TextIO.openIn fname) TextIO.inputAll TextIO.closeIn
           val fname = Apl.pr (Char.toString,"") v
           val content = readFile fname
@@ -961,7 +961,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
         | Vc (nil,t) => Apl.zilde (default t)
         | Vc (x::xs,t) => eval DE (Op("cons",[x, Vc(xs,t)],t))
         | Op (opr, es, t) =>
-          let fun fail() = raise Fail ("exp.eval: operator " ^ opr ^ " not supported with " 
+          let fun fail() = raise Fail ("exp.eval: operator " ^ opr ^ " not supported with "
                                        ^ Int.toString (length es) ^ " arguments")
               fun tryShOpr () = if String.isSuffix "V" opr then
                                   let val opr' = String.substring(opr,0,size opr-1)
@@ -1095,11 +1095,11 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                  in Apl.idxassign(is,a,v)
                   ; Apl.scl (Bb false) (Bb true)
                  end
-               | ("compress", [e1,e2]) => 
+               | ("compress", [e1,e2]) =>
                  let val v1 = Apl.map false (fn Bb b => b | _ => raise Fail "eval:compress") (eval DE e1)
                  in Apl.compress(v1,eval DE e2)
                  end
-               | ("replicate", [_,e1,e2]) => 
+               | ("replicate", [_,e1,e2]) =>
                  let val v1 = Apl.map 0 (fn Ib i => i | _ => raise Fail "eval:replicate") (eval DE e1)
                  in Apl.replicate(v1,eval DE e2)
                  end
@@ -1144,7 +1144,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                | ("formatI",[e]) => format pr_int unIb (eval DE e)
                | ("formatD",[e]) => format pr_double unDb (eval DE e)
                | ("formatX",[e]) => format pr_complex unXb (eval DE e)
-               | ("readFile",[e]) => fileVecReader (eval DE e) (List.map (Word.fromInt o Char.ord) o explode) 0w32 Cb 
+               | ("readFile",[e]) => fileVecReader (eval DE e) (List.map (Word.fromInt o Char.ord) o explode) 0w32 Cb
                | ("readIntVecFile",[e]) =>
                  let fun scanner s =
                          let val ints = String.tokens (fn x => Char.isSpace x orelse x = #",") s
@@ -1243,7 +1243,7 @@ functor TailExp(T : TAIL_TYPE) : TAIL_EXP = struct
                       | "muld" => (op * )
                       | "divd" => (op /)
                       | "powd" => Math.pow
-                      | "resd" => (fn(x,y) => if Real.==(x,0.0) then y 
+                      | "resd" => (fn(x,y) => if Real.==(x,0.0) then y
                                               else y - real(Real.floor(y/x)))
                       | "maxd" => (fn (x,y) => if x > y then x else y)
                       | "mind" => (fn (x,y) => if x < y then x else y)

@@ -67,9 +67,9 @@ b ← ⍉ a
 c ← b, ⍉ a2
 ×/ +/ c
 
-⍝ 1 2    1 3 5  1 3 1  -+-> 14  
+⍝ 1 2    1 3 5  1 3 1  -+-> 14
 ⍝ 3 4    2 4 1  2 4 2  -+-> 15
-⍝ 5 1 
+⍝ 5 1
 ⍝                          ---
 ⍝                          210
 ```
@@ -147,30 +147,20 @@ Without optimizations, the compilation results in a slightly larger output:
 
 ## Try it!
 
-The software makes use of the SML [unicode library](https://github.com/melsman/unicode) library for lexing and
-the [aplparse](https://github.com/melsman/aplparse) project for
-parsing. It also uses parts of the
-[kitlib](https://github.com/melsman/kitlib) library. The software is
-setup to make use of
-[Smackage](https://github.com/standardml/smackage). This means that
-you need to [get Smackage working on your system](http://www.elsman.com/lessons/2014/10/02/getting-started-with-smackage)
-and add the following lines to your `sources.local` file in your
-`$(HOME)/.smackage` directory:
-
-    kitlib git git://github.com/melsman/kitlib.git
-    aplparse git git://github.com/melsman/aplparse.git
-    apltail git git://github.com/melsman/apltail.git
+The software makes use of the SML [unicode library](https://github.com/diku-dk/sml-unicode) library for lexing and
+the [aplparse](https://github.com/diku-dk/sml-aplparse) project for
+parsing. It also uses various other packages that can be installed with [smlpkg](https://github.com/diku-dk/smlpkg), which itself needs to be available on the system for pulling down the library sources.
 
 You also need a Standard ML compiler (e.g., [Mlton](http://www.mlton.org/) or [MLKit](http://melsman.github.io/mlkit)).
 
-Then simply write
+To pull down the dependent libraries and to compile the source, execute the following commands in a shell:
 
-    $ smackage refresh
-    $ smackage get apltail
-    $ smackage make apltail
-    $ smackage make apltail install
+    $ make prepare
+    $ make all
 
-To run a series of tests, execute `smackage make apltail test` in your shell.
+These commands will leave an executable `aplt` in the root directory of the repository.
+
+To run a series of tests, execute `make test` in your shell.
 
 To get `aplt` to output type instantiation list for the polymorphic
 functions, such as `reduce`, `each`, and `take`, you may pass the
@@ -178,11 +168,14 @@ option `-p_types` to `aplt`.
 
 See also the [coverage page](doc/coverage.md).
 
+To compile with MLKit instead of with MLton, which takes quite some
+time, instead of typing `make all` above, type instead `MLCOMP=mlkit make all`.
+
 ## License
 
 This software is published under the [MIT License](MIT_LICENSE.md).
 
-## References 
+## References
 
 [1] Martin Elsman and Martin Dybdal. __Compiling a Subset of APL Into
 a Typed Intermediate Language__. In _ACM SIGPLAN International

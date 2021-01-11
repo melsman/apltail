@@ -16,7 +16,7 @@ signature TAIL = sig
      and 'a Vec                                 (* vectors *)
 
   (* TAIL types (= TAIL_TYPE.typ) *)
-  eqtype 'a T                       (* Type constructors *)
+  type 'a T                          (* Type constructors *)
   val Int       : Int Num T
   val Double    : Double Num T
   val Complex   : Complex Num T
@@ -24,10 +24,10 @@ signature TAIL = sig
   val Char      : Char T
   val Vec       : 'a T -> 'a Vec T
   val prType    : 'a T -> string
-                              
+
   (* Monadic encapsulation of program construction. Allows for
      introducing target-language let-constructs using the lett and
-     letm combinators below. 
+     letm combinators below.
    *)
   type 'a M
   val >>=       : 'a M * ('a -> 'b M) -> 'b M
@@ -72,7 +72,7 @@ signature TAIL = sig
 
        The expression is expected to return a value of type 't0'.
    *)
-  val runM      : {verbose: bool, optlevel: int, prtype: bool, materialize: bool} 
+  val runM      : {verbose: bool, optlevel: int, prtype: bool, materialize: bool}
                   -> 'b T -> 'b exp M -> (unit,'b) prog
 
   (* Run the monadic expression, the function will be given a variable
@@ -83,7 +83,7 @@ signature TAIL = sig
        'prtype' indicates whether the output should include instance lists. *)
   val outprog   : bool -> string -> ('a,'b) prog -> unit
   val runHack   : 'a M -> 'a option
-  val toExp     : (unit,'b) prog -> 'b exp 
+  val toExp     : (unit,'b) prog -> 'b exp
 
   (* Values and Evaluation *)
   type 'a value
@@ -173,7 +173,7 @@ signature TAIL = sig
   val imx       : COMPLEX -> DOUBLE
   val injx      : DOUBLE * DOUBLE -> COMPLEX
   val expx      : COMPLEX -> COMPLEX
-                                           
+
   val roll      : INT -> DOUBLE
 
   val ltc       : CHAR * CHAR -> BOOL
@@ -224,7 +224,7 @@ signature TAIL = sig
 
   val rotate    : INT -> 'a ndarray -> 'a ndarray
   val reverse   : 'a ndarray -> 'a ndarray
-  val vreverse  : 'a ndarray -> 'a ndarray 
+  val vreverse  : 'a ndarray -> 'a ndarray
   val vrotate   : INT -> 'a ndarray -> 'a ndarray
   val reshape   : Int Num tvector -> 'a ndarray -> 'a ndarray
   val shape     : 'a ndarray -> Int Num tvector
@@ -263,7 +263,7 @@ signature TAIL = sig
     val fromUexp     : uexp -> 'a exp
     val fromUexpA    : uexp -> 'a ndarray
   end
-                          
+
   val transpose : 'a ndarray -> 'a ndarray
   val transpose2 : Int Num tvector -> 'a ndarray -> 'a ndarray
 
@@ -291,7 +291,7 @@ signature TAIL = sig
   val readFile  : Char ndarray -> Char ndarray
   val readIntVecFile : Char ndarray -> Int Num ndarray
   val readDoubleVecFile : Char ndarray -> Double Num ndarray
-           
+
   (* Int32 binary operations *)
   val andi      : INT * INT -> INT
   val ori       : INT * INT -> INT
@@ -299,11 +299,11 @@ signature TAIL = sig
   val shari     : INT * INT -> INT
   val shli      : INT * INT -> INT
   val xori      : INT * INT -> INT
-  val noti      : INT -> INT      
+  val noti      : INT -> INT
 
   (* Time.now *)
   val nowi      : INT -> INT   (* nowi 0 returns time in milliseconds since process start *)
 
   val bench     : ('a exp -> 'a exp M) -> INT -> 'a exp -> 'a exp   (* as powerScl, but for benchmarking *)
-                      
+
 end

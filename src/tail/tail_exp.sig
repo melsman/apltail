@@ -4,7 +4,7 @@
 *)
 
 signature TAIL_EXP = sig
-  
+
   structure T : TAIL_TYPE
 
   type rnk = T.rnk
@@ -21,15 +21,15 @@ signature TAIL_EXP = sig
   (* Finite map's keyed by TAIL-variables *)
   structure FM : sig
      type dom = var
-     type 'b map       
-     val empty      : 'b map
-     val singleton  : dom * 'b -> 'b map
-     val lookup     : 'b map -> dom -> 'b option
-     val add        : dom * 'b * 'b map -> 'b map
-     val plus       : 'a map * 'a map -> 'a map
-     val mergeMap   : ('a * 'a -> 'a) -> 'a map -> 'a map -> 'a map
-     val composemap : ('a -> 'b) -> 'a map -> 'b map
-     val remove     : dom * 'a map -> 'a map option
+     type 'b map
+     val empty     : 'b map
+     val singleton : dom * 'b -> 'b map
+     val lookup    : 'b map -> dom -> 'b option
+     val add       : dom * 'b * 'b map -> 'b map
+     val plus      : 'a map * 'a map -> 'a map
+     val merge     : ('a * 'a -> 'a) -> 'a map -> 'a map -> 'a map
+     val map       : ('a -> 'b) -> 'a map -> 'b map
+     val remove    : dom * 'a map -> 'a map option
   end
 
   (* TAIL AST *)
@@ -47,7 +47,7 @@ signature TAIL_EXP = sig
          | Fn of var * typ * uexp * typ
          | Tuple of uexp list * typ
          | Prj of int * uexp * typ
-                                        
+
   (* Type environment *)
   type env
   val lookup   : env -> var -> typ option
@@ -72,7 +72,7 @@ signature TAIL_EXP = sig
   val Tuple_e  : uexp list -> uexp
   val Prj_e    : int * uexp -> uexp
   val unTuple  : uexp -> uexp list option
-                                   
+
   (* Get the type of a TAIL-expression *)
   val typeOf   : uexp -> typ
 

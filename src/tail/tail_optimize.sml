@@ -68,9 +68,9 @@ and peepOp E (opr,es,t) =
       | ("transp2", [Vc([_],_),e]) => e
       | ("catV", [Vc(es1,_),Vc(es2,_)]) => Vc(es1@es2,t)
       | ("cat", [Vc(es1,_),Vc(es2,_)]) => Vc(es1@es2,t)
-      | ("catV", [e1,Vc([e2],_)]) => Op("snocV", [e1,e2], t) 
+      | ("catV", [e1,Vc([e2],_)]) => Op("snocV", [e1,e2], t)
       | ("snocV", [Vc(es,_),e]) => Vc(es@[e],t)
-      | ("iotaV",[I n]) => 
+      | ("iotaV",[I n]) =>
         let val n = Int32.toInt n
         in if n <= 3 then Vc(List.map I (List.tabulate (n,fn x => Int32.fromInt(x+1))),t)
            else Op(opr,es,t)
@@ -87,7 +87,7 @@ and peepOp E (opr,es,t) =
         else Op(opr,es,t)
       | ("idxS", [I 1, I i, Vc(xs,_)]) => List.nth(xs,Int32.toInt(i-1))
       | _ =>
-        if optlevel() > 0 then 
+        if optlevel() > 0 then
           case (opr, es) of
               ("powd", [D a, D b]) => D(Math.pow(a,b))
             | ("muld", [D a, D b]) => D(Real.*(a,b))
@@ -95,7 +95,7 @@ and peepOp E (opr,es,t) =
             | ("subd", [D a, D b]) => D(Real.-(a,b))
             | _ => Op(opr,es,t)
         else Op(opr,es,t)
-               
+
 and getShape (E:env) (e : Exp.uexp) : Exp.uexp option =
     let fun tryType() =
             case unVcc (typeOf e) of
@@ -154,20 +154,20 @@ fun optimize optlevel e =
               | Iff (c,e1,e2,t) => Iff(opt E c,opt E e1,opt E e2,t)
               | Vc(es,t) => Vc (opts E es,t)
               | Op(opr,es,t) => peepOp E (opr,opts E es,t)
-              | Let (v,ty,e1,e2,t) => 
+              | Let (v,ty,e1,e2,t) =>
                 let val e1 = opt E e1
                 in if simple e1 then
                      let val E' = FM.add(v,{shape=NONE,value=SOME e1},E)
                      in opt E' e2
                      end
-                   else 
+                   else
                      let val sh = getShape E e1
                          val E' = FM.add(v,{shape=sh,value=NONE},E)
                          val e2 = opt E' e2
                      in Let(v,ty,e1,e2,t)
                      end
                 end
-              | Fn (v,t,e,t') => 
+              | Fn (v,t,e,t') =>
                 let val E' = FM.add(v,{shape=NONE,value=NONE},E)
                 in Fn(v,t,opt E' e,t')
                 end
@@ -189,12 +189,12 @@ transformation of the source, which inlines simple variable
 definitions that are inferred in the first step to be used ONE
 time. Simple variable definitions that are never used are eliminated.
 *)
-                         
+
 datatype mul = ONE | MANY
 
 type IE = mul FM.map
-fun bumpIE (ie : IE) : IE = FM.composemap (fn _ => MANY) ie
-fun plusIE (ie1,ie2) : IE = FM.mergeMap (fn _ => MANY) ie1 ie2
+fun bumpIE (ie : IE) : IE = FM.map (fn _ => MANY) ie
+fun plusIE (ie1,ie2) : IE = FM.merge (fn _ => MANY) ie1 ie2
 fun oneIE v : IE = FM.singleton(v,ONE)
 val emptyIE : IE = FM.empty
 
@@ -226,12 +226,12 @@ datatype mul = ONE | MANY
 
 type ME = mul FM.map
 fun plusME nil : ME = FM.empty
-  | plusME (me::mes) = FM.mergeMap (fn _ => MANY) me (plusME mes)
+  | plusME (me::mes) = FM.merge (fn _ => MANY) me (plusME mes)
 fun oneME v : ME = FM.singleton(v,ONE)
 val emptyME : ME = FM.empty
 fun remME (me,v) = case FM.remove (v,me) of NONE => me
                                           | SOME me => me
-fun bumpME (me : ME) : ME = FM.composemap (fn _ => MANY) me
+fun bumpME (me : ME) : ME = FM.map (fn _ => MANY) me
 
 fun isSclTyp t =
     case unArr' t of
@@ -239,8 +239,8 @@ fun isSclTyp t =
                                      | _ => false)
       | NONE => false
 
-fun mem t e = 
-    if isSclTyp t then e 
+fun mem t e =
+    if isSclTyp t then e
     else case e of
              Var _ => e
            | Op("mem", _, _) => e
@@ -261,7 +261,7 @@ fun materialize (e:Exp.uexp) : Exp.uexp =
                 let val (e1',E1) = mat e1
                     val (e2',E2) = mat e2
                     val (e3',E3) = mat e3
-                    val E = plusME[E1,E2,E3]  (* maybe treat plus(E2,E3) differently *) 
+                    val E = plusME[E1,E2,E3]  (* maybe treat plus(E2,E3) differently *)
                 in (Iff(e1',e2',e3',t),E)
                 end
               | Vc (es,t) =>

@@ -1,38 +1,29 @@
 language: c
+dist: xenial
 os:
  - linux
  - osx
 sudo: true
 before_install:
-- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update ; fi
-- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install mlton ; fi
-- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -qq update ; fi
-- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -y mlton ; fi
-- git clone git://github.com/standardml/smackage
-- cd smackage
-- make mlton
-- bin/smackage refresh
-- export PATH=$HOME/.smackage/bin:$PATH
-- bin/smackage get smackage
-- bin/smackage make smackage mlton
-- bin/smackage make smackage install
-- cd ..
-- rm -rf $HOME/smackage
-- mkdir -p $HOME/.mlton
-- echo "SMACKAGE $HOME/.smackage/lib" > $HOME/.mlton/mlb-path-map
-- echo "aplparse git git://github.com/melsman/aplparse.git" >> $HOME/.smackage/sources.local
-- echo "kitlib git git://github.com/melsman/kitlib.git" >> $HOME/.smackage/sources.local
-- smackage refresh
-- smackage get aplparse
-- smackage get kitlib
+ - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update ; fi
+ - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then rm -f /usr/local/include/c++ ; fi
+ - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install mlkit ; fi
+ - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install mlton ; fi
+ - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then curl -L -o smlpkg-bin-dist-darwin.tgz https://github.com/diku-dk/smlpkg/releases/download/v0.1.3/smlpkg-bin-dist-darwin.tgz ; fi
+ - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then tar xzf smlpkg-bin-dist-darwin.tgz ; fi
+ - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -qq update ; fi
+ - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -y mlton make ; fi
+ - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then curl -L -o smlpkg-bin-dist-linux.tgz https://github.com/diku-dk/smlpkg/releases/download/v0.1.3/smlpkg-bin-dist-linux.tgz ; fi
+ - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then tar xzf smlpkg-bin-dist-linux.tgz ; fi
 install:
-- export MLCOMP="mlton -mlb-path-map $HOME/.mlton/mlb-path-map"
-- make aplt-mlton
-- DISTPOSTFIX=$TRAVIS_OS_NAME make dist
-- ./aplt
+ - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then SMLPKG=smlpkg-bin-dist-darwin/bin/smlpkg make prepare ; fi
+ - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then SMLPKG=smlpkg-bin-dist-linux/bin/smlpkg make prepare ; fi
+ - make all
+ - DISTPOSTFIX=$TRAVIS_OS_NAME make dist
+ - ./aplt
 script:
-- make test
-- make -C tests testc
+ - make test
+ - make -C tests testc
 deploy:
   provider: releases
   api_key:

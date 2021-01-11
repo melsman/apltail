@@ -4,10 +4,10 @@ local
    apl2tail.mlb
    laila/laila.mlb
    util.mlb
-   local $(SMACKAGE)/kitlib/v1/finmap/finmap.mlb
+   local lib/github.com/diku-dk/sml-setmap/string_map.mlb
    in Tail2Laila.sml
    end
-   $(APLPARSE_LIB)/aplparse.mlb
+   lib/github.com/diku-dk/sml-aplparse/aplparse.mlb
    version.sml
 in aplt.sml
 end

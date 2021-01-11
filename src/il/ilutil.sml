@@ -41,7 +41,7 @@ structure ILUtil : ILUTIL = struct
   fun pp_char w =
       "'" ^ (Char.toCString o Char.chr o Word.toInt) w ^ "'"
 
-  fun ppValue v = 
+  fun ppValue v =
       case v of
         IntV i => Util.intToCString i
       | DoubleV d => Util.realToCString d
@@ -88,8 +88,8 @@ structure ILUtil : ILUTIL = struct
     | evalBinOp Andb (BoolV b1,BoolV b2) = BoolV(b1 andalso b2)
     | evalBinOp Orb (BoolV b1,BoolV b2) = BoolV(b1 orelse b2)
     | evalBinOp Xorb (BoolV b1,BoolV b2) = BoolV((b1 orelse b2) andalso b1 <> b2)
-    | evalBinOp p (v1,v2) = die ("evalBinOp." ^ ppB p ^" - v1=" ^ ppValue v1 ^ ", v2=" ^ ppValue v2) 
-        
+    | evalBinOp p (v1,v2) = die ("evalBinOp." ^ ppB p ^" - v1=" ^ ppValue v1 ^ ", v2=" ^ ppValue v2)
+
   val rgen = ref (Random.newgen ())
 
   val processStartTime = Time.now()
@@ -132,10 +132,10 @@ structure ILUtil : ILUTIL = struct
       | Subs(n,e1) =>
         (case eval E e1 of
            IntV i => (case lookup E n of
-                        SOME(ArrV v) => 
+                        SOME(ArrV v) =>
                         (case ! (Vector.sub(v,Int32.toInt i)) of
                            SOME v => v
-                         | NONE => die "eval.Subs.array value not initialized")                       
+                         | NONE => die "eval.Subs.array value not initialized")
                       | _ => die("eval.Subs.lookup: " ^ Name.pr n))
          | _ => die "eval.Subs.expecting integer")
       | Alloc (t,e1) =>
@@ -157,7 +157,7 @@ structure ILUtil : ILUTIL = struct
         For (e, name, body) =>
         (case eval E e of
            IntV n =>
-           Util.iter (fn (i,E) => 
+           Util.iter (fn (i,E) =>
                          let val E = add E (name,IntV (Int32.fromInt i))
                          in evalSS E body rn
                          end) E (0,Int32.toInt n - 1)
@@ -198,7 +198,7 @@ structure ILUtil : ILUTIL = struct
   datatype rope = % of string
                 | %% of rope * rope
                 | %> of rope
-                | %$ 
+                | %$
                 | Par of rope  (* avoid nested pars *)
   fun repeat s 0 = ""
     | repeat s n = s ^ repeat s (n-1)
@@ -247,16 +247,16 @@ structure ILUtil : ILUTIL = struct
       | I i => if i < 0 then par(%(Util.intToCString i)) else %(Util.intToCString i)
       | D d => if d < 0.0 then par(%(Util.realToCString d)) else %(Util.realToCString d)
       | C c => %(pp_char c)
-      | Binop(binop,e1,e2) => 
+      | Binop(binop,e1,e2) =>
         if infi binop then par (pp e1 %% % (ppB binop) %% pp e2)
         else % (ppB binop) %% par(pp e1 %% %"," %% pp e2)
       | Unop(Neg,e1) => %(ppU Neg) %% (pp e1)
       | Unop(unop,e1) => %(ppU unop) %% par(pp e1)
-      | Alloc (t,e1) => 
+      | Alloc (t,e1) =>
         let val t' = Type.vecElem t
         in par(pp_t t) %% %"malloc(sizeof" %% par (pp_t t') %% %"*" %% pp e1 %% %")"
         end
-      | Vect (t,es) => 
+      | Vect (t,es) =>
         let val t' = Type.vecElem t
         in %"{" %% pp_es ", " es %% %"}"
         end
@@ -266,28 +266,28 @@ structure ILUtil : ILUTIL = struct
       | If(e0,e1,e2) => par(pp e0 %%  %" ? " %% pp e1 %% %" : " %% pp e2)
   and pp_es s nil = % ""
     | pp_es s [e] = pp e
-    | pp_es s (e::es) = pp e %% %s %% pp_es s es 
+    | pp_es s (e::es) = pp e %% %s %% pp_es s es
   fun ppSS0 ss =
       case ss of
         nil => %""
       | Nop :: ss => ppSS0 ss
       | s :: ss => %$ %% ppS s %% ppSS0 ss
- 
+
   and ppS s =
       case s of
         For (e, n, body) =>
-        let val ns = Name.pr n 
+        let val ns = Name.pr n
         in %("for (int " ^ ns ^ " = 0; " ^ ns ^ " < ") %%
-             pp e %% %("; " ^ ns ^ "++) {") %% 
+             pp e %% %("; " ^ ns ^ "++) {") %%
                %>(ppSS0 body) %%
              %$ %% %"}"
         end
       | Ifs(e,ss1,nil) => %"if " %% par(pp e) %% %" {" %%
-                             %> (ppSS0 ss1) %% %$ %% 
+                             %> (ppSS0 ss1) %% %$ %%
                           %"}"
       | Ifs(e,ss1,ss2) => %"if " %% par(pp e) %% %" {" %%
-                             %> (ppSS0 ss1) %% %$ %% 
-                          %"} else {" %% 
+                             %> (ppSS0 ss1) %% %$ %%
+                          %"} else {" %%
                              %> (ppSS0 ss2) %% %$ %%
                           %"}"
       | Assign (n,e) => %(Name.pr n) %% %" = " %% unpar(pp e) %% %";"
@@ -303,11 +303,11 @@ structure ILUtil : ILUTIL = struct
       | Ret e => %"return " %% pp e %% %";"
       | Halt s => %"halt(\"" %% %s %% %"\");" %% %$ %% %"return 0;"
       | Printf(s,nil) => %("printf(\"" ^ String.toCString s ^ "\");")
-      | Printf("%DOUBLE",[e]) => %"prDouble" %% par(pp e) %% %";" 
-      | Printf(s,es) => %("printf(\"" ^ String.toCString s ^ "\",") %% pp_es "," es %% %");" 
-      | Sprintf(n,"%DOUBLE",[e]) => %"formatD" %% par(pp_es "," [Var n,e]) %% %";" 
-      | Sprintf(n,s,nil) => %("sprintf(" ^ Name.pr n ^ ",\"" ^ String.toCString s ^ "\"") %% %");" 
-      | Sprintf(n,s,es) => %("sprintf(" ^ Name.pr n ^ ",\"" ^ String.toCString s ^ "\",") %% pp_es "," es %% %");" 
+      | Printf("%DOUBLE",[e]) => %"prDouble" %% par(pp e) %% %";"
+      | Printf(s,es) => %("printf(\"" ^ String.toCString s ^ "\",") %% pp_es "," es %% %");"
+      | Sprintf(n,"%DOUBLE",[e]) => %"formatD" %% par(pp_es "," [Var n,e]) %% %";"
+      | Sprintf(n,s,nil) => %("sprintf(" ^ Name.pr n ^ ",\"" ^ String.toCString s ^ "\"") %% %");"
+      | Sprintf(n,s,es) => %("sprintf(" ^ Name.pr n ^ ",\"" ^ String.toCString s ^ "\",") %% pp_es "," es %% %");"
       | ReadIntVecFile(n1,n2,e) => %(Name.pr n1 ^ " = readIntVecFile(" ^ Name.pr n2 ^ ",") %% pp e %% %");"
       | ReadDoubleVecFile(n1,n2,e) => %(Name.pr n1 ^ " = readDoubleVecFile(" ^ Name.pr n2 ^ ",") %% pp e %% %");"
       | Comment s => %("// " ^ s)
@@ -441,14 +441,14 @@ structure ILUtil : ILUTIL = struct
   (* [E : exp -> var * var list] maps each side-effect-free expression e to the pair of
    * the variable that defines e and the variable uses in e. *)
 
-  structure FM = StringFinMap
+  structure FM = StringMap
   structure N = NameSet
 
   fun disjoint (s1,s2) = N.isEmpty(N.intersect(s1,s2))
 
   type cse_env = (Name.t * N.set) FM.map
 
-  fun cuts (E:cse_env) ns : cse_env = FM.filter (fn (e,(n',ns')) => disjoint(ns,N.insert(ns',n'))) E
+  fun cuts (E:cse_env) ns : cse_env = FM.filter (fn (e,(n',ns')) => disjoint(ns,N.insert(n',ns'))) E
   fun cut (E:cse_env) n : cse_env = cuts E (N.singleton n)
 
   fun isPtrName n =
@@ -485,7 +485,7 @@ structure ILUtil : ILUTIL = struct
         | ReadDoubleVecFile(n1,n2,e) :: ss => ReadDoubleVecFile(n1,n2,repl E e) :: cse (cuts E (N.fromList[n1,n2])) ss
         | (s as Comment _) :: ss => s :: cse E ss
         | AssignArr (n,e1,e2) :: ss => AssignArr (n,repl E e1,repl E e2) :: cse (cut E n) ss
-        | Ifs(e,ss1,ss2) :: ss => 
+        | Ifs(e,ss1,ss2) :: ss =>
           let val ns1 = defs_ss ss1
               val ns2 = defs_ss ss2
               val ns = N.union (ns1, ns2)
@@ -499,7 +499,7 @@ structure ILUtil : ILUTIL = struct
   and repl E e =
       let val eS = ppExp e
       in case FM.lookup E eS of
-             SOME (n,_) => 
+             SOME (n,_) =>
              ((*print ("Substituting " ^ Name.pr n ^ " for " ^ eS ^ "\n");*) Var n)
            | NONE => e
       end
@@ -508,9 +508,9 @@ structure ILUtil : ILUTIL = struct
 
   (* Hoisting variable declarations outside of loops *)
 
-  (* invariant:  
+  (* invariant:
        hoist U ss = (ssh, ssi)  ==>
-         1) uses(ssh) \cap U = 0   
+         1) uses(ssh) \cap U = 0
          2) uses(ssh) \cap decl(ssi) = 0
          3) ssh contains declarations only.
   *)
@@ -519,9 +519,9 @@ structure ILUtil : ILUTIL = struct
     | hoist U (s::ss) =
       let val ds = defs_s s
           val us = uses_s s
-          val (ssh,ss) = hoist (N.union(U,ds)) ss      
+          val (ssh,ss) = hoist (N.union(U,ds)) ss
       in case s of
-             Decl(n,SOME e) => 
+             Decl(n,SOME e) =>
              if disjoint(us,U) andalso not(Program.side_effects e) then ((n,e)::ssh,ss)
              else let val (ssh,ss) = dehoist (N.singleton n) (ssh,ss)
                   in (ssh,s::ss)
@@ -529,24 +529,24 @@ structure ILUtil : ILUTIL = struct
            | For(e,n,ss0) =>
              let val (ssh0,ss0) = hoist (N.singleton n) ss0
                  val ds = defs_ss ss0
-                 val (ssh0,ss0) = dehoist (N.insert(ds,n)) (ssh0,ss0)
+                 val (ssh0,ss0) = dehoist (N.insert(n,ds)) (ssh0,ss0)
              in (ssh0@ssh,For(e,n,ss0)::ss)
              end
            | Ifs(e,ss1,ss2) => (ssh,Ifs(e,hoistCat U ss1, hoistCat U ss2)::ss)
            | _ => (ssh,s::ss)
      end
-  and hoistCat U ss = 
+  and hoistCat U ss =
       let val (ssh,ss) = hoist U ss
       in List.map (fn (n,e) => Decl(n,SOME e)) ssh @ ss
       end
   and dehoist U (nil,ss) = (nil, ss)
-    | dehoist U ((n,e)::ssh,ss) = 
-      if disjoint(U, uses e (N.singleton n)) then 
+    | dehoist U ((n,e)::ssh,ss) =
+      if disjoint(U, uses e (N.singleton n)) then
         let val (ssh,ss) = dehoist U (ssh,ss)
         in ((n,e)::ssh,ss)
         end
       else
-        let val (ssh,ss) = dehoist (N.insert(U,n)) (ssh,ss)
+        let val (ssh,ss) = dehoist (N.insert(n,U)) (ssh,ss)
         in (ssh,Decl(n,SOME e)::ss)
         end
 
@@ -572,38 +572,38 @@ structure ILUtil : ILUTIL = struct
 
   (* Find safe split-expressions in sequences of statements. *)
   fun splits N n nil acc = acc
-    | splits N n (s::ss) acc = 
+    | splits N n (s::ss) acc =
       case s of
           Nop => splits N n ss acc
         | Ret e => splits_e N n e (splits N n ss acc)
         | Halt _ => splits N n ss acc
         | Free _ => splits N n ss acc
-        | Decl(n',SOME e) => splits_e N n e (splits (N.insert(N,n')) n ss acc)
-        | Decl(n',NONE) => splits (N.insert(N,n')) n ss acc
+        | Decl(n',SOME e) => splits_e N n e (splits (N.insert(n',N)) n ss acc)
+        | Decl(n',NONE) => splits (N.insert(n',N)) n ss acc
         | Assign(n',e) => splits_e N n e acc
         | AssignArr(n',e1,e2) => splits_e N n 1 (splits_e N n 2 acc)
-        | For(e,n',body) => 
-          splits N n ss (splits_e N n e (splits (N.insert(N,n')) n body acc))
-        | Ifs(e,ss1,ss2) => 
+        | For(e,n',body) =>
+          splits N n ss (splits_e N n e (splits (N.insert(n',N)) n body acc))
+        | Ifs(e,ss1,ss2) =>
           splits N n ss (splits N n ss1 (splits N n ss2 (splits_t N n e acc)))
         | Printf(_,es) => splits N n ss acc
         | Sprintf(n',_,es) => splits N n ss acc
         | ReadIntVecFile (n1,n2,e) => splits N n ss acc
         | ReadDoubleVecFile (n1,n2,e) => splits N n ss acc
         | Comment _ => splits N n ss acc
-          
+
   fun loopSplit nil = nil
     | loopSplit (s::ss) =
       case s of
           Nop => loopSplit ss
         | For(e,n,body) =>
-          let val N = N.insert(defs_ss body,n)
+          let val N = N.insert(n,defs_ss body)
               val es = splits N n body []
           in case es of
                  nil => For(e,n,loopSplit body)::loopSplit ss
-               | e'::_ => 
+               | e'::_ =>
                  let val ne = Name.new Int
-                     val ne' = Name.new Int                                       
+                     val ne' = Name.new Int
                      val n1 = Name.new Int
                      val n2 = Name.new Int
                      val n3 = Name.new Int
@@ -619,7 +619,7 @@ structure ILUtil : ILUTIL = struct
                     loopSplit ss
                  end
           end
-        | Ifs(e,ss1,ss2) => Ifs(e,loopSplit ss1,loopSplit ss2)::loopSplit ss 
+        | Ifs(e,ss1,ss2) => Ifs(e,loopSplit ss1,loopSplit ss2)::loopSplit ss
         | Ret _ => s::loopSplit ss
         | Halt _ => s::loopSplit ss
         | Free _ => s::loopSplit ss
