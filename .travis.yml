@@ -14,7 +14,7 @@ before_install:
 install:
  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then SMLPKG=../smlpkg-bin-dist-darwin/bin/smlpkg make prepare ; fi
  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then SMLPKG=../smlpkg-bin-dist-linux/bin/smlpkg make prepare ; fi
- - make all
+ - travis_wait 30 make all
  - DISTPOSTFIX=$TRAVIS_OS_NAME make dist
  - ./aplt
 script:
