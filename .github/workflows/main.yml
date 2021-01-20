@@ -52,8 +52,8 @@ jobs:
         run: |
           mlkit --version
           smlpkg --version
-	  echo 'github.event_name: ' ${{ github.event_name }}
-	  echo 'github.ref: ' ${{ github.ref }}
+          echo 'github.event_name: ' ${{ github.event_name }}
+          echo 'github.ref: ' ${{ github.ref }}
 
       - name: Install MLton (linux)
         if: ${{ env.OS == 'linux' && matrix.mlcomp == 'mlton' }}
