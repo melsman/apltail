@@ -1,20 +1,21 @@
 ## Usage
 
-To use this software, either copy the program(s) in the bin directory
-to a directory mentioned in your PATH environment variable or add the
-directory to the PATH environment variable.
+To use this software, either refer directly to the executable aplt in
+the bin-directory or make sure that the bin-directory is mentioned in
+your PATH environment variable.
 
 See the web page https://github.com/melsman/apltail for general
-information about the usage of the system. The lib/ directory contains
-the prelude.apl file and the tests/ directory contains APL test files.
+information about the usage of the system. The lib/apltail directory
+contains the prelude.apl file and the share/apltail/tests/ directory
+contains APL test files.
 
 ## Running the tests
 
-To run the tests in the test/ directory, execute the following
+To run the tests in the tests/ directory, execute the following
 commands:
 
    $ cd tests/
-   $ APLT=../bin/aplt PRELUDE=../lib/prelude.apl make test
+   $ APLT=../../../bin/aplt PRELUDE=../../../lib/apltail/prelude.apl make test
 
 ## License
 

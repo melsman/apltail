@@ -36,37 +36,45 @@ src/version.sml: src/version~
 	@echo Generated file $@
 	@echo Git version $(GIT_VERSION) $(GIT_DATE)
 
-aplt: src/aplt.mlb $(FILES) src/aplt.sml src/version.sml
+aplt: src/aplt.mlb $(FILES) src/aplt.sml src/version.sml src/lib/github.com/diku-dk/sml-aplparse
 	$(MLCOMP) -output $@ $<
 
 .PHONY: install
 install:
 	cp -p aplt $(DESTDIR)/bin/
 
-DISTPOSTFIX?=linux
-DISTNAME=apltail-$(DISTPOSTFIX)
+OS=$(shell uname -s | tr '[:upper:]' '[:lower:]')
+
+DISTNAME=apltail-bin-dist-$(OS)
 
 .PHONY: dist
-dist:
+dist: aplt
 	rm -rf dist
 	mkdir dist
 	mkdir dist/$(DISTNAME)
 	mkdir dist/$(DISTNAME)/bin
-	mkdir dist/$(DISTNAME)/lib
-	mkdir dist/$(DISTNAME)/include
-	mkdir dist/$(DISTNAME)/tests
-	mkdir dist/$(DISTNAME)/doc
+	mkdir -p dist/$(DISTNAME)/lib/apltail
+	mkdir -p dist/$(DISTNAME)/include/apltail
+	mkdir -p dist/$(DISTNAME)/share/apltail/tests
+	mkdir -p dist/$(DISTNAME)/share/apltail/doc
 	cp -p aplt dist/$(DISTNAME)/bin/
-	cp -p lib/prelude.apl dist/$(DISTNAME)/lib/
-	cp -p include/apl.h dist/$(DISTNAME)/include/
-	cp -p tests/Makefile tests/*.out.ok tests/*.apl tests/*.txt dist/$(DISTNAME)/tests/
-	cp -p MIT_LICENSE.md dist/$(DISTNAME)/doc/MIT_LICENSE
-	cp -p doc/README_BIN dist/$(DISTNAME)/doc/README
+	cp -p lib/prelude.apl dist/$(DISTNAME)/lib/apltail/
+	cp -p include/apl.h dist/$(DISTNAME)/include/apltail/
+	cp -p tests/Makefile tests/*.out.ok tests/*.apl tests/*.txt dist/$(DISTNAME)/share/apltail/tests/
+	cp -p MIT_LICENSE.md dist/$(DISTNAME)/share/apltail/doc/MIT_LICENSE
+	cp -p doc/README_BIN dist/$(DISTNAME)/share/apltail/doc/README
+	echo 'PREFIX?=/usr/local' > dist/$(DISTNAME)/Makefile
+	echo '.PHONY: install' >> dist/$(DISTNAME)/Makefile
+	echo 'install:' >> dist/$(DISTNAME)/Makefile
+	echo "\t"'for d in $$$$(find * -type d); do install -d "$$(PREFIX)/$$$$d"; done' \
+                >> dist/$(DISTNAME)/Makefile
+	echo "\t"'for f in $$$$(find * -type f | grep -v Makefile); do install -p "$$$$f" "$$(PREFIX)/$$$$f"; done' \
+                >> dist/$(DISTNAME)/Makefile
 	(cd dist; tar -czf $(DISTNAME).tgz $(DISTNAME))
 
 .PHONY: test
 test: aplt Makefile
-	$(MAKE) -C tests test
+	$(MAKE) -C tests test testc
 
 .PHONY: prepare
 prepare:
@@ -79,3 +87,6 @@ clean: Makefile
 	find . -name 'run' | xargs rm -f
 	rm -f aplt src/version.sml
 	$(MAKE) -C tests clean
+
+src/lib/github.com/diku-dk/sml-aplparse:
+	(cd src; $(SMLPKG) sync)

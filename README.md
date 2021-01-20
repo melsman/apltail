@@ -1,4 +1,6 @@
-## apltail: An APL Compiler targeting a Typed Array Intermediate Language
+## apltail [![CI](https://github.com/melsman/apltail/workflows/CI/badge.svg)](https://github.com/melsman/apltail/actions)
+
+An APL Compiler targeting a Typed Array Intermediate Language.
 
 This software implements an APL compiler in Standard ML. The compiler
 targets a [typed array intermediate language](http://elsman.com/pdf/array14_final.pdf) [1]. The
@@ -8,10 +10,6 @@ TAIL into C.
 See [the compilation scheme](doc/comp.md).
 
 See also the [coverage page](doc/coverage.md).
-
-## Status
-
-[![Build Status](https://travis-ci.org/melsman/apltail.svg?branch=master)](https://travis-ci.org/melsman/apltail)
 
 ## An example
 
@@ -147,8 +145,8 @@ Without optimizations, the compilation results in a slightly larger output:
 
 ## Try it!
 
-The software makes use of the SML [unicode library](https://github.com/diku-dk/sml-unicode) library for lexing and
-the [aplparse](https://github.com/diku-dk/sml-aplparse) project for
+The software makes use of the [sml-unicode](https://github.com/diku-dk/sml-unicode) library for lexing and
+the [sml-aplparse](https://github.com/diku-dk/sml-aplparse) library for
 parsing. It also uses various other packages that can be installed with [smlpkg](https://github.com/diku-dk/smlpkg), which itself needs to be available on the system for pulling down the library sources.
 
 You also need a Standard ML compiler (e.g., [Mlton](http://www.mlton.org/) or [MLKit](http://melsman.github.io/mlkit)).

@@ -1,0 +1,82 @@
+name: CI
+
+on:
+
+  push:
+    branches: [ master ]
+
+  pull_request:
+    branches: [ master ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+
+  build-test:
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+#        mlcomp: [mlkit, mlton]
+        mlcomp: [mlton]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+
+      - uses: actions/checkout@v2
+
+      - name: Setup environment
+        run: |
+          echo "OS=$(uname -s | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+          echo "RUNHOME=$(echo $HOME)" >> $GITHUB_ENV
+
+      - name: Install MLKit and smlpkg
+        working-directory: ${{ env.RUNHOME }}
+        run: |
+          echo "[OS: $OS, HOME: $RUNHOME]"
+          wget https://github.com/diku-dk/smlpkg/releases/download/v0.1.4/smlpkg-bin-dist-${{env.OS}}.tgz
+          tar xzf smlpkg-bin-dist-${{env.OS}}.tgz
+          echo "$HOME/smlpkg-bin-dist-${{env.OS}}/bin" >> $GITHUB_PATH
+          wget https://github.com/melsman/mlkit/releases/download/v4.5.4/mlkit-bin-dist-${{env.OS}}.tgz
+          tar xzf mlkit-bin-dist-${{env.OS}}.tgz
+          echo "$HOME/mlkit-bin-dist-${{env.OS}}/bin" >> $GITHUB_PATH
+          mkdir -p .mlkit
+          echo "SML_LIB $HOME/mlkit-bin-dist-${{env.OS}}/lib/mlkit" > .mlkit/mlb-path-map
+
+      - name: Check
+        run: |
+          mlkit --version
+          smlpkg --version
+
+      - name: Install MLton (linux)
+        if: ${{ env.OS == 'linux' && matrix.mlcomp == 'mlton' }}
+        run: |
+          sudo apt-get install -y mlton
+          mlton
+
+      - name: Install MLton (macos)
+        if: ${{ env.OS == 'darwin' && matrix.mlcomp == 'mlton' }}
+        run: |
+          brew install mlton
+          mlton
+
+      - name: Build
+        run: MLCOMP=${{ matrix.mlcomp }} make clean all
+
+      - name: Run tests
+        run: MLCOMP=${{ matrix.mlcomp }} make test
+
+      - name: Make binary distribution
+        if: ${{ matrix.mlcomp == 'mlton' }}
+	run: make dist
+
+      - name: Upload release
+        if: ${{ matrix.mlcomp == 'mlton' && github.event_name == 'push' && contains(github.ref, '/heads/master') && contains(github.ref, '/tags/v') }}
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: dist/apltail-bin-dist-${{ env.OS }}.tgz
+          tag: ${{ github.ref }}
+          overwrite: true
