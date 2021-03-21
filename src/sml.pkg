@@ -1,7 +1,8 @@
 require {
   github.com/diku-dk/sml-setmap 0.1.0 #d6928504c924388de753c12a8d4f2fda32cecddb
-  github.com/diku-dk/sml-aplparse 0.1.1 #af663034374adc9c180de2f45865ebbc78394783
-  github.com/diku-dk/sml-uref 0.0.0-20210111201144+c1bb552f878973cc2eee0826ef0b95500003b31a
+  github.com/diku-dk/sml-aplparse 0.1.2 #219516566cd6987fb3b75eeea993d068a1cd2b13
+  github.com/diku-dk/sml-uref 0.0.0-20210321024251+bfce9ac7ce2e98abf02036ee33d78cae105a1d70 #bfce9ac7ce2e98abf02036ee33d78cae105a1d70
   github.com/diku-dk/sml-random 0.1.0 #8b329d10b0df570da087f9e15f3c829c9a1d74c2
   github.com/diku-dk/sml-sort 0.1.0 #6f08964068ea84e92c93533ab3ca4830ca754a54
+  github.com/diku-dk/sml-parse 0.1.0 #12795bbe9efa77b1dcaed7713da1fb40ae9c7765
 }

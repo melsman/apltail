@@ -8,6 +8,7 @@ local
    in Tail2Laila.sml
    end
    lib/github.com/diku-dk/sml-aplparse/aplparse.mlb
+   lib/github.com/diku-dk/sml-parse/parse.mlb
    version.sml
 in aplt.sml
 end

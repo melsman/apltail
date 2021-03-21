@@ -1,6 +1,7 @@
 local
    $(SML_LIB)/basis/basis.mlb
    lib/github.com/diku-dk/sml-aplparse/aplparse.mlb
+   lib/github.com/diku-dk/sml-parse/parse.mlb
    util.mlb
    flags.mlb
 in
