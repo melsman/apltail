@@ -1,8 +1,8 @@
 require {
-  github.com/diku-dk/sml-setmap 0.1.0 #d6928504c924388de753c12a8d4f2fda32cecddb
-  github.com/diku-dk/sml-aplparse 0.1.2 #219516566cd6987fb3b75eeea993d068a1cd2b13
-  github.com/diku-dk/sml-uref 0.0.0-20210321024251+bfce9ac7ce2e98abf02036ee33d78cae105a1d70 #bfce9ac7ce2e98abf02036ee33d78cae105a1d70
-  github.com/diku-dk/sml-random 0.1.0 #8b329d10b0df570da087f9e15f3c829c9a1d74c2
-  github.com/diku-dk/sml-sort 0.1.0 #6f08964068ea84e92c93533ab3ca4830ca754a54
-  github.com/diku-dk/sml-parse 0.1.0 #12795bbe9efa77b1dcaed7713da1fb40ae9c7765
+  github.com/diku-dk/sml-setmap 0.1.2 #8549d0d64a4b63b1e7fba3e545c5cac89c2ff447
+  github.com/diku-dk/sml-aplparse 0.1.5 #2049660efbfaed7152bf736a1aeca58581995220
+  github.com/diku-dk/sml-uref 0.0.2 #6881e4ab970febf55d4e684753dfd173b2fb033d
+  github.com/diku-dk/sml-random 0.1.1 #0a0f79c857207f948e89e18b320f162e30e1fdaf
+  github.com/diku-dk/sml-sort 0.2.1 #9efbabfd57e2db2514a07e69156d6857efe1a99f
+  github.com/diku-dk/sml-parse 1.0.0 #bf7584331036903a1c01be3cb1bba72931639857
 }

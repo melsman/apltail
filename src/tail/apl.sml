@@ -50,7 +50,7 @@ local
         V.foldl (op * ) 1 v
 
 in
-fun scl (def:'a) (v:'a) : 'a APLArray = 
+fun scl (def:'a) (v:'a) : 'a APLArray =
     (V.fromList [], A.fromList [v], def)
 
 fun vec v (vs: 'a list) : 'a APLArray =
@@ -107,14 +107,14 @@ fun grade (lt: 'a * 'a -> bool) (a : 'a APLArray) : Int32.int APLArray =
             if lt(#1 x,#1 y) then LESS
             else if lt(#1 y,#1 x) then GREATER
             else Int32.compare(#2 x,#2 y)
-        val vs_sorted : ('a*Int32.int) list = Listsort.sort order vs
+        val vs_sorted : ('a*Int32.int) list = ListSort.sort order vs
         val is = List.map #2 vs_sorted
     in (V.fromList[ListInt32.length is], A.fromList is, Int32.fromInt 0)
     end
 
 fun gradeUp lt a = grade lt a
 fun gradeDown gt a = grade gt a
-        
+
 fun first (a : 'a APLArray) : 'a APLArray =
     let val vs = #2 a
         val v = if A.length vs > 0 then A.sub(vs,0) else #3 a
@@ -141,15 +141,15 @@ fun power (f: 'a APLArray -> 'a APLArray) (n : Int32.int APLArray) (a : 'a APLAr
        else if n = 0 then a
        else power f (scl 0 (n-1)) (f a)
     end
-                
+
 fun map (def: 'b) (f: 'a -> 'b) (a : 'a APLArray) : 'b APLArray =
     (#1 a, amap f (#2 a), def)
-    
+
 fun reduce (f: 'a APLArray * 'a APLArray -> 'a APLArray) (n:'a APLArray) (a:'a APLArray) : 'a APLArray =
     case rev (list (#1 a)) of
         nil => a  (* scalar value: reduce is the identity! *)
       | [0] => n  (* empty vector: return the neutral element *)
-      | m::rns => 
+      | m::rns =>
         let val ns = V.fromList (rev rns)
             val k = product ns
             val vs0 = #2 a
@@ -209,7 +209,7 @@ fun prod nil : Int32.int = 1
 fun toSh sh (i:Int32.int) : Int32.int list =
     case sh of
         nil => nil
-      | x::xs => 
+      | x::xs =>
         let val p = prod xs
         in i div p :: toSh xs (i mod p)
         end
@@ -234,7 +234,7 @@ fun exchange nil xs = nil
 
 fun appi0 _ f nil = ()
   | appi0 (n:Int32.int) f (x::xs) = (f (x,n); appi0 (n+1) f xs)
-  
+
 fun appi f xs = appi0 0 f xs
 
 fun exchange' ctrl xs =
@@ -288,16 +288,16 @@ fun zipWith (x:'c) (f: 'a APLArray * 'b APLArray -> 'c APLArray) (a : 'a APLArra
         val shb = #1 b
     in if sha <> shb then
          die ("incompatible shapes in zipWith operation: shape " ^ pp_sh sha ^ " is incompatible with " ^ pp_sh shb)
-       else 
+       else
          (#1 a, A.fromList(ListPair.map (unliftB "zipWith" (#3 a) (#3 b) f) (alist(#2 a),alist(#2 b))), x)
     end
 
 fun rot (0:Int32.int) a = a
   | rot n nil = nil
   | rot n (x::xs) = rot (n-1) (xs@[x])
-    
+
 fun iot n = L.tabulate(n, fn i => i+1)
-        
+
 fun desnoc A = case rev A of
                     nil => die "desnoc"
                   | y::ys => (rev ys,y)
@@ -327,7 +327,7 @@ fun dot f g n A B =
 *)
 
 fun reverse (a: 'a APLArray) : 'a APLArray =
-    let val sh = #1 a    
+    let val sh = #1 a
     in if V.length sh > 1 then
          die "reverse: supported only for vectors and scalars"
        else (sh,A.fromList (rev (alist(#2 a))),#3 a)
@@ -337,14 +337,14 @@ fun vrotate (n : Int32.int APLArray, (sh,src,default): 'a APLArray) : 'a APLArra
     let val n = unScl "vrotate" n
         val shl = list sh
     in case shl of
-           nil => (sh,src,default) (* scalar *) 
+           nil => (sh,src,default) (* scalar *)
          | 0::_ => (sh,src,default) (* empty vector *)
          | s::sh' =>
            let val sz = prod shl
                val n = n mod s
-               val n = if n > 0 then n else s - n 
+               val n = if n > 0 then n else s - n
                val offset = n * prod sh'
-           in (sh, 
+           in (sh,
                A.tabulate(sz, fn i => A.sub(src, (i+offset) mod sz)),
                default)
            end
@@ -358,7 +358,7 @@ fun vreverse ((sh,src,default): 'a APLArray) : 'a APLArray =
          | n :: subsh =>
           let val subsz = prod subsh
           in (sh,
-              A.tabulate(sz, fn i => 
+              A.tabulate(sz, fn i =>
                                 let val y = n - (i div subsz) - 1
                                     val x = i mod subsz
                                 in A.sub(src,y*subsz+x)
@@ -432,7 +432,7 @@ fun iff (b : bool APLArray, f1,f2) =
     if unScl "iff" b then f1() else f2()
 
 (*
-fun foreach n f = 
+fun foreach n f =
     let fun for i = if i >= n then nil
                     else f i :: for (i+1)
     in for 0
@@ -476,13 +476,13 @@ fun idxS  (d: int APLArray, n: int APLArray, a: 'a APLArray) : 'a APLArray =
         val sh = list (#1 a)
         val vs = alist (#2 a)
         fun indx di nil vs = vs
-          | indx di (s::sh) vs = 
+          | indx di (s::sh) vs =
             let fun extract x = indx (di-1) sh (tk (prod sh) (dr (x*prod sh) vs))
             in if di = 1 then extract (n-1)
                else if di < 1 then vs
                else List.concat(foreach s extract)
             end
-        val vs' = indx d sh vs                       
+        val vs' = indx d sh vs
         val sh' = tk (d-1) sh @ dr d sh
     in (V.fromList sh',A.fromList vs', #3 a)
     end
@@ -537,7 +537,7 @@ fun idxassign (is: Int32.int APLArray, a : 'a APLArray, v : 'a) : unit =
         val i = fromSh "idxassign" sh is
     in A.update (#2 a, i, v)
     end
-        
+
 fun pr (p,sep) (a: 'a APLArray) : string =
     let fun prv sep p s e v =
             s ^ String.concatWith sep (L.map p v) ^ e
@@ -548,7 +548,7 @@ fun pr (p,sep) (a: 'a APLArray) : string =
              prv sep p "(" ")" values)
     in case shape of
            [_] => if sep="" then prv sep p "" "" values else flat()
-         | [X,Y] => 
+         | [X,Y] =>
            if prod shape = 0 then flat() else
            let val sep = if sep="" then sep else " "
                val values = L.map p values
