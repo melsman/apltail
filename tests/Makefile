@@ -102,6 +102,8 @@ testc: $(CRESFILES)
 	@echo "Tests succeeded:   `grep "OK" $(CRESFILES) | wc -l` /`grep "Test" $(CRESFILES) | wc -l`"
 	@echo "Test errors:       `grep "ERR" $(CRESFILES) | wc -l` /`grep "Test" $(CRESFILES) | wc -l`"
 	@echo "----------------------------------------------------"
+	cat pi.outc
+	@echo "----------------------------------------------------"
 	@exit `grep "ERR" $(CRESFILES) | wc -l`
 
 c/%.c: %.apl Makefile
@@ -120,8 +122,6 @@ c/%.exe: c/%.c
          ; else \
              if [ -e $*.out.ok ]; then \
                 echo "Test $*.apl: *** ERR: file $< differs from $*.out.ok ***" > $@ \
-                cat $< \
-                echo '' \
              ; else \
                 echo "Test $*.apl: *** ERR: file $*.out.ok does not exist ***" > $@ \
              ; fi \
