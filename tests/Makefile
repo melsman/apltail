@@ -120,6 +120,8 @@ c/%.exe: c/%.c
          ; else \
              if [ -e $*.out.ok ]; then \
                 echo "Test $*.apl: *** ERR: file $< differs from $*.out.ok ***" > $@ \
+                cat $< \
+                echo '' \
              ; else \
                 echo "Test $*.apl: *** ERR: file $*.out.ok does not exist ***" > $@ \
              ; fi \
@@ -127,8 +129,8 @@ c/%.exe: c/%.c
 
 ###### Benchmarking the Laila (C) Backend against Dyalog interpreter ######
 #
-# This benchmarking assumes that dyalog is installed together with the 
-# rundyalog script (with IO<-1) being available in the user's PATH. 
+# This benchmarking assumes that dyalog is installed together with the
+# rundyalog script (with IO<-1) being available in the user's PATH.
 #
 
 TIME=/usr/bin/time
