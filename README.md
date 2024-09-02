@@ -1,15 +1,17 @@
 ## apltail [![CI](https://github.com/melsman/apltail/workflows/CI/badge.svg)](https://github.com/melsman/apltail/actions)
 
-An APL Compiler targeting a Typed Array Intermediate Language.
+An APL Compiler based on a Typed Array Intermediate Language.
 
-This software implements an APL compiler in Standard ML. The compiler
-targets a [typed array intermediate language](http://elsman.com/pdf/array14_final.pdf) [1]. The
+This software implements an APL compiler. The compiler is
+based on a [typed array intermediate language](http://elsman.com/pdf/array14_final.pdf) [1]. The
 executable also contains an interpreter for TAIL and a compiler from
 TAIL into C.
 
-See [the compilation scheme](doc/comp.md).
+See the [coverage page](doc/coverage.md) for information about what APL
+functionality is supported.
 
-See also the [coverage page](doc/coverage.md).
+See also [the compilation scheme](doc/comp.md) if you are curious about how the
+compilation works.
 
 ## An example
 
