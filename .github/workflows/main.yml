@@ -20,52 +20,44 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu-20.04, macos-12]
+        os: [ubuntu-latest, macos-latest]
         mlcomp: [mlkit, mlton]
-#        mlcomp: [mlton]
 
     runs-on: ${{ matrix.os }}
 
     steps:
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Setup environment
         run: |
           echo "OS=$(uname -s | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
           echo "RUNHOME=$(echo $HOME)" >> $GITHUB_ENV
 
-      - name: Install MLKit and smlpkg
-        working-directory: ${{ env.RUNHOME }}
-        run: |
-          echo "[OS: $OS, HOME: $RUNHOME]"
-          wget https://github.com/diku-dk/smlpkg/releases/download/v0.1.4/smlpkg-bin-dist-${{env.OS}}.tgz
-          tar xzf smlpkg-bin-dist-${{env.OS}}.tgz
-          echo "$HOME/smlpkg-bin-dist-${{env.OS}}/bin" >> $GITHUB_PATH
-          wget https://github.com/melsman/mlkit/releases/download/v4.7.11/mlkit-bin-dist-${{env.OS}}.tgz
-          tar xzf mlkit-bin-dist-${{env.OS}}.tgz
-          echo "$HOME/mlkit-bin-dist-${{env.OS}}/bin" >> $GITHUB_PATH
-          mkdir -p .mlkit
-          echo "SML_LIB $HOME/mlkit-bin-dist-${{env.OS}}/lib/mlkit" > .mlkit/mlb-path-map
+      - name: Install smlpkg
+        uses: diku-dk/install-smlpkg@HEAD
 
-      - name: Check
-        run: |
-          mlkit --version
-          smlpkg --version
-          echo 'github.event_name: ' ${{ github.event_name }}
-          echo 'github.ref: ' ${{ github.ref }}
+      - name: Install MLKit
+        if: ${{ matrix.mlcomp == 'mlkit' }}
+        uses: diku-dk/install-mlkit@HEAD
 
       - name: Install MLton (linux)
         if: ${{ env.OS == 'linux' && matrix.mlcomp == 'mlton' }}
         run: |
           sudo apt-get install -y mlton
-          mlton
 
       - name: Install MLton (macos)
         if: ${{ env.OS == 'darwin' && matrix.mlcomp == 'mlton' }}
         run: |
           brew install mlton
+
+      - name: Check
+        run: |
+          mlkit --version
+          smlpkg --version
           mlton
+          echo 'github.event_name: ' ${{ github.event_name }}
+          echo 'github.ref: ' ${{ github.ref }}
 
       - name: Build
         run: MLCOMP=${{ matrix.mlcomp }} make clean all
