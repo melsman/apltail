@@ -70,7 +70,7 @@ jobs:
         run: make dist
 
       - name: Upload release
-        if: ${{ matrix.mlcomp == 'mlton' && github.event_name == 'push' && contains(github.ref, '/tags/v') }}
+        if: ${{ matrix.mlcomp == 'mlkit' && github.event_name == 'push' && contains(github.ref, '/tags/v') }}
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
