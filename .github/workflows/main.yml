@@ -45,17 +45,17 @@ jobs:
         if: ${{ env.OS == 'linux' && matrix.mlcomp == 'mlton' }}
         run: |
           sudo apt-get install -y mlton
+          mlton
 
       - name: Install MLton (macos)
         if: ${{ env.OS == 'darwin' && matrix.mlcomp == 'mlton' }}
         run: |
           brew install mlton
+          mlton
 
       - name: Check
         run: |
-          mlkit --version
           smlpkg --version
-          mlton
           echo 'github.event_name: ' ${{ github.event_name }}
           echo 'github.ref: ' ${{ github.ref }}
 
@@ -66,7 +66,7 @@ jobs:
         run: MLCOMP=${{ matrix.mlcomp }} make test
 
       - name: Make binary distribution
-        if: ${{ matrix.mlcomp == 'mlton' }}
+        if: ${{ matrix.mlcomp == 'mlkit' }}
         run: make dist
 
       - name: Upload release
